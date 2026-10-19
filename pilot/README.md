@@ -1,0 +1,36 @@
+# Pilot: simulating a repo's future requirements
+
+Goal: test whether we can (a) predict how a repo will need to change, and (b) score code on whether it survives those changes, using real repos whose future the model hasn't seen.
+
+**Setup.** Pick repos with commits after the model's knowledge cutoff (June 2026). Snapshot each at 2026-06-01. The "future" is everything merged since, up to 2026-10-15.
+
+## Results
+
+| Repo | Today's tests on May code | What the failures are |
+|---|---|---|
+| tinydb (small, maintenance mode) | 9 of 228 fail | 7 latent edge-case bugs in existing code |
+| click (large, active) | 249 failed + 3 collection errors, of ~3,100 | Mostly new features and deliberate behaviour changes (PowerShell completion, `Parameter.spec`, help changes, color validation), plus some bug fixes |
+
+- **Prediction (tinydb, done blind):** 7 of 11 predictions hit at least partially, but mostly the generic ones (release, typing, docs, deps). Only 1 of 8 real code fixes was predicted outright. Details are in `tinydb/`.
+- **Future tests make a clean, cheap reward.** Run the repo's later tests against code written at the snapshot. This needs no LLM judge and no synthetic data, and it worked on both repos with one script.
+- **Blind hardening run (tinydb):** a fresh agent given only the May code fixed 20 suspected bugs. Future tests failing dropped from **9 to 5, with 0 regressions**. It anticipated 4 of the 8 real later bug reports outright and 1 partly, against 1 of 8 for roadmap-style prediction. Details: `tinydb/3-blind-hardening.md`.
+- **Two kinds of "future" need separating.** Latent bugs (tinydb) reward robust code. Feature additions and intentional API changes (most of click) can't be anticipated from the code, so they mostly measure how easy the code is to change. A reward should split these, for example by keeping only future tests that exercise APIs that existed at the snapshot.
+
+## Files
+
+- `future_tests.sh`: reusable harness. `future_tests.sh <owner/repo> <cutoff> <package path> <tests dir>`. Set `INSTALL=1` for src/ layouts and use `PYTEST_ARGS` to skip slow files (click needed `--ignore=tests/test_stream_lifecycle.py --continue-on-collection-errors`).
+- `tinydb/1-predictions.md`: blind predictions, written before the future was read.
+- `tinydb/2-what-shipped-and-score.md`: what shipped and how the predictions scored.
+- `tinydb/3-blind-hardening.md` and `tinydb/blind-hardening.patch`: the blind hardening run and its diff.
+
+## Caveats
+
+- One predictor run (this session's model), one small repo for prediction. It's a demonstration, not a measurement.
+- Leakage is controlled only by the cutoff date. Snapshot code and tests before June 2026 may be in training data, but the future changes aren't.
+- The click prediction step wasn't done blind, so only its harness numbers are reported.
+
+## Next steps
+
+- Repeat the blind run several times and on 5 to 10 repos with post-cutoff history, to get a real measurement instead of one data point.
+- Filter click-style feature tests down to APIs that existed at the snapshot, so larger repos can be scored the same way.
+- Turn it into an RL environment. The reward is future tests fixed, minus regressions, minus a churn penalty.

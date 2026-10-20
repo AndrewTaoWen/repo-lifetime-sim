@@ -1,0 +1,423 @@
+diff --git a/more_itertools/more.py b/more_itertools/more.py
+index 06f4426..2998368 100755
+--- a/more_itertools/more.py
++++ b/more_itertools/more.py
+@@ -288,14 +288,22 @@ def last(iterable, default=_marker):
+         # Work around https://bugs.python.org/issue38525
+         if getattr(iterable, '__reversed__', None):
+             return next(reversed(iterable))
+-        return deque(iterable, maxlen=1)[-1]
++        iterator = iter(iterable)
+     except (IndexError, TypeError, StopIteration):
+-        if default is _marker:
+-            raise ValueError(
+-                'last() was called on an empty iterable, '
+-                'and no default value was provided.'
+-            )
+-        return default
++        pass
++    else:
++        # Exceptions raised while iterating are not caught here, so that
++        # errors from e.g. a generator aren't mistaken for an empty iterable.
++        window = deque(iterator, maxlen=1)
++        if window:
++            return window[-1]
++
++    if default is _marker:
++        raise ValueError(
++            'last() was called on an empty iterable, '
++            'and no default value was provided.'
++        )
++    return default
+ 
+ 
+ def nth_or_last(iterable, n, default=_marker):
+@@ -1195,7 +1203,9 @@ class bucket:
+         while True:
+             # If we've cached some items that match the target value, emit
+             # the first one and evict it from the cache.
+-            if self._cache[value]:
++            # Use .get() so that merely asking for a key doesn't register it
++            # with the cache (which would make it show up when iterating).
++            if self._cache.get(value):
+                 yield self._cache[value].popleft()
+             # Otherwise we need to advance the parent iterator to search for
+             # a matching item, caching the rest.
+@@ -1207,6 +1217,8 @@ class bucket:
+                         return
+                     item_value = self._key(item)
+                     if item_value == value:
++                        # Register the key as seen
++                        self._cache[value]
+                         yield item
+                         break
+                     elif self._validator(item_value):
+@@ -1336,6 +1348,8 @@ def interleave_evenly(iterables, lengths=None):
+         raise ValueError('Mismatching number of iterables and lengths.')
+ 
+     dims = len(lengths)
++    if not dims:
++        return
+ 
+     # sort iterables by length, descending
+     lengths_permute = sorted(
+@@ -1995,8 +2009,13 @@ def sort_together(
+                 *get_key_items(zipped_items)
+             )
+ 
++    iterables = tuple(iterables)
+     transposed = zip(*iterables, strict=strict)
+     reordered = sorted(transposed, key=key_argument, reverse=reverse)
++    if not reordered:
++        # zip(*[]) would produce nothing; return one empty tuple per input
++        # so that the result can still be unpacked.
++        return [() for _ in iterables]
+     untransposed = zip(*reordered, strict=strict)
+     return list(untransposed)
+ 
+@@ -2076,7 +2095,9 @@ def divide(n, iterable):
+ 
+     try:
+         iterable[:0]
+-    except TypeError:
++    except (TypeError, KeyError):
++        # Mappings raise KeyError for slices (which are hashable since
++        # Python 3.12); treat them like any other non-sliceable iterable.
+         seq = tuple(iterable)
+     else:
+         seq = iterable
+@@ -2390,9 +2411,22 @@ class numeric_range(Sequence):
+         distance = stop - start
+         if distance <= self._zero:
+             return 0
+-        else:  # distance > 0 and step > 0: regular euclidean division
+-            q, r = divmod(distance, step)
+-            return int(q) + int(r != self._zero)
++        # distance > 0 and step > 0: regular euclidean division
++        q, r = divmod(distance, step)
++        n = int(q) + int(r != self._zero)
++
++        # With inexact types (e.g. float) the division above can disagree
++        # with the values that are actually produced by iteration.  Adjust
++        # the estimate so that len() matches iteration and indexing.
++        if self._growing:
++            in_range = partial(gt, self._stop)
++        else:
++            in_range = partial(lt, self._stop)
++        while n > 0 and not in_range(self._start + (n - 1) * self._step):
++            n -= 1
++        while in_range(self._start + n * self._step):
++            n += 1
++        return n
+ 
+     def __reduce__(self):
+         return numeric_range, (self._start, self._stop, self._step)
+@@ -2405,15 +2439,10 @@ class numeric_range(Sequence):
+         )
+ 
+     def __reversed__(self):
+-        # Empty iterator
+-        try:
+-            start = self._get_by_index(-1)
+-        except IndexError:
+-            return iter([])
+-
+-        return iter(
+-            numeric_range(start, self._start - self._step, -self._step)
+-        )
++        # Compute each value the same way as forward iteration does, so the
++        # reversed sequence has exactly the same items (even for floats).
++        start, step = self._start, self._step
++        return (start + n * step for n in reversed(range(self._len)))
+ 
+     def count(self, value):
+         return int(value in self)
+@@ -3585,6 +3614,9 @@ class time_limited:
+         return self
+ 
+     def __next__(self):
++        if self.timed_out:
++            # Don't consume (and discard) more items from the source
++            raise StopIteration
+         if self.limit_seconds == 0:
+             self.timed_out = True
+             raise StopIteration
+@@ -3830,6 +3862,11 @@ def _sample_weighted(iterator, k, weights, strict):
+     reservoir = take(k, zip(weight_keys, iterator))
+     if strict and len(reservoir) < k:
+         raise ValueError('Sample larger than population')
++    if len(reservoir) < k:
++        # The population is exhausted; every element is in the sample.
++        ret = [element for weight_key, element in reservoir]
++        shuffle(ret)
++        return ret
+ 
+     heapify(reservoir)
+ 
+@@ -4367,9 +4404,13 @@ def value_chain(*args):
+             yield value
+             continue
+         try:
+-            yield from value
++            iterator = iter(value)
+         except TypeError:
+             yield value
++        else:
++            # Errors raised while iterating must propagate rather than
++            # being mistaken for a non-iterable value.
++            yield from iterator
+ 
+ 
+ def product_index(element, *iterables, repeat=1):
+@@ -4469,15 +4510,17 @@ def combination_with_replacement_index(element, iterable):
+ 
+     indexes = []
+     pool = tuple(iterable)
++    exhausted = False
+     for n, x in enumerate(pool):
+         while x == y:
+             indexes.append(n)
+             tmp, y = next(element, (None, None))
+             if tmp is None:
++                exhausted = True
+                 break
+             else:
+                 k = tmp
+-        if y is None:
++        if exhausted:
+             break
+     else:
+         raise ValueError(
+@@ -5048,6 +5091,8 @@ def outer_product(func, xs, ys, *args, **kwargs):
+     [('cat', 'cat', 'cat'), ('cat', 'wolf', 'wolf'), ('cat', 'wolf', 'mouse')]
+     """
+     ys = tuple(ys)
++    if not ys:
++        return (() for _ in xs)
+     return batched(
+         starmap(lambda x, y: func(x, y, *args, **kwargs), product(xs, ys)),
+         n=len(ys),
+diff --git a/more_itertools/recipes.py b/more_itertools/recipes.py
+index b984d86..03718ca 100644
+--- a/more_itertools/recipes.py
++++ b/more_itertools/recipes.py
+@@ -99,6 +99,7 @@ __all__ = [
+ ]
+ 
+ _marker = object()
++_inf = float('inf')
+ 
+ 
+ # heapq max-heap functions are available for Python 3.14+
+@@ -1425,7 +1426,13 @@ def _windowed_running_mean(iterator, n):
+         window.append(value)
+         running_sum += value
+         if len(window) > n:
+-            running_sum -= window.popleft()
++            old = window.popleft()
++            if old == old and abs(old) != _inf:
++                running_sum -= old
++            else:
++                # Subtracting an infinity or a NaN would poison the running
++                # sum forever (inf - inf is nan), so recompute it instead.
++                running_sum = sum(window)
+         yield running_sum / len(window)
+ 
+ 
+@@ -1456,6 +1463,7 @@ def running_mean(iterable, *, maxlen=None):
+     if maxlen is None:
+         return map(truediv, accumulate(iterator), count(1))
+ 
++    maxlen = _index(maxlen)
+     if maxlen <= 0:
+         raise ValueError('Window size should be positive')
+ 
+@@ -1497,6 +1505,7 @@ def running_min(iterable, *, maxlen=None):
+     if maxlen is None:
+         return accumulate(iterator, func=min)
+ 
++    maxlen = _index(maxlen)
+     if maxlen <= 0:
+         raise ValueError('Window size should be positive')
+ 
+@@ -1538,6 +1547,7 @@ def running_max(iterable, *, maxlen=None):
+     if maxlen is None:
+         return accumulate(iterator, func=max)
+ 
++    maxlen = _index(maxlen)
+     if maxlen <= 0:
+         raise ValueError('Window size should be positive')
+ 
+diff --git a/tests/test_more.py b/tests/test_more.py
+index a019677..cf9ca6d 100644
+--- a/tests/test_more.py
++++ b/tests/test_more.py
+@@ -6993,3 +6993,129 @@ class TestRunningStats(TestCase):
+             list(mi.running_statistics(map(complex, data)))
+         with self.assertRaises(TypeError):
+             list(mi.running_statistics(map(complex, data), maxlen=3))
++
++
++class RegressionTests(TestCase):
++    """Regression tests for edge-case bugs."""
++
++    def test_bucket_lookup_does_not_add_keys(self):
++        s = mi.bucket(['a1', 'b1', 'a2'], key=lambda x: x[0])
++        self.assertNotIn('z', s)
++        self.assertEqual(list(s['y']), [])
++        self.assertEqual(sorted(s), ['a', 'b'])
++
++    def test_bucket_keys_consumed_directly_are_listed(self):
++        s = mi.bucket(['a1', 'b1'], key=lambda x: x[0])
++        self.assertEqual(list(s['a']), ['a1'])
++        self.assertEqual(sorted(s), ['a', 'b'])
++
++    def test_divide_mapping(self):
++        d = {'a': 1, 'b': 2, 'c': 3}
++        actual = [list(c) for c in mi.divide(2, d)]
++        self.assertEqual(actual, [['a', 'b'], ['c']])
++
++    def test_sort_together_empty(self):
++        self.assertEqual(mi.sort_together([[], []]), [(), ()])
++        self.assertEqual(mi.sort_together(iter([(), [], ''])), [(), (), ()])
++        xs, ys = mi.sort_together([[], []], key=lambda x: x)
++        self.assertEqual((xs, ys), ((), ()))
++        with self.assertRaises(ValueError):
++            mi.sort_together([[], [1]], strict=True)
++
++    def test_interleave_evenly_no_iterables(self):
++        self.assertEqual(list(mi.interleave_evenly([])), [])
++        self.assertEqual(list(mi.interleave_evenly([], lengths=[])), [])
++
++    def test_outer_product_empty_ys(self):
++        self.assertEqual(list(mi.outer_product(mul, [1, 2], [])), [(), ()])
++        self.assertEqual(list(mi.outer_product(mul, [], [])), [])
++
++    def test_sample_weighted_short_population(self):
++        self.assertEqual(mi.sample([], 3, weights=[]), [])
++        self.assertEqual(sorted(mi.sample('ab', 3, weights=[1, 2])), ['a', 'b'])
++        with self.assertRaises(ValueError):
++            mi.sample([], 3, weights=[], strict=True)
++
++    def test_value_chain_propagates_iteration_errors(self):
++        def gen():
++            yield 1
++            raise TypeError('boom')
++
++        with self.assertRaises(TypeError):
++            list(mi.value_chain(gen()))
++        self.assertEqual(list(mi.value_chain(1, [2], 'ab')), [1, 2, 'ab'])
++
++    def test_time_limited_does_not_consume_after_timeout(self):
++        source = iter(range(100))
++        tl = mi.time_limited(0, source)
++        self.assertEqual(list(tl), [])
++        self.assertIsNone(next(tl, None))
++        self.assertEqual(next(source), 0)
++
++        def slow():
++            yield 1
++            sleep(0.05)
++            yield 2
++            yield 3
++            yield 4
++
++        source = slow()
++        tl = mi.time_limited(0.01, source)
++        self.assertEqual(list(tl), [1])
++        self.assertTrue(tl.timed_out)
++        self.assertIsNone(next(tl, None))
++        self.assertIsNone(next(tl, None))
++        self.assertEqual(next(source), 3)
++
++    def test_combination_with_replacement_index_none_items(self):
++        pool = [0, None, 1]
++        for r in range(4):
++            for index, element in enumerate(
++                combinations_with_replacement(pool, r)
++            ):
++                with self.subTest(element=element):
++                    self.assertEqual(
++                        mi.combination_with_replacement_index(element, pool),
++                        index,
++                    )
++
++    def test_numeric_range_float_len_and_reversed(self):
++        cases = [
++            (-4.0, 5.0, 0.3),
++            (-1.0, 2.0, 0.9),
++            (-3.14, 4.0, 0.97),
++            (3.46, -1.0, -0.08),
++            (0.19, -3.0, -0.08),
++        ]
++        for args in cases:
++            with self.subTest(args=args):
++                r = mi.numeric_range(*args)
++                items = list(r)
++                self.assertEqual(len(r), len(items))
++                self.assertEqual([r[i] for i in range(len(r))], items)
++                self.assertEqual(list(reversed(r)), items[::-1])
++                self.assertEqual(r[-1], items[-1])
++
++    def test_numeric_range_reversed_exact_types(self):
++        r = mi.numeric_range(Fraction(1, 3), Fraction(7, 3), Fraction(1, 2))
++        self.assertEqual(list(reversed(r)), list(r)[::-1])
++        r = mi.numeric_range(
++            datetime(2019, 1, 1), datetime(2019, 1, 3), timedelta(hours=7)
++        )
++        self.assertEqual(list(reversed(r)), list(r)[::-1])
++        self.assertEqual(list(reversed(mi.numeric_range(0))), [])
++
++    def test_last_propagates_iteration_errors(self):
++        def gen():
++            yield 1
++            raise IndexError('boom')
++
++        with self.assertRaises(IndexError):
++            mi.last(gen(), default=None)
++        with self.assertRaises(TypeError):
++            mi.last(map(int, ['1', None]), default=0)
++        with self.assertRaises(TypeError):
++            mi.nth_or_last(map(int, ['1', None]), 5, default=0)
++        # Non-iterables still behave like empty iterables
++        self.assertEqual(mi.last(5, default='x'), 'x')
++        self.assertEqual(mi.last(iter([0, None])), None)
+diff --git a/tests/test_recipes.py b/tests/test_recipes.py
+index 90a16d8..06fdaef 100644
+--- a/tests/test_recipes.py
++++ b/tests/test_recipes.py
+@@ -1655,3 +1655,34 @@ class RunningMedianTests(TestCase):
+             list(
+                 running_median(['abc', 'def', 'ghi'])
+             )  # Input type that doesn't support division
++
++
++class RunningWindowRegressionTests(TestCase):
++    def test_running_mean_window_recovers_from_inf_and_nan(self):
++        inf = float('inf')
++        actual = list(mi.running_mean([inf, 1, 2, 3], maxlen=1))
++        self.assertEqual(actual, [inf, 1.0, 2.0, 3.0])
++        actual = list(mi.running_mean([1, -inf, 3, 5, 7], maxlen=2))
++        self.assertEqual(actual, [1.0, -inf, -inf, 4.0, 6.0])
++        actual = list(mi.running_mean([float('nan'), 2, 4], maxlen=1))
++        self.assertNotEqual(actual[0], actual[0])
++        self.assertEqual(actual[1:], [2.0, 4.0])
++
++    def test_running_mean_window_exact_types_unchanged(self):
++        data = [Fraction(1, 3), Fraction(2, 5), 7, Fraction(-1, 2)]
++        actual = list(mi.running_mean(data, maxlen=2))
++        expected = [
++            Fraction(1, 3),
++            (Fraction(1, 3) + Fraction(2, 5)) / 2,
++            (Fraction(2, 5) + 7) / 2,
++            (7 + Fraction(-1, 2)) / 2,
++        ]
++        self.assertEqual(actual, expected)
++
++    def test_running_window_maxlen_must_be_integer(self):
++        for func in (mi.running_mean, mi.running_min, mi.running_max):
++            with self.subTest(func=func):
++                with self.assertRaises(TypeError):
++                    list(func([0, 1, 2, 3, 4], maxlen=2.5))
++                with self.assertRaises(ValueError):
++                    func([0, 1, 2], maxlen=0)

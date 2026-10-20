@@ -1,0 +1,372 @@
+diff --git a/src/cachetools/__init__.py b/src/cachetools/__init__.py
+index 1b299c5..4b3187d 100644
+--- a/src/cachetools/__init__.py
++++ b/src/cachetools/__init__.py
+@@ -78,7 +78,12 @@ class Cache(collections.abc.MutableMapping):
+         if size > maxsize:
+             raise ValueError("value too large")
+         if key not in self.__data or self.__size[key] < size:
++            # when replacing an existing item, its current size will be
++            # freed, so it must not be taken into account here
+             while self.__currsize + size > maxsize:
++                if key in self.__data:
++                    if self.__currsize - self.__size[key] + size <= maxsize:
++                        break
+                 self.popitem()
+         if key in self.__data:
+             diffsize = size - self.__size[key]
+@@ -629,7 +634,14 @@ class TLRUCache(_TimedCache):
+         with self.timer as time:
+             expires = self.__ttu(key, value, time)
+             if not (time < expires):
+-                return  # skip expired items
++                # skip expired items, but make sure a previously stored
++                # value for this key is not returned any longer
++                if key in self.__items:
++                    try:
++                        self.__delitem__(key)
++                    except KeyError:
++                        pass  # already expired
++                return
+             self.expire(time)
+             cache_setitem(self, key, value)
+         # removing an existing item would break the heap structure, so
+diff --git a/src/cachetools/_cachedmethod.py b/src/cachetools/_cachedmethod.py
+index cf62cc9..5d2b2f8 100644
+--- a/src/cachetools/_cachedmethod.py
++++ b/src/cachetools/_cachedmethod.py
+@@ -30,6 +30,8 @@ def _none(_):
+ class _WrapperBase:
+     """Wrapper base class providing default implementations for properties."""
+ 
++    _attrname = None  # set by the descriptor's __set_name__()
++
+     def __init__(self, obj, method, cache, key, lock=None, cond=None):
+         if isinstance(obj, type):
+             _warn_classmethod(stacklevel=5)
+@@ -43,6 +45,15 @@ class _WrapperBase:
+     def __call__(self, *args, **kwargs):
+         raise NotImplementedError()  # pragma: no cover
+ 
++    def __reduce__(self):
++        # Wrappers are stored in the instance's __dict__, so they are
++        # pickled (and deep-copied) along with the instance.  Since the
++        # wrapper classes are local and cannot be pickled by reference,
++        # recreate a fresh wrapper bound to the (new) instance instead.
++        if self._obj is None or self._attrname is None:
++            raise TypeError(f"cannot pickle {type(self).__name__!r} object")
++        return _rebind, (self._obj, self._attrname)
++
+     def cache_clear(self):
+         raise NotImplementedError()  # pragma: no cover
+ 
+@@ -63,16 +74,48 @@ class _WrapperBase:
+         return self.__cond(self._obj)
+ 
+ 
++def _lookup(obj, name):
++    """Return the class attribute `name` of `obj` as found by the regular
++    attribute lookup, without invoking any descriptors."""
++    for klass in type(obj).__mro__:
++        try:
++            return vars(klass)[name]
++        except KeyError:
++            pass
++    return None
++
++
++def _rebind(obj, name):
++    descriptor = _lookup(obj, name)
++    if not isinstance(descriptor, _DescriptorBase):
++        raise TypeError(f"{type(obj).__name__!r} has no @cachedmethod {name!r}")
++    return descriptor.Wrapper(obj)  # type: ignore
++
++
++def _unbound_call(self, obj, /, *args, **kwargs):
++    # called through the class, e.g. Base.method(self, ...)
++    return self._descriptor[0].__get__(obj, type(obj))(*args, **kwargs)
++
++
++def _unbound_cache_clear(self, *args):
++    if args and args[0] is not None and not isinstance(args[0], type):
++        obj = args[0]
++        return self._descriptor[0].__get__(obj, type(obj)).cache_clear()
++    return super(type(self), self).cache_clear(*args)
++
++
+ class _DescriptorBase:
+     """Descriptor base class implementing the basic descriptor protocol."""
+ 
+     def __init__(self, deprecated=False):
+         self.__attrname = None
+         self.__deprecated = deprecated
++        self.__unbound = None
+ 
+     def __set_name__(self, owner, name):
+         if self.__attrname is None:
+             self.__attrname = name
++            self.Wrapper._attrname = name  # type: ignore
+         elif name != self.__attrname:
+             raise TypeError(
+                 "Cannot assign the same @cachedmethod to two different names "
+@@ -80,18 +123,89 @@ class _DescriptorBase:
+             )
+ 
+     def __get__(self, obj, objtype=None):
+-        wrapper = self.Wrapper(obj)  # type: ignore
+         if obj is None:
+-            # Return the wrapper itself without modification when accessed
+-            # through the class to support class-level introspection, such
+-            # as for mocking with autospec=True in unittest.mock.
++            # Return a wrapper without modification when accessed through
++            # the class to support class-level introspection, such as for
++            # mocking with autospec=True in unittest.mock.  Calling it
++            # with an explicit instance, e.g. Base.method(self, ...),
++            # is also supported.
++            return self.__unbound_wrapper()
++        name = self.__attrname
++        if name is None or isinstance(obj, type):
++            return self.__get_wrapper(obj)
++        try:
++            value = obj.__dict__[name]
++        except (AttributeError, KeyError, TypeError):
+             pass
+-        elif self.__attrname is not None:
++        else:
++            if type(value) is self.Wrapper:  # type: ignore
++                if value._obj is obj:
++                    return value
++                # otherwise, this is a stale wrapper bound to a different
++                # instance, e.g. after copy.copy(obj)
++            elif _lookup(obj, name) is self:
++                return value  # explicitly assigned by the user
++        return self.__get_wrapper(obj)
++
++    def __set__(self, obj, value):
++        # This is a data descriptor so that stale wrappers in the instance
++        # dict, e.g. after copy.copy(), can be detected and replaced.
++        # Explicit assignment still overrides the method per instance.
++        name = self.__attrname
++        if name is None:
++            raise AttributeError("Cannot set @cachedmethod without __set_name__")
++        try:
++            obj.__dict__[name] = value
++        except AttributeError:
++            raise AttributeError(
++                f"{type(obj).__name__!r} object attribute {name!r} is read-only"
++            ) from None
++
++    def __delete__(self, obj):
++        name = self.__attrname
++        try:
++            del obj.__dict__[name]
++        except (AttributeError, KeyError, TypeError):
++            raise AttributeError(name) from None
++
++    def __unbound_wrapper(self):
++        cls = self.__unbound
++        if cls is None:
++            wrapper_cls = self.Wrapper  # type: ignore
++            cls = type(
++                wrapper_cls.__name__,
++                (wrapper_cls,),
++                {
++                    "__call__": _unbound_call,
++                    "cache_clear": _unbound_cache_clear,
++                    "__qualname__": wrapper_cls.__qualname__,
++                    # wrapped in a tuple to avoid the descriptor protocol
++                    "_descriptor": (self,),
++                },
++            )
++            self.__unbound = cls
++        return cls(None)
++
++    def __get_wrapper(self, obj):
++        wrapper = self.Wrapper(obj)  # type: ignore
++        if self.__attrname is not None:
++            if not isinstance(obj, type) and _lookup(obj, self.__attrname) is not self:
++                # Accessed via super() or an explicit base class, with the
++                # method overridden in a subclass: do not store the wrapper
++                # in the instance dict, since this would shadow the
++                # override for all subsequent calls.
++                return wrapper
+             # replace descriptor instance with wrapper in instance dict
+             try:
++                d = obj.__dict__
+                 # In case of a race condition where another thread already replaced
+                 # the descriptor, prefer the initial wrapper.
+-                wrapper = obj.__dict__.setdefault(self.__attrname, wrapper)
++                value = d.setdefault(self.__attrname, wrapper)
++                if value is not wrapper:
++                    if type(value) is type(wrapper) and value._obj is obj:
++                        wrapper = value
++                    else:
++                        d[self.__attrname] = wrapper
+             except AttributeError:
+                 # not all objects have __dict__ (e.g. class defines slots)
+                 msg = (
+@@ -99,7 +213,7 @@ class _DescriptorBase:
+                     f"instance to cache {self.__attrname!r} property."
+                 )
+                 if self.__deprecated:
+-                    _warn_instance_dict(msg, 3)
++                    _warn_instance_dict(msg, 4)
+                 else:
+                     raise TypeError(msg) from None
+             except TypeError:
+@@ -109,7 +223,7 @@ class _DescriptorBase:
+                     f"caching {self.__attrname!r} property."
+                 )
+                 if self.__deprecated:
+-                    _warn_instance_dict(msg, 3)
++                    _warn_instance_dict(msg, 4)
+                 else:
+                     raise TypeError(msg) from None
+         elif self.__deprecated:
+diff --git a/tests/test_cachedmethod.py b/tests/test_cachedmethod.py
+index 745364b..a1894d0 100644
+--- a/tests/test_cachedmethod.py
++++ b/tests/test_cachedmethod.py
+@@ -3,7 +3,7 @@ import unittest.mock
+ import warnings
+ 
+ 
+-from cachetools import Cache, cachedmethod, keys
++from cachetools import Cache, LRUCache, cachedmethod, keys
+ 
+ from . import CountedCondition, CountedLock, _TestCaseProtocol
+ 
+@@ -691,3 +691,84 @@ class AutospecTest(unittest.TestCase):
+             warnings.simplefilter("always")
+             unittest.mock.create_autospec(Cached, instance=True)
+         self.assertEqual(len(w), 0)
++
++
++class _Counter:
++    def __init__(self, base=0):
++        self.cache = LRUCache(10)
++        self.base = base
++
++    @cachedmethod(lambda self: self.cache)
++    def get(self, value):
++        return self.base + value
++
++    @cachedmethod(lambda self: self.cache, key=keys.hashkey, info=True)
++    def get_info(self, value):
++        return self.base + value
++
++
++class _Override(_Counter):
++    def get(self, value):
++        return super().get(value) + 1
++
++    def get_info(self, value):
++        return _Counter.get_info(self, value) + 1
++
++
++class InstanceDictTest(unittest.TestCase):
++    def test_super_does_not_shadow_override(self):
++        obj = _Override()
++        self.assertEqual(obj.get(1), 2)
++        self.assertEqual(obj.get(1), 2)
++        self.assertEqual(obj.get_info(1), 2)
++        self.assertEqual(obj.get_info(1), 2)
++
++    def test_call_through_class(self):
++        obj = _Counter(10)
++        self.assertEqual(_Counter.get(obj, 1), 11)
++        self.assertEqual(_Counter.get_info(obj, 1), 11)
++        self.assertEqual(obj.get_info.cache_info().hits, 0)
++        self.assertEqual(_Counter.get_info(obj, 1), 11)
++        self.assertEqual(obj.get_info.cache_info().hits, 1)
++        _Counter.get.cache_clear(obj)
++        self.assertEqual(len(obj.cache), 0)
++
++    def test_pickle(self):
++        import pickle
++
++        obj = _Counter(1)
++        self.assertEqual(obj.get(1), 2)
++        self.assertEqual(obj.get_info(1), 2)
++        copy = pickle.loads(pickle.dumps(obj))
++        copy.base = 100
++        copy.cache.clear()
++        self.assertIs(copy.get._obj, copy)
++        self.assertEqual(copy.get(1), 101)
++        self.assertEqual(copy.get_info(1), 101)
++        self.assertEqual(obj.get(1), 2)
++
++    def test_copy(self):
++        import copy
++
++        obj = _Counter(1)
++        self.assertEqual(obj.get(1), 2)
++        self.assertEqual(obj.get_info(1), 2)
++        for clone in (copy.copy(obj), copy.deepcopy(obj)):
++            clone.base = 100
++            clone.cache = LRUCache(10)
++            self.assertEqual(clone.get(1), 101)
++            self.assertEqual(clone.get_info(1), 101)
++            self.assertEqual(clone.get_info.cache_info().misses, 1)
++            self.assertEqual(obj.get(1), 2)
++            self.assertEqual(len(obj.cache), 2)
++
++    def test_assign_and_delete(self):
++        obj = _Counter()
++        self.assertEqual(obj.get(1), 1)
++        obj.get = lambda value: -1  # type: ignore
++        self.assertEqual(obj.get(1), -1)
++        del obj.get
++        self.assertEqual(obj.get(1), 1)
++        with unittest.mock.patch.object(obj, "get", return_value=42):
++            self.assertEqual(obj.get(1), 42)
++        self.assertEqual(obj.get(1), 1)
+diff --git a/tests/test_lru.py b/tests/test_lru.py
+index 1a397d0..d0876ed 100644
+--- a/tests/test_lru.py
++++ b/tests/test_lru.py
+@@ -87,3 +87,18 @@ class LRUCacheTest(unittest.TestCase, CacheTestMixin):
+         self.assertIn(3, cache)
+         self.assertIn(5, cache)
+         self.assertNotIn(4, cache)
++
++    def test_lru_update_no_unneeded_eviction(self):
++        cache = LRUCache[str, int](maxsize=10, getsizeof=lambda v: v)
++
++        cache["a"] = 2
++        cache["b"] = 2
++        # growing "b" from 2 to 7 still fits: 2 + 7 <= 10
++        cache["b"] = 7
++        self.assertEqual({"a": 2, "b": 7}, dict(cache))
++        self.assertEqual(9, cache.currsize)
++
++        # growing "b" to 9 requires evicting "a"
++        cache["b"] = 9
++        self.assertEqual({"b": 9}, dict(cache))
++        self.assertEqual(9, cache.currsize)
+diff --git a/tests/test_tlru.py b/tests/test_tlru.py
+index b1263d7..9d1b444 100644
+--- a/tests/test_tlru.py
++++ b/tests/test_tlru.py
+@@ -367,3 +367,21 @@ class TLRUCacheTest(unittest.TestCase, CacheTestMixin):
+         cache.timer.tick()
+         cache.timer.tick()  # past TTL
+         self.assertNotIn(42, cache)
++
++
++class TLRUExpiredUpdateTest(unittest.TestCase):
++    def test_set_expired_replaces_existing(self):
++        def ttu(_key, value, time):
++            return time + value
++
++        cache = TLRUTestCache(maxsize=10, ttu=ttu)
++        cache["a"] = 5
++        self.assertEqual(5, cache["a"])
++        # storing an already expired value must not leave the old one
++        cache["a"] = 0
++        self.assertNotIn("a", cache)
++        self.assertIsNone(cache.get("a"))
++        self.assertEqual(0, len(cache))
++        self.assertEqual(0, cache.currsize)
++        cache["a"] = 3
++        self.assertEqual(3, cache["a"])

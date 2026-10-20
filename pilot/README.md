@@ -14,7 +14,7 @@ Goal: test whether we can (a) predict how a repo will need to change, and (b) sc
 - **Prediction (tinydb, done blind):** 7 of 11 predictions hit at least partially, but mostly the generic ones (release, typing, docs, deps). Only 1 of 8 real code fixes was predicted outright. Details are in `tinydb/`.
 - **Future tests make a clean, cheap reward.** Run the repo's later tests against code written at the snapshot. This needs no LLM judge and no synthetic data, and it worked on both repos with one script.
 - **Blind hardening run (tinydb):** a fresh agent given only the May code fixed 20 suspected bugs. Future tests failing dropped from **9 to 5, with 0 regressions**. It anticipated 4 of the 8 real later bug reports outright and 1 partly, against 1 of 8 for roadmap-style prediction. Details: `tinydb/3-blind-hardening.md`.
-- **Scale-up (8 repos, 3 runs each):** blind hardening fixed 26% of target future tests pooled (22% averaged per repo, range 0% attrs to 41% tinydb) with 3 regressions in 24 runs. Strongest on latent edge-case bugs; near zero on new features. Details: `scale-up/README.md`.
+- **Scale-up (8 repos, 3 runs each, plus 8 audited sandboxed runs):** blind hardening fixed 26% of target future tests pooled with 3 regressions in 24 runs. On bug-fix tests only, recall is 32% pooled (25% per-repo mean); none of the 49 new-feature tests was ever fixed. The sandboxed round matched round 1 on 7 of 8 repos. Details: `scale-up/README.md`.
 - **Two kinds of "future" need separating.** Latent bugs (tinydb) reward robust code. Feature additions and intentional API changes (most of click) can't be anticipated from the code, so they mostly measure how easy the code is to change. A reward should split these, for example by keeping only future tests that exercise APIs that existed at the snapshot.
 
 ## Files
@@ -32,6 +32,6 @@ Goal: test whether we can (a) predict how a repo will need to change, and (b) sc
 
 ## Next steps
 
-- ~~Repeat the blind run on 5 to 10 repos~~ Done, see `scale-up/README.md`. Next: label target tests as bug vs feature, and rerun in a real sandbox.
+- ~~Repeat the blind run on 5 to 10 repos~~ Done, including bug/feature labels and an audited sandboxed rerun; see `scale-up/README.md`.
 - Filter click-style feature tests down to APIs that existed at the snapshot, so larger repos can be scored the same way.
 - Turn it into an RL environment. The reward is future tests fixed, minus regressions, minus a churn penalty.

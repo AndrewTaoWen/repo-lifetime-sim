@@ -1,0 +1,644 @@
+diff --git a/src/attr/_cmp.py b/src/attr/_cmp.py
+index 09bab49..1da6a92 100644
+--- a/src/attr/_cmp.py
++++ b/src/attr/_cmp.py
+@@ -150,6 +150,14 @@ def _is_comparable_to(self, other):
+     """
+     Check whether `other` is comparable to `self`.
+     """
++    # Only instances of classes created by cmp_using() carry a ``value`` to
++    # compare against.  Anything else is not comparable and the operators must
++    # return NotImplemented instead of crashing with an AttributeError.
++    if getattr(other.__class__, "_is_comparable_to", None) is not (
++        _is_comparable_to
++    ):
++        return False
++
+     return all(func(self, other) for func in self._requirements)
+ 
+ 
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 1adb500..96f135b 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -3,6 +3,9 @@
+ 
+ import copy
+ 
++from collections import defaultdict
++from functools import partial
++
+ from ._compat import get_generic_base
+ from ._make import _OBJ_SETATTR, NOTHING, fields
+ from .exceptions import AttrsAttributeNotFoundError
+@@ -185,19 +188,25 @@ def _asdict_anything(
+         else:
+             cf = list
+ 
+-        rv = cf(
+-            [
+-                _asdict_anything(
+-                    i,
+-                    is_key=False,
+-                    filter=filter,
+-                    dict_factory=dict_factory,
+-                    retain_collection_types=retain_collection_types,
+-                    value_serializer=value_serializer,
+-                )
+-                for i in val
+-            ]
+-        )
++        items = [
++            _asdict_anything(
++                i,
++                is_key=False,
++                filter=filter,
++                dict_factory=dict_factory,
++                retain_collection_types=retain_collection_types,
++                value_serializer=value_serializer,
++            )
++            for i in val
++        ]
++        try:
++            rv = cf(items)
++        except TypeError:
++            if not issubclass(cf, tuple):
++                raise
++            # Workaround for TypeError: cf.__new__() missing 1 required
++            # positional argument (which appears, for a namedtuple)
++            rv = cf(*items)
+     elif issubclass(val_type, dict):
+         df = dict_factory
+         rv = df(
+@@ -318,6 +327,9 @@ def astuple(
+                     rv.append(cf(*items))
+             elif issubclass(value_type, dict):
+                 df = value_type if retain is True else dict
++                if retain is True and issubclass(value_type, defaultdict):
++                    # defaultdict's first argument is its default_factory.
++                    df = partial(value_type, v.default_factory)
+                 rv.append(
+                     df(
+                         (
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 793bfd8..b8b4570 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -262,6 +262,21 @@ def _linecache_and_compile(
+     return locs
+ 
+ 
++def _mangle_name(cls: type, name: str) -> str:
++    """
++    Apply Python's private name mangling to *name* as if it was defined in the
++    body of *cls*.
++    """
++    if not name.startswith("__") or name.endswith("__") or "." in name:
++        return name
++
++    cls_name = cls.__name__.lstrip("_")
++    if not cls_name:
++        return name
++
++    return f"_{cls_name}{name}"
++
++
+ def _make_attr_tuple_class(cls_name: str, attr_names: list[str]) -> type:
+     """
+     Create a tuple subclass to hold `Attribute`s for an `attrs` class.
+@@ -781,7 +796,11 @@ class _ClassBuilder:
+         """
+         script = "\n".join([snippet[0] for snippet in self._script_snippets])
+         globs = {}
+-        for _, snippet_globs, _ in self._script_snippets:
++        # Merge in reverse order: the __init__ snippet (which comes last)
++        # carries the defining module's globals for type hint resolution and
++        # those must not shadow names that other snippets rely on (like
++        # ``_compat`` in __repr__).  Snippets never share names otherwise.
++        for _, snippet_globs, _ in reversed(self._script_snippets):
+             globs.update(snippet_globs)
+ 
+         locs = _linecache_and_compile(
+@@ -892,12 +911,15 @@ class _ClassBuilder:
+         for base_cls in self._cls.__mro__[1:-1]:
+             if base_cls.__dict__.get("__weakref__", None) is not None:
+                 weakref_inherited = True
+-            existing_slots.update(
+-                {
+-                    name: getattr(base_cls, name)
+-                    for name in getattr(base_cls, "__slots__", [])
+-                }
+-            )
++            base_slots = base_cls.__dict__.get("__slots__", ())
++            if isinstance(base_slots, str):
++                # __slots__ = "x" is a single slot, not one per character.
++                base_slots = (base_slots,)
++            for name in base_slots:
++                name = _mangle_name(base_cls, name)  # noqa: PLW2901
++                descriptor = getattr(base_cls, name, _SENTINEL)
++                if descriptor is not _SENTINEL:
++                    existing_slots[name] = descriptor
+ 
+         base_names = set(self._base_names)
+ 
+@@ -1031,7 +1053,15 @@ class _ClassBuilder:
+             """
+             Automatically created by attrs.
+             """
+-            return {name: getattr(self, name) for name in state_attr_names}
++            # Attributes that were never set (for example ``init=False``
++            # without a default) are left out instead of crashing; setstate
++            # already handles missing names.
++            state = {}
++            for name in state_attr_names:
++                value = getattr(self, name, _SENTINEL)
++                if value is not _SENTINEL:
++                    state[name] = value
++            return state
+ 
+         hash_caching_enabled = self._cache_hash
+ 
+@@ -1104,7 +1134,13 @@ class _ClassBuilder:
+         return self
+ 
+     def add_replace(self):
+-        self._cls_dict["__replace__"] = self._add_method_dunders(evolve)
++        # Wrap evolve in a fresh function: _add_method_dunders mutates
++        # __module__, __qualname__, and __doc__ of whatever it's given and we
++        # must not clobber the public evolve().
++        def __replace__(self, /, **changes):
++            return evolve(self, **changes)
++
++        self._cls_dict["__replace__"] = self._add_method_dunders(__replace__)
+         return self
+ 
+     def add_match_args(self):
+@@ -2051,7 +2087,10 @@ def _make_init_script(
+     )
+     if cls.__module__ in sys.modules:
+         # This makes typing.get_type_hints(CLS.__init__) resolve string types.
+-        globs.update(sys.modules[cls.__module__].__dict__)
++        # The module's globals must not shadow the names the generated code
++        # relies on (for example a module-level ``_config``), so they have the
++        # lowest priority.
++        globs = {**sys.modules[cls.__module__].__dict__, **globs}
+ 
+     globs.update({"NOTHING": NOTHING, "attr_dict": attr_dict})
+ 
+@@ -3156,7 +3195,11 @@ class Converter:
+             self.__call__ = self.converter
+ 
+         rt = ex.get_return_type()
+-        if rt is not None:
++        if rt is not None and self.__call__ is not self.converter:
++            # Only annotate the wrappers we created ourselves. The wrapped
++            # converter already carries the annotation and may not even have
++            # (or share) an __annotations__ dict -- for example
++            # functools.partial or callable instances.
+             self.__call__.__annotations__["return"] = rt
+ 
+     @staticmethod
+@@ -3274,7 +3317,8 @@ def make_class(
+     name = unicodedata.normalize("NFKC", name)
+ 
+     if isinstance(attrs, dict):
+-        cls_dict = attrs
++        # Copy, because we pop hooks out of it below.
++        cls_dict = dict(attrs)
+     elif isinstance(attrs, (list, tuple)):
+         cls_dict = {a: attrib() for a in attrs}
+     else:
+@@ -3336,7 +3380,10 @@ class _AndValidator:
+     Compose many validators to a single one.
+     """
+ 
+-    _validators = attrib()
++    # Compare and hash as a tuple: `optional([...])` passes in a list, which
++    # would otherwise make the validator -- and the `Attribute` holding it --
++    # unhashable.
++    _validators = attrib(eq=tuple)
+ 
+     def __call__(self, inst, attr, value):
+         for v in self._validators:
+diff --git a/src/attr/_next_gen.py b/src/attr/_next_gen.py
+index 4ccd0da..4a428c3 100644
+--- a/src/attr/_next_gen.py
++++ b/src/attr/_next_gen.py
+@@ -362,7 +362,7 @@ def define(
+ 
+     """
+ 
+-    def do_it(cls, auto_attribs):
++    def do_it(cls, auto_attribs, on_setattr):
+         return attrs(
+             maybe_cls=cls,
+             these=these,
+@@ -395,13 +395,16 @@ def define(
+ 
+         We also ensure that frozen-ness of classes is inherited.
+         """
+-        nonlocal frozen, on_setattr
++        # Don't rebind the closure variables: the decorator returned by
++        # ``define(...)`` can be applied to more than one class and the
++        # adjustments below must only apply to the class at hand.
++        cls_on_setattr = on_setattr
+ 
+-        had_on_setattr = on_setattr not in (None, setters.NO_OP)
++        had_on_setattr = cls_on_setattr not in (None, setters.NO_OP)
+ 
+         # By default, mutable classes convert & validate on setattr.
+-        if frozen is False and on_setattr is None:
+-            on_setattr = _DEFAULT_ON_SETATTR
++        if frozen is False and cls_on_setattr is None:
++            cls_on_setattr = _DEFAULT_ON_SETATTR
+ 
+         # However, if we subclass a frozen class, we inherit the immutability
+         # and disable on_setattr.
+@@ -411,16 +414,16 @@ def define(
+                     msg = "Frozen classes can't use on_setattr (frozen-ness was inherited)."
+                     raise ValueError(msg)
+ 
+-                on_setattr = setters.NO_OP
++                cls_on_setattr = setters.NO_OP
+                 break
+ 
+         if auto_attribs is not None:
+-            return do_it(cls, auto_attribs)
++            return do_it(cls, auto_attribs, cls_on_setattr)
+ 
+         try:
+-            return do_it(cls, True)
++            return do_it(cls, True, cls_on_setattr)
+         except UnannotatedAttributeError:
+-            return do_it(cls, False)
++            return do_it(cls, False, cls_on_setattr)
+ 
+     # maybe_cls's type depends on the usage of the decorator.  It's a class
+     # if it's used as `@attrs` but `None` if used as `@attrs()`.
+diff --git a/src/attr/filters.py b/src/attr/filters.py
+index 689b170..11d2541 100644
+--- a/src/attr/filters.py
++++ b/src/attr/filters.py
+@@ -11,10 +11,18 @@ def _split_what(what):
+     """
+     Returns a tuple of `frozenset`s of classes and attributes.
+     """
++    attrs = tuple(cls for cls in what if isinstance(cls, Attribute))
++    try:
++        attrs = frozenset(attrs)
++    except TypeError:
++        # Attributes are not necessarily hashable (for example if their
++        # default is a dict); fall back to a tuple that compares by equality.
++        pass
++
+     return (
+         frozenset(cls for cls in what if isinstance(cls, type)),
+         frozenset(cls for cls in what if isinstance(cls, str)),
+-        frozenset(cls for cls in what if isinstance(cls, Attribute)),
++        attrs,
+     )
+ 
+ 
+diff --git a/tests/test_hardening.py b/tests/test_hardening.py
+new file mode 100644
+index 0000000..4ddab73
+--- /dev/null
++++ b/tests/test_hardening.py
+@@ -0,0 +1,337 @@
++# SPDX-License-Identifier: MIT
++
++"""
++Regression tests for latent bugs found while hardening attrs.
++"""
++
++import collections
++import copy
++import functools
++import pickle
++import sys
++import types
++
++import pytest
++
++import attr
++import attrs
++
++from attr._compat import PY_3_13_PLUS
++from attrs import define, field, fields, validators
++
++
++class TestModuleGlobalsDoNotShadow:
++    """
++    Generated methods use the defining module's globals for type hint
++    resolution, but those must not shadow names the generated code needs.
++    """
++
++    def test_module_level_config_and_compat(self, monkeypatch):
++        """
++        A module that has globals called ``_config`` and ``_compat`` can
++        define classes with validators and get a working __init__ / __repr__.
++        """
++        mod = types.ModuleType("attrs_test_shadow_mod")
++        monkeypatch.setitem(sys.modules, mod.__name__, mod)
++        exec(  # noqa: S102
++            "import attrs\n"
++            "_config = {'debug': True}\n"
++            "_compat = 'not attr._compat'\n"
++            "AttributeError = None\n"
++            "@attrs.define\n"
++            "class C:\n"
++            "    x: int = attrs.field(\n"
++            "        validator=attrs.validators.instance_of(int)\n"
++            "    )\n",
++            mod.__dict__,
++        )
++
++        c = mod.C(1)
++
++        assert "C(x=1)" == repr(c)
++        with pytest.raises(TypeError):
++            mod.C("1")
++
++
++class TestReplace:
++    """
++    __replace__ is a per-class method and doesn't clobber `attrs.evolve`.
++    """
++
++    def test_evolve_untouched(self):
++        """
++        Creating classes doesn't rename or re-document the public evolve.
++        """
++
++        @define
++        class C:
++            x: int
++
++        assert "evolve" == attrs.evolve.__qualname__
++        assert "attr._make" == attrs.evolve.__module__
++        assert attrs.evolve.__doc__.lstrip().startswith("Create a new")
++        assert attrs.evolve is pickle.loads(pickle.dumps(attrs.evolve))
++
++    @pytest.mark.skipif(not PY_3_13_PLUS, reason="copy.replace is 3.13+")
++    def test_copy_replace(self):
++        """
++        copy.replace still works.
++        """
++
++        @define
++        class C:
++            x: int
++            y: int = 0
++
++        assert C(2, 5) == copy.replace(C(1, 5), x=2)
++        assert C(1, 3) == copy.replace(C(1, 5), y=3)
++        assert C.__replace__.__qualname__.endswith("C.__replace__")
++
++
++class TestDefineDecoratorReuse:
++    """
++    A decorator returned by define(...) can be reused for many classes.
++    """
++
++    def test_frozen_base_does_not_leak_no_op(self):
++        """
++        Applying the decorator to a subclass of a frozen class doesn't disable
++        on_setattr validation for classes decorated later.
++        """
++        dec = define(slots=False)
++
++        @attrs.frozen
++        class Frozen:
++            pass
++
++        @dec
++        class A(Frozen):
++            x: int = 0
++
++        @dec
++        class B:
++            x: int = field(default=0, validator=validators.instance_of(int))
++
++        b = B()
++        with pytest.raises(TypeError):
++            b.x = "nope"
++
++    def test_default_on_setattr_does_not_leak(self):
++        """
++        Applying the decorator to a regular class doesn't make a later
++        subclass of a frozen class fail with a spurious on_setattr error.
++        """
++        dec = define()
++
++        @attrs.frozen
++        class Frozen:
++            pass
++
++        @dec
++        class A:
++            x: int = 0
++
++        @dec
++        class B(Frozen):
++            y: int = 0
++
++        with pytest.raises(attrs.exceptions.FrozenInstanceError):
++            B().y = 1
++
++
++class TestOptionalListHashable:
++    def test_hashable(self):
++        """
++        optional() with a list of validators is hashable, and so is the
++        Attribute that carries it.
++        """
++        v = validators.optional([validators.instance_of(int)])
++
++        @define
++        class C:
++            x: int = field(default=None, validator=v)
++
++        hash(v)
++        hash(fields(C).x)
++        assert v == validators.optional((validators.instance_of(int),))
++
++
++class TestBaseSlots:
++    """
++    Slotted attrs classes can subclass classes with unusual __slots__.
++    """
++
++    def test_private_slot_names(self):
++        """
++        Private (name-mangled) slots in a base class don't crash.
++        """
++
++        class Base:
++            __slots__ = ("__p", "q")
++
++        @define
++        class C(Base):
++            x: int
++
++        assert 1 == C(1).x
++
++    def test_string_slots(self):
++        """
++        A string __slots__ is a single slot, not one per character.
++        """
++
++        class Base:
++            __slots__ = "ab"
++
++        @define
++        class C(Base):
++            ab: int
++
++        c = C(1)
++
++        assert 1 == c.ab
++        assert Base.__dict__["ab"] is C.__dict__["ab"]
++
++
++@define
++class SlottedWithUnset:
++    x: int
++    y: int = field(init=False)
++
++
++class TestPickleUnsetSlots:
++    def test_unset_attribute(self):
++        """
++        Slotted instances with attributes that were never set can be pickled
++        and copied.
++        """
++        c = SlottedWithUnset(1)
++
++        for new in (pickle.loads(pickle.dumps(c)), copy.copy(c)):
++            assert 1 == new.x
++            assert not hasattr(new, "y")
++
++
++class TestMakeClassDoesNotMutate:
++    def test_hooks_kept(self):
++        """
++        make_class doesn't pop hooks out of the passed dict, so it can be
++        reused.
++        """
++        calls = []
++        body = {
++            "x": attr.ib(),
++            "__attrs_post_init__": lambda self: calls.append(self.x),
++        }
++        keys = set(body)
++
++        attr.make_class("A", body)(1)
++        attr.make_class("B", body)(2)
++
++        assert [1, 2] == calls
++        assert keys == set(body)
++
++
++class TestConverterAnnotations:
++    def test_partial(self):
++        """
++        Converters without __annotations__ (partials) with a return type work.
++        """
++
++        def conv(val, inst, fld) -> int:
++            return int(val)
++
++        c = attrs.Converter(
++            functools.partial(conv), takes_self=True, takes_field=True
++        )
++
++        @define
++        class C:
++            x: int = field(converter=c)
++
++        assert 1 == C("1").x
++
++    def test_callable_instance_class_untouched(self):
++        """
++        The annotations of a callable instance's class are not modified.
++        """
++
++        class Conv:
++            y: str
++
++            def __call__(self, val, inst, fld) -> int:
++                return int(val)
++
++        attrs.Converter(Conv(), takes_self=True, takes_field=True)
++
++        assert {"y": str} == Conv.__annotations__
++
++
++class TestAsdictNamedTupleInCollection:
++    def test_retained(self):
++        """
++        Namedtuples nested in collections survive retain_collection_types.
++        """
++        NT = collections.namedtuple("NT", "a b")
++
++        @define
++        class C:
++            x: list
++
++        assert {"x": [NT(1, 2)]} == attrs.asdict(C([NT(1, 2)]))
++        assert {"x": [[1, 2]]} == attr.asdict(C([NT(1, 2)]))
++
++
++class TestFilterUnhashableAttribute:
++    def test_exclude_include(self):
++        """
++        Attributes with unhashable defaults can be used in filters.
++        """
++
++        @define
++        class C:
++            x: dict = {"a": 1}  # noqa: RUF012
++            y: int = 2
++
++        assert {"y": 2} == attrs.asdict(
++            C(), filter=attrs.filters.exclude(fields(C).x)
++        )
++        assert {"x": {"a": 1}} == attrs.asdict(
++            C(), filter=attrs.filters.include(fields(C).x)
++        )
++
++
++class TestCmpUsingForeign:
++    def test_not_implemented(self):
++        """
++        Comparing a cmp_using instance to something else returns
++        NotImplemented instead of raising AttributeError.
++        """
++        C = attrs.cmp_using(eq=lambda a, b: a == b, lt=lambda a, b: a < b)
++        D = attrs.cmp_using(
++            eq=lambda a, b: a == b, require_same_type=False
++        )
++
++        assert C(1) != 1
++        assert C(1) == C(1)
++        assert NotImplemented is C(1).__lt__(1)
++        assert D(1) != 1
++        assert D(1) == C(1)
++
++
++class TestAstupleDefaultdict:
++    def test_retained(self):
++        """
++        astuple with retain_collection_types keeps defaultdicts intact.
++        """
++
++        @define
++        class C:
++            x: dict
++
++        dd = collections.defaultdict(list, {1: [2]})
++        (rv,) = attrs.astuple(C(dd))
++
++        assert dd == rv
++        assert list is rv.default_factory
++        assert ({1: [2]},) == attr.astuple(C(dd))

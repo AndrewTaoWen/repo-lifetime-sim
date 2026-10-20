@@ -1,0 +1,42 @@
+{
+ "sqlparse-r1": {
+  "agent": "agent-a4a650d0cc6f60ecb",
+  "calls": 62,
+  "flags": []
+ },
+ "attrs-r1": {
+  "agent": "agent-a53a8f945343e399a",
+  "calls": 36,
+  "flags": []
+ },
+ "cachetools-r1": {
+  "agent": "agent-a71864512405bd588",
+  "calls": 22,
+  "flags": []
+ },
+ "tinydb-r1": {
+  "agent": "agent-a7812c38f9f2cdbf5",
+  "calls": 19,
+  "flags": []
+ },
+ "tomlkit-r1": {
+  "agent": "agent-ab3460d4c57d4907c",
+  "calls": 111,
+  "flags": []
+ },
+ "more-itertools-r1": {
+  "agent": "agent-ad2e1b2240ddf16b4",
+  "calls": 42,
+  "flags": []
+ },
+ "pluggy-r1": {
+  "agent": "agent-aecfa3b00358e7a87",
+  "calls": 18,
+  "flags": []
+ },
+ "marshmallow-r1": {
+  "agent": "agent-af2b55a50a273fbaf",
+  "calls": 31,
+  "flags": []
+ }
+}

@@ -1,0 +1,846 @@
+diff --git a/CHANGELOG b/CHANGELOG
+index 63076fa..1fdc585 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -15,6 +15,30 @@ Bug Fixes
+ 
+ * Fix statement splitting (issue845).
+ * Fix a late-binding closure bug in `TokenList.token_not_matching`.
++* CLI: don't truncate the input file (--in-place) or output file when
++  options are invalid or formatting fails; report decoding errors and
++  parse "--comma_first False" / "--compact False" correctly.
++* Fix AttributeError in `Function.get_window()` for functions without OVER.
++* `Function.get_parameters()` always returns a list and no longer drops
++  single operations, CASE expressions, wildcards, NULL or typed literals.
++* Window functions and ordered identifiers ("x DESC") no longer report
++  a bogus alias.
++* Functions are grouped in CREATE TABLE ... as SELECT (lowercase "as").
++* `truncate_strings` no longer produces broken literals for strings
++  containing escaped quotes.
++* Token types keep their identity when statements are copied or pickled.
++* `parsestream()` accepts binary and other non-TextIOBase file objects.
++* Long operator chains ("a || b || ...") no longer exceed the grouping
++  depth limit; chained operations are grouped into a single Operation.
++* Fix quadratic runtime when grouping long identifier lists.
++* Incomplete "x AS" / ":=" before punctuation no longer swallows the
++  closing parenthesis, which crashed reindenting.
++* Fix crash in aligned reindent for CASE without END.
++* Fix statement splitting at END REPEAT in procedures.
++* `split(strip_semicolon=True)` also strips semicolons followed by a comment.
++* `identifier_case` no longer changes backtick/bracket quoted identifiers.
++* Python/PHP output: escape backslashes (and "$" for PHP) and keep line
++  breaks inserted by reindent inside nested groups.
+ 
+ 
+ Release 0.5.5 (Dec 19, 2025)
+diff --git a/sqlparse/cli.py b/sqlparse/cli.py
+index 03ee86e..557e6eb 100644
+--- a/sqlparse/cli.py
++++ b/sqlparse/cli.py
+@@ -144,14 +144,14 @@ def create_parser():
+         '--comma_first',
+         dest='comma_first',
+         default=False,
+-        type=bool,
++        type=_str2bool,
+         help='Insert linebreak before comma (default False)')
+ 
+     group.add_argument(
+         '--compact',
+         dest='compact',
+         default=False,
+-        type=bool,
++        type=_str2bool,
+         help='Try to produce more compact output (default False)')
+ 
+     group.add_argument(
+@@ -163,6 +163,18 @@ def create_parser():
+     return parser
+ 
+ 
++def _str2bool(value):
++    """Convert a command line string into a boolean.
++
++    ``type=bool`` would turn any non-empty string (including "False")
++    into True.
++    """
++    if isinstance(value, bool):
++        return value
++    return value.strip().lower() not in ('false', 'f', 'no', 'n', 'off',
++                                         '0', '')
++
++
+ def _error(msg):
+     """Print msg and optionally exit with return code exit_."""
+     sys.stderr.write(f'[ERROR] {msg}\n')
+@@ -179,48 +191,54 @@ def _process_file(filename, args):
+         return _error('Cannot use --in-place with stdin')
+ 
+     # Read input
+-    if filename == '-':  # read from stdin
+-        wrapper = TextIOWrapper(sys.stdin.buffer, encoding=args.encoding)
+-        try:
+-            data = wrapper.read()
+-        finally:
+-            wrapper.detach()
+-    else:
+-        try:
++    try:
++        if filename == '-':  # read from stdin
++            wrapper = TextIOWrapper(sys.stdin.buffer, encoding=args.encoding)
++            try:
++                data = wrapper.read()
++            finally:
++                wrapper.detach()
++        else:
+             with open(filename, encoding=args.encoding) as f:
+                 data = ''.join(f.readlines())
+-        except OSError as e:
+-            return _error(f'Failed to read {filename}: {e}')
++    except OSError as e:
++        return _error(f'Failed to read {filename}: {e}')
++    except (UnicodeDecodeError, LookupError) as e:
++        return _error(f'Failed to decode {filename}: {e}')
++
++    # Format the SQL before opening the output: with --in-place (or when
++    # the output file is the input file) opening the output truncates the
++    # input, so a formatting error must not happen afterwards.
++    formatter_opts = vars(args)
++    try:
++        formatter_opts = sqlparse.formatter.validate_options(formatter_opts)
++    except SQLParseError as e:
++        return _error(f'Invalid options: {e}')
++    try:
++        s = sqlparse.format(data, **formatter_opts)
++    except SQLParseError as e:
++        return _error(f'Failed to format {filename}: {e}')
+ 
+     # Determine output destination
+-    close_stream = False
+     if args.inplace:
+-        try:
+-            stream = open(filename, 'w', encoding=args.encoding)
+-            close_stream = True
+-        except OSError as e:
+-            return _error(f'Failed to open {filename}: {e}')
++        outname = filename
+     elif args.outfile:
+-        try:
+-            stream = open(args.outfile, 'w', encoding=args.encoding)
+-            close_stream = True
+-        except OSError as e:
+-            return _error(f'Failed to open {args.outfile}: {e}')
++        outname = args.outfile
+     else:
+-        stream = sys.stdout
++        outname = None
+ 
+-    # Format the SQL
+-    formatter_opts = vars(args)
+-    try:
+-        formatter_opts = sqlparse.formatter.validate_options(formatter_opts)
+-    except SQLParseError as e:
+-        return _error(f'Invalid options: {e}')
++    if outname is None:
++        sys.stdout.write(s)
++        sys.stdout.flush()
++        return 0
+ 
+-    s = sqlparse.format(data, **formatter_opts)
+-    stream.write(s)
+-    stream.flush()
+-    if close_stream:
+-        stream.close()
++    try:
++        with open(outname, 'w', encoding=args.encoding) as stream:
++            stream.write(s)
++    except OSError as e:
++        return _error(f'Failed to open {outname}: {e}')
++    except UnicodeEncodeError as e:
++        return _error(f'Failed to encode {outname}: {e}')
+     return 0
+ 
+ 
+diff --git a/sqlparse/engine/grouping.py b/sqlparse/engine/grouping.py
+index e04c2a9..6d7cc1e 100644
+--- a/sqlparse/engine/grouping.py
++++ b/sqlparse/engine/grouping.py
+@@ -196,10 +196,14 @@ def group_as(tlist):
+         return token.is_keyword and token.normalized == 'AS'
+ 
+     def valid_prev(token):
++        # A punctuation (e.g. "(" or ",") can't be aliased. Grouping it
++        # would also break enclosing groups, e.g. a Parenthesis.
++        if token.ttype in T.Punctuation:
++            return False
+         return token.normalized == 'NULL' or not token.is_keyword
+ 
+     def valid_next(token):
+-        ttypes = T.DML, T.DDL, T.CTE
++        ttypes = T.DML, T.DDL, T.CTE, T.Punctuation
+         return not imt(token, t=ttypes) and token is not None
+ 
+     def post(tlist, pidx, tidx, nidx):
+@@ -213,7 +217,8 @@ def group_assignment(tlist):
+         return token.match(T.Assignment, ':=')
+ 
+     def valid(token):
+-        return token is not None and token.ttype not in (T.Keyword,)
++        return token is not None and token.ttype not in (T.Keyword,) \
++            and token.ttype not in T.Punctuation
+ 
+     def post(tlist, pidx, tidx, nidx):
+         m_semicolon = T.Punctuation, ';'
+@@ -303,14 +308,17 @@ def group_operator(tlist):
+         return pidx, nidx
+ 
+     valid_prev = valid_next = valid
++    # Chained operations ("a + b + c") extend the preceding Operation
++    # instead of nesting it. Nesting created one level per operator and
++    # long expressions quickly exceeded MAX_GROUPING_DEPTH.
+     _group(tlist, sql.Operation, match,
+-           valid_prev, valid_next, post, extend=False)
++           valid_prev, valid_next, post, extend=True)
+ 
+ 
+ def group_identifier_list(tlist):
+     m_role = T.Keyword, ('null', 'role')
+     sqlcls = (sql.Function, sql.Case, sql.Identifier, sql.Comparison,
+-              sql.IdentifierList, sql.Operation)
++              sql.IdentifierList, sql.Operation, sql.TypedLiteral)
+     ttypes = (T_NUMERICAL + T_STRING + T_NAME
+               + (T.Keyword, T.Comment, T.Wildcard))
+ 
+@@ -381,7 +389,7 @@ def group_functions(tlist):
+             has_create = True
+         if tmp_token.value.upper() == 'TABLE':
+             has_table = True
+-        if tmp_token.value == 'AS':
++        if tmp_token.value.upper() == 'AS':
+             has_as = True
+     if has_create and has_table and not has_as:
+         return
+diff --git a/sqlparse/filters/aligned_indent.py b/sqlparse/filters/aligned_indent.py
+index 6ac99d6..96a8207 100644
+--- a/sqlparse/filters/aligned_indent.py
++++ b/sqlparse/filters/aligned_indent.py
+@@ -70,7 +70,8 @@ class AlignedIndentFilter:
+         cases = tlist.get_cases(skip_ws=True)
+         # align the end as well
+         end_token = tlist.token_next_by(m=(T.Keyword, 'END'))[1]
+-        cases.append((None, [end_token]))
++        if end_token is not None:
++            cases.append((None, [end_token]))
+ 
+         condition_width = [len(' '.join(map(str, cond))) if cond else 0
+                            for cond, _ in cases]
+diff --git a/sqlparse/filters/others.py b/sqlparse/filters/others.py
+index 95bc436..cb1ec63 100644
+--- a/sqlparse/filters/others.py
++++ b/sqlparse/filters/others.py
+@@ -9,7 +9,7 @@ import re
+ 
+ from sqlparse import sql
+ from sqlparse import tokens as T
+-from sqlparse.utils import split_unquoted_newlines
++from sqlparse.utils import imt, split_unquoted_newlines
+ 
+ 
+ class StripCommentsFilter:
+@@ -161,6 +161,17 @@ class StripTrailingSemicolonFilter:
+         while stmt.tokens and (stmt.tokens[-1].is_whitespace
+                                or stmt.tokens[-1].value == ';'):
+             stmt.tokens.pop()
++        # Semicolons followed by a trailing comment (e.g.
++        # "select 1; -- comment") are removed too, the comment is kept.
++        idx = len(stmt.tokens) - 1
++        while idx >= 0:
++            token = stmt.tokens[idx]
++            if token.match(T.Punctuation, ';'):
++                del stmt.tokens[idx]
++            elif not (token.is_whitespace
++                      or imt(token, i=sql.Comment, t=T.Comment)):
++                break
++            idx -= 1
+         return stmt
+ 
+ 
+diff --git a/sqlparse/filters/output.py b/sqlparse/filters/output.py
+index 235db54..e5d5f3b 100644
+--- a/sqlparse/filters/output.py
++++ b/sqlparse/filters/output.py
+@@ -27,9 +27,27 @@ class OutputFilter:
+             varname = self.varname
+ 
+         has_nl = len(str(stmt).strip().splitlines()) > 1
+-        stmt.tokens = self._process(stmt.tokens, varname, has_nl)
++        # Work on the leaf tokens: line breaks inserted by other filters
++        # (e.g. reindent) may be nested inside of groups and the cached
++        # value of a group may be outdated after filters modified it.
++        stmt.tokens = list(self._process(
++            self._strip_ws_before_nl(stmt.flatten()), varname, has_nl))
+         return stmt
+ 
++    @staticmethod
++    def _strip_ws_before_nl(tokens):
++        """Drop whitespace that directly precedes a line break."""
++        pending = []
++        for token in tokens:
++            if token.is_whitespace and '\n' not in token.value:
++                pending.append(token)
++                continue
++            if not (token.is_whitespace and '\n' in token.value):
++                yield from pending
++            pending = []
++            yield token
++        yield from pending
++
+ 
+ class OutputPythonFilter(OutputFilter):
+     def _process(self, stream, varname, has_nl):
+@@ -62,12 +80,11 @@ class OutputPythonFilter(OutputFilter):
+                     yield sql.Token(T.Whitespace, after_lb)
+                 continue
+ 
+-            # Token has escape chars
+-            elif "'" in token.value:
+-                token.value = token.value.replace("'", "\\'")
++            # Escape backslashes and quotes for the Python string literal
++            value = token.value.replace('\\', '\\\\').replace("'", "\\'")
+ 
+             # Put the token
+-            yield sql.Token(T.Text, token.value)
++            yield sql.Token(T.Text, value)
+ 
+         # Close quote
+         yield sql.Token(T.Text, "'")
+@@ -111,12 +128,13 @@ class OutputPHPFilter(OutputFilter):
+                     yield sql.Token(T.Whitespace, after_lb)
+                 continue
+ 
+-            # Token has escape chars
+-            elif '"' in token.value:
+-                token.value = token.value.replace('"', '\\"')
++            # Escape backslashes, quotes and variable interpolation for the
++            # double quoted PHP string literal
++            value = (token.value.replace('\\', '\\\\')
++                     .replace('"', '\\"').replace('$', '\\$'))
+ 
+             # Put the token
+-            yield sql.Token(T.Text, token.value)
++            yield sql.Token(T.Text, value)
+ 
+         # Close quote
+         yield sql.Token(T.Text, '"')
+diff --git a/sqlparse/filters/tokens.py b/sqlparse/filters/tokens.py
+index cc00a84..8ca22cf 100644
+--- a/sqlparse/filters/tokens.py
++++ b/sqlparse/filters/tokens.py
+@@ -5,8 +5,12 @@
+ # This module is part of python-sqlparse and is released under
+ # the BSD License: https://opensource.org/licenses/BSD-3-Clause
+ 
++import re
++
+ from sqlparse import tokens as T
+ 
++_STRING_UNIT = re.compile(r"''|\\.|.", re.DOTALL)
++
+ 
+ class _CaseFilter:
+     ttype = None
+@@ -31,7 +35,8 @@ class IdentifierCaseFilter(_CaseFilter):
+ 
+     def process(self, stream):
+         for ttype, value in stream:
+-            if ttype in self.ttype and value.strip()[0] != '"':
++            # Quoted identifiers are case sensitive, leave them alone.
++            if ttype in self.ttype and value.strip()[:1] not in '"`[´':
+                 value = self.convert(value)
+             yield ttype, value
+ 
+@@ -47,13 +52,18 @@ class TruncateStringFilter:
+                 yield ttype, value
+                 continue
+ 
+-            if value[:2] == "''":
+-                inner = value[2:-2]
+-                quote = "''"
+-            else:
+-                inner = value[1:-1]
+-                quote = "'"
++            # The string literal is always enclosed by a single quote on
++            # each side, any quotes inside are escaped ('' or \').
++            quote = "'"
++            inner = value[1:-1]
+ 
+             if len(inner) > self.width:
+-                value = ''.join((quote, inner[:self.width], self.char, quote))
++                # Never cut an escape sequence in half, otherwise the
++                # remaining quote would terminate the literal early.
++                cut = 0
++                for m in _STRING_UNIT.finditer(inner):
++                    if m.start() >= self.width:
++                        break
++                    cut = m.end()
++                value = ''.join((quote, inner[:cut], self.char, quote))
+             yield ttype, value
+diff --git a/sqlparse/formatter.py b/sqlparse/formatter.py
+index 1fba246..2da770e 100644
+--- a/sqlparse/formatter.py
++++ b/sqlparse/formatter.py
+@@ -74,7 +74,7 @@ def validate_options(options):
+     reindent_aligned = options.get('reindent_aligned', False)
+     if reindent_aligned not in [True, False]:
+         raise SQLParseError('Invalid value for reindent_aligned: '
+-                            f'{reindent!r}')
++                            f'{reindent_aligned!r}')
+     elif reindent_aligned:
+         options['strip_whitespace'] = True
+ 
+diff --git a/sqlparse/keywords.py b/sqlparse/keywords.py
+index 4bafcda..1a86b4b 100644
+--- a/sqlparse/keywords.py
++++ b/sqlparse/keywords.py
+@@ -69,7 +69,7 @@ SQL_REGEX = [
+     (r'(?<![\w\])])(\[[^\]\[]+\])', tokens.Name),
+     (r'((LEFT\s+|RIGHT\s+|FULL\s+)?(INNER\s+|OUTER\s+|STRAIGHT\s+)?'
+      r'|(CROSS\s+|NATURAL\s+)?)?JOIN\b', tokens.Keyword),
+-    (r'END(\s+IF|\s+LOOP|\s+WHILE|\s+FOR|\s+CASE)?\b', tokens.Keyword),
++    (r'END(\s+IF|\s+LOOP|\s+WHILE|\s+FOR|\s+CASE|\s+REPEAT)?\b', tokens.Keyword),
+     (r'IF\s+(NOT\s+)?EXISTS\b', tokens.Keyword),
+     (r'NOT\s+NULL\b', tokens.Keyword),
+     (r'(ASC|DESC)(\s+NULLS\s+(FIRST|LAST))?\b', tokens.Keyword.Order),
+diff --git a/sqlparse/lexer.py b/sqlparse/lexer.py
+index 966cdb2..3912392 100644
+--- a/sqlparse/lexer.py
++++ b/sqlparse/lexer.py
+@@ -116,7 +116,11 @@ class Lexer:
+ 
+         ``stack`` is the initial stack (default: ``['root']``)
+         """
+-        if isinstance(text, TextIOBase):
++        if isinstance(text, TextIOBase) or (
++                not isinstance(text, (str, bytes))
++                and callable(getattr(text, 'read', None))):
++            # Any file-like object, text or binary (e.g. files opened in
++            # binary mode or codecs.StreamReaderWriter instances).
+             text = text.read()
+ 
+         if isinstance(text, str):
+diff --git a/sqlparse/sql.py b/sqlparse/sql.py
+index 6b21859..c6181bb 100644
+--- a/sqlparse/sql.py
++++ b/sqlparse/sql.py
+@@ -33,7 +33,9 @@ class NameAliasMixin:
+         # "name alias" or "complicated column expression alias"
+         _, ws = self.token_next_by(t=T.Whitespace)
+         if len(self.tokens) > 2 and ws is not None:
+-            return self._get_first_name(reverse=True)
++            # The first token is the aliased expression itself and can never
++            # be the alias (e.g. "x DESC" or "f(x) OVER (...)").
++            return self._get_first_name(idx=1, reverse=True)
+ 
+ 
+ class Token:
+@@ -327,7 +329,9 @@ class TokenList(Token):
+             grp = start
+             grp.tokens.extend(subtokens)
+             del self.tokens[start_idx + 1:end_idx]
+-            grp.value = str(start)
++            # Append only the new part instead of re-flattening the whole
++            # (possibly huge) group to avoid quadratic runtime.
++            grp.value += ''.join(str(token) for token in subtokens)
+         else:
+             subtokens = self.tokens[start_idx:end_idx]
+             grp = grp_cls(subtokens)
+@@ -627,20 +631,24 @@ class Function(NameAliasMixin, TokenList):
+         """Return a list of parameters."""
+         parenthesis = self.token_next_by(i=Parenthesis)[1]
+         result = []
++        if parenthesis is None:
++            return result
+         for token in parenthesis.tokens:
+             if isinstance(token, IdentifierList):
+-                return token.get_identifiers()
+-            elif imt(token, i=(Function, Identifier, TypedLiteral),
+-                     t=T.Literal):
++                return list(token.get_identifiers())
++            elif imt(token, i=(Function, Identifier, TypedLiteral, Operation,
++                               Case, Comparison, Parenthesis),
++                     t=[T.Literal, T.Wildcard]) \
++                    or token.match(T.Keyword, 'NULL'):
+                 result.append(token)
+         return result
+ 
+     def get_window(self):
+         """Return the window if it exists."""
+-        over_clause = self.token_next_by(i=Over)
+-        if not over_clause:
++        _, over_clause = self.token_next_by(i=Over)
++        if over_clause is None:
+             return None
+-        return over_clause[1].tokens[-1]
++        return over_clause.tokens[-1]
+ 
+ 
+ class Begin(TokenList):
+diff --git a/sqlparse/tokens.py b/sqlparse/tokens.py
+index 143f66b..5342556 100644
+--- a/sqlparse/tokens.py
++++ b/sqlparse/tokens.py
+@@ -27,6 +27,18 @@ class _TokenType(tuple):
+         new.parent = self
+         return new
+ 
++    # Token types are singletons that are compared by identity throughout
++    # sqlparse.  Make sure copying or pickling them (e.g. as part of a
++    # parsed statement) doesn't create new, unrelated instances.
++    def __copy__(self):
++        return self
++
++    def __deepcopy__(self, memo):
++        return self
++
++    def __reduce__(self):
++        return _resolve_ttype, (tuple(self),)
++
+     def __repr__(self):
+         # self can be False only if its the `root` i.e. Token itself
+         return 'Token' + ('.' if self else '') + '.'.join(self)
+@@ -34,6 +46,15 @@ class _TokenType(tuple):
+ 
+ Token = _TokenType()
+ 
++
++def _resolve_ttype(path):
++    """Return the canonical token type for the given path of names."""
++    ttype = Token
++    for name in path:
++        ttype = getattr(ttype, name)
++    return ttype
++
++
+ # Special token types
+ Text = Token.Text
+ Whitespace = Text.Whitespace
+diff --git a/sqlparse/utils.py b/sqlparse/utils.py
+index 58c0245..520fe1c 100644
+--- a/sqlparse/utils.py
++++ b/sqlparse/utils.py
+@@ -53,9 +53,9 @@ def split_unquoted_newlines(stmt):
+ 
+ def remove_quotes(val):
+     """Helper that removes surrounding quotes from strings."""
+-    if val is None:
+-        return
+-    if val[0] in ('"', "'", '`') and val[0] == val[-1]:
++    if not val:
++        return val
++    if len(val) > 1 and val[0] in ('"', "'", '`') and val[0] == val[-1]:
+         val = val[1:-1]
+     return val
+ 
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index 4aec44d..7f4a3be 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -204,3 +204,52 @@ def test_cli_error_handling_continues(tmpdir, capsys):
+     assert "select * from baz" in file3.read()
+     _, err = capsys.readouterr()
+     assert "Failed to read" in err
++
++
++def test_cli_inplace_keeps_file_on_format_error(tmpdir, capsys):
++    """A formatting error must not truncate the file (data loss)."""
++    content = 'select ' + '(' * 200 + '1' + ')' * 200 + ';'
++    test_file = tmpdir.join("deep.sql")
++    test_file.write(content)
++
++    result = sqlparse.cli.main([str(test_file), '--in-place', '-r'])
++
++    assert result != 0
++    assert test_file.read() == content
++    _, err = capsys.readouterr()
++    assert "Failed to format" in err
++
++
++def test_cli_outfile_not_truncated_on_invalid_options(tmpdir, capsys):
++    infile = tmpdir.join("in.sql")
++    infile.write("select 1")
++    outfile = tmpdir.join("out.sql")
++    outfile.write("keep me")
++
++    result = sqlparse.cli.main([str(infile), '-r', '--indent_width', '0',
++                                '-o', str(outfile)])
++
++    assert result != 0
++    assert outfile.read() == "keep me"
++
++
++def test_cli_decode_error(tmpdir, capsys):
++    infile = tmpdir.join("bad.sql")
++    infile.write_binary(b'select \xff from t')
++
++    result = sqlparse.cli.main([str(infile)])
++
++    assert result != 0
++    _, err = capsys.readouterr()
++    assert err.startswith('[ERROR] Failed to decode')
++
++
++@pytest.mark.parametrize('value, expected', [
++    ('False', False), ('false', False), ('0', False), ('no', False),
++    ('True', True), ('1', True), ('yes', True)])
++def test_cli_boolean_options(value, expected):
++    parser = sqlparse.cli.create_parser()
++    args = parser.parse_args(['x.sql', '--comma_first', value,
++                              '--compact', value])
++    assert args.comma_first is expected
++    assert args.compact is expected
+diff --git a/tests/test_regressions.py b/tests/test_regressions.py
+index 15ac9ee..554ddf3 100644
+--- a/tests/test_regressions.py
++++ b/tests/test_regressions.py
+@@ -465,3 +465,241 @@ def limit_recursion():
+ def test_max_recursion(limit_recursion):
+     with pytest.raises(SQLParseError):
+         sqlparse.parse('[' * 1000 + ']' * 1000)
++
++
++# --- hardening regressions -------------------------------------------------
++
++def test_function_get_window_without_over():
++    func = sqlparse.parse('select foo(x) from t')[0].tokens[2]
++    assert isinstance(func, sql.Function)
++    assert func.get_window() is None
++
++
++def test_function_get_parameters_returns_list():
++    func = sqlparse.parse('select foo(a, b) from t')[0].tokens[2]
++    params = func.get_parameters()
++    assert isinstance(params, list)
++    assert [str(p) for p in params] == ['a', 'b']
++
++
++@pytest.mark.parametrize('s, expected', [
++    ('select f(b + c)', ['b + c']),
++    ('select f(a, b + c)', ['a', 'b + c']),
++    ('select f(case when a then 1 end)', ['case when a then 1 end']),
++    ('select count(*)', ['*']),
++    ('select f(NULL)', ['NULL']),
++    ("select f(date '2020-01-01', 1)", ["date '2020-01-01'", '1']),
++])
++def test_function_get_parameters_single_and_multiple_consistent(s, expected):
++    func = sqlparse.parse(s)[0].tokens[2]
++    assert [str(p) for p in func.get_parameters()] == expected
++
++
++def test_typed_literal_in_identifier_list():
++    p = sqlparse.parse("select date '2020-01-01', x from t")[0]
++    assert isinstance(p.tokens[2], sql.IdentifierList)
++    assert [str(t) for t in p.tokens[2].get_identifiers()] == [
++        "date '2020-01-01'", 'x']
++
++
++@pytest.mark.parametrize('s', [
++    'select foo(x) over (partition by y) from t',
++    'select foo(x) over w from t',
++])
++def test_window_function_has_no_alias(s):
++    func = sqlparse.parse(s)[0].tokens[2]
++    assert isinstance(func, sql.Function)
++    assert func.get_alias() is None
++    assert func.has_alias() is False
++    assert func.get_name() == 'foo'
++
++
++def test_ordered_identifier_has_no_alias():
++    p = sqlparse.parse('select a from t order by col desc')[0]
++    ident = p.tokens[-1]
++    assert isinstance(ident, sql.Identifier)
++    assert ident.get_ordering() == 'DESC'
++    assert ident.get_alias() is None
++    assert ident.get_name() == 'col'
++
++
++@pytest.mark.parametrize('s', [
++    'create table t as select count(x) from y',
++    'CREATE TABLE t AS SELECT count(x) FROM y',
++    'Create Table t As Select count(x) From y',
++])
++def test_ctas_groups_functions_case_insensitive(s):
++    p = sqlparse.parse(s)[0]
++    assert any(isinstance(t, sql.Function) for t in p.tokens)
++
++
++@pytest.mark.parametrize('s', [
++    "select '''quoted'' and a long text'",
++    "select 'ab''cdefgh'",
++    "select 'ab\\'cdefgh'",
++    "select 'a\\\\bcdefgh'",
++])
++def test_truncate_strings_keeps_literal_valid(s):
++    formatted = sqlparse.format(s, truncate_strings=3)
++    # The result must still lex as "select" + one complete string literal.
++    tokens = [tt for tt, _ in sqlparse.lexer.tokenize(formatted)]
++    assert tokens[-1] is T.String.Single
++    assert tokens.count(T.String.Single) == 1
++    assert formatted.endswith("[...]'")
++
++
++def test_truncate_strings_escaped_quote_prefix():
++    formatted = sqlparse.format("select '''quoted'' text'",
++                                truncate_strings=3)
++    assert formatted == "select '''q[...]'"
++
++
++@pytest.mark.parametrize('copier', [
++    copy.copy, copy.deepcopy,
++    lambda x: __import__('pickle').loads(__import__('pickle').dumps(x))])
++def test_token_types_survive_copy_and_pickle(copier):
++    assert copier(T.Keyword.DML) is T.Keyword.DML
++    assert copier(T.Token) is T.Token
++    stmt = copier(sqlparse.parse('select a from b where c = 1')[0])
++    assert stmt.tokens[0].ttype is T.Keyword.DML
++    assert stmt.get_type() == 'SELECT'
++    # copies can be processed further (grouping relies on identity)
++    assert sqlparse.format(str(stmt), reindent=True) == \
++        'select a\nfrom b\nwhere c = 1'
++
++
++def test_remove_quotes_empty():
++    from sqlparse.utils import remove_quotes
++    assert remove_quotes('') == ''
++    assert remove_quotes(None) is None
++    assert remove_quotes('"') == '"'
++    assert remove_quotes('"a"') == 'a'
++
++
++def test_parsestream_binary_and_codecs_streams():
++    import codecs
++    import io
++    data = 'select 1; select "ä";'.encode('utf-8')
++    expected = ['select 1; ', 'select "ä";']
++    stmts = [str(s) for s in sqlparse.parsestream(io.BytesIO(data))]
++    assert stmts == expected
++    reader = codecs.getreader('utf-8')(io.BytesIO(data))
++    stmts = [str(s) for s in sqlparse.parsestream(reader)]
++    assert stmts == expected
++    latin = io.BytesIO('select "ä";'.encode('latin-1'))
++    stmts = [str(s) for s in sqlparse.parsestream(latin, 'latin-1')]
++    assert stmts == ['select "ä";']
++
++
++def test_long_operator_chain_does_not_exceed_depth():
++    n = 300
++    s = 'select ' + ' || '.join(f'a{i}' for i in range(n)) + ' as x from t'
++    p = sqlparse.parse(s)[0]
++    assert str(p) == s
++    ident = p.tokens[2]
++    assert isinstance(ident, sql.Identifier)
++    assert ident.get_alias() == 'x'
++    assert isinstance(ident.tokens[0], sql.Operation)
++    formatted = sqlparse.format(s, reindent=True)
++    assert formatted.endswith('a299 as x\nfrom t')
++
++
++def test_wide_identifier_list_is_not_quadratic():
++    import time
++    cols = ', '.join(f'c{i}' for i in range(3300))
++    s = f'select {cols} from t'
++    start = time.perf_counter()
++    p = sqlparse.parse(s)[0]
++    # used to take several seconds due to quadratic re-serialization
++    assert time.perf_counter() - start < 1.5
++    assert str(p) == s
++    assert p.tokens[2].value == cols
++
++
++@pytest.mark.parametrize('s', [
++    'select cast(a as) from t',
++    'select ( as )',
++    'select f( := )',
++])
++def test_incomplete_alias_or_assignment_keeps_parenthesis(s):
++    p = sqlparse.parse(s)[0]
++    assert str(p) == s
++    parens = []
++
++    def walk(tl):
++        for t in tl.get_sublists():
++            if isinstance(t, sql.Parenthesis):
++                parens.append(t)
++            walk(t)
++    walk(p)
++    assert parens
++    for paren in parens:
++        assert paren.tokens[0].match(T.Punctuation, '(')
++        assert paren.tokens[-1].match(T.Punctuation, ')')
++    # formatting must not crash
++    sqlparse.format(s, reindent=True)
++    sqlparse.format(s, strip_whitespace=True)
++
++
++def test_as_before_punctuation_not_grouped():
++    p = sqlparse.parse('select a as, b')[0]
++    assert not any(isinstance(t, sql.Identifier) and 'b' in str(t)
++                   and ',' in str(t) and t.get_alias() is not None
++                   for t in p.tokens)
++    assert str(p) == 'select a as, b'
++
++
++def test_aligned_indent_case_without_end():
++    s = 'select case when begin x end then 1 end'
++    assert str(sqlparse.format(s, reindent_aligned=True))
++
++
++def test_split_end_repeat():
++    s = ('create procedure p() begin repeat set x = x + 1; '
++         'until x > 5 end repeat; end; select 2;')
++    assert sqlparse.split(s) == [
++        'create procedure p() begin repeat set x = x + 1; '
++        'until x > 5 end repeat; end;',
++        'select 2;']
++
++
++def test_strip_semicolon_before_trailing_comment():
++    stmts = sqlparse.split('select 1; -- c\nselect 2; /* x */',
++                           strip_semicolon=True)
++    assert stmts[0] == 'select 1 -- c'
++    assert stmts[1] == 'select 2'
++
++
++def test_identifier_case_keeps_quoted_identifiers():
++    s = 'select `MyCol`, "MyCol", [MyCol], MyCol from T'
++    assert sqlparse.format(s, identifier_case='lower') == \
++        'select `MyCol`, "MyCol", [MyCol], mycol from t'
++
++
++def test_output_python_escapes_backslashes():
++    s = "select 'a\\'b'"
++    formatted = sqlparse.format(s, output_format='python')
++    ns = {}
++    exec(formatted, ns)
++    assert ns['sql'] == s
++
++
++def test_output_python_reindent_nested_line_breaks():
++    s = 'select a, b from t where x=1 and y=2'
++    formatted = sqlparse.format(s, reindent=True, output_format='python')
++    ns = {}
++    exec(formatted, ns)
++    reindented = sqlparse.format(s, reindent=True)
++    assert ns['sql'] == ' '.join(reindented.splitlines())
++
++
++def test_output_php_escapes():
++    formatted = sqlparse.format('select "q", $$x$$, \'a\\b\'',
++                                output_format='php')
++    assert formatted == \
++        '$sql = "select \\"q\\", \\$\\$x\\$\\$, \'a\\\\b\'";'
++
++
++def test_reindent_aligned_invalid_option_message():
++    with pytest.raises(SQLParseError, match="reindent_aligned: 'foo'"):
++        sqlparse.format('select 1', reindent_aligned='foo')

@@ -1,0 +1,76 @@
+{
+ "_note": "Hand labels by the commit that added each target test (label.py finds it). 'test:' keys label tests whose adding commit wasn't found. bug = latent defect in behaviour that existed at the snapshot; feature = new API, new option or deliberate behaviour change; unclear = test-only refactor whose underlying change isn't identifiable from the commit.",
+ "tinydb": {
+  "*": "bug"
+ },
+ "attrs": {
+  "4b5b295": "feature",
+  "f53fc54": "bug",
+  "test:test_is_class_var": "bug"
+ },
+ "cachetools": {
+  "d5c7eea": "bug",
+  "39b31bc": "bug",
+  "dd181c5": "bug",
+  "41e4b16": "bug",
+  "aa73a19": "bug",
+  "95e6add": "bug",
+  "bcf9e81": "bug",
+  "c0fdf6a": "bug",
+  "72adda6": "unclear",
+  "c624c83": "unclear",
+  "7388397": "unclear",
+  "test:*": "unclear"
+ },
+ "marshmallow": {
+  "ec2178c": "feature",
+  "5761bea": "bug",
+  "test:*": "bug"
+ },
+ "sqlparse": {
+  "f80af6a": "bug",
+  "53ff44b": "bug",
+  "111b35c": "bug",
+  "f66d12c": "bug",
+  "a194d31": "bug",
+  "26d7d65": "feature",
+  "ac3b9e0": "feature"
+ },
+ "pluggy": {
+  "53eeddf": "feature",
+  "test:*": "feature",
+  "0f2614d": "bug",
+  "6abdcf6": "bug",
+  "a031c1c": "feature",
+  "51ec448": "feature",
+  "1b23f2e": "bug",
+  "aa6e1f4": "bug",
+  "c1c39fe": "bug",
+  "2e37743": "feature",
+  "b2d1c4c": "feature",
+  "09676ee": "bug",
+  "629246a": "bug",
+  "3d5417a": "bug",
+  "50585e0": "feature",
+  "44474dd": "bug",
+  "ccae6b9": "bug",
+  "0022c46": "bug",
+  "2143bb6": "bug",
+  "d57da14": "bug",
+  "742393e": "bug",
+  "d5220f7": "feature",
+  "6a05326": "feature",
+  "00ae36a": "feature"
+ },
+ "more-itertools": {
+  "*": "bug",
+  "43decdd": "feature",
+  "b8fe920": "feature",
+  "842a2b1": "feature"
+ },
+ "tomlkit": {
+  "*": "bug",
+  "49d6efa": "feature",
+  "ea9263f": "unclear"
+ }
+}

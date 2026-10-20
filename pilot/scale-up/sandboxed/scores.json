@@ -1,0 +1,152 @@
+{
+ "tinydb-r1": {
+  "repo": "msiemens/tinydb",
+  "target": 9,
+  "fixed": 5,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_queries::test_regex_flags_affect_hash_and_query_cache",
+   "tests.test_tables::test_persist_empty_does_not_wipe_existing_data",
+   "tests.test_tinydb::test_insert_multiple_mixed_document_and_dict[json]",
+   "tests.test_tinydb::test_insert_multiple_mixed_document_and_dict[memory]",
+   "tests.test_utils::test_lru_cache_none_value"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "7 files changed, 463 insertions(+), 54 deletions(-)"
+ },
+ "attrs-r1": {
+  "repo": "python-attrs/attrs",
+  "target": 10,
+  "fixed": 1,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_functional.TestReplace::test_is_not_evolve"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "6 files changed, 451 insertions(+), 36 deletions(-)"
+ },
+ "cachetools-r1": {
+  "repo": "tkem/cachetools",
+  "target": 41,
+  "fixed": 12,
+  "regressions": 1,
+  "fixed_tests": [
+   "tests.test_cache.CacheTest::test_getsizeof_replace_grow",
+   "tests.test_cachedmethod.CacheMethodTest::test_multilevel_override",
+   "tests.test_cachedmethod.UnboundMethodTest::test_base_class_call",
+   "tests.test_cachedmethod.UnboundMethodTest::test_class_call",
+   "tests.test_cachedmethod.UnboundMethodTest::test_class_call_info",
+   "tests.test_cachedmethod.UnboundMethodTest::test_class_call_without_instance",
+   "tests.test_fifo.FIFOCacheTest::test_getsizeof_replace_grow",
+   "tests.test_lfu.LFUCacheTest::test_getsizeof_replace_grow",
+   "tests.test_lru.LRUCacheTest::test_getsizeof_replace_grow",
+   "tests.test_tlru.TLRUCacheTest::test_getsizeof_replace_grow",
+   "tests.test_tlru.TLRUCacheTest::test_overwrite_existing_with_expired",
+   "tests.test_ttl.TTLCacheTest::test_getsizeof_replace_grow"
+  ],
+  "regressed_tests": [
+   "tests.test_cachedmethod.UnboundMethodTest::test_autospec_call"
+  ],
+  "agent_commits": 1,
+  "diff": "5 files changed, 250 insertions(+), 10 deletions(-)"
+ },
+ "marshmallow-r1": {
+  "repo": "marshmallow-code/marshmallow",
+  "target": 8,
+  "fixed": 1,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_deserialization.TestFieldDeserialization::test_invalid_timedelta_field_deserialization[nan]"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "7 files changed, 474 insertions(+), 43 deletions(-)"
+ },
+ "sqlparse-r1": {
+  "repo": "andialbrecht/sqlparse",
+  "target": 10,
+  "fixed": 3,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_format.TestOutputFormat::test_php_escapes_backslashes",
+   "tests.test_format.TestOutputFormat::test_python_escapes_backslashes",
+   "tests.test_grouping::test_grouping_alias_ctas_lowercase_as"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "15 files changed, 483 insertions(+), 73 deletions(-)"
+ },
+ "pluggy-r1": {
+  "repo": "pytest-dev/pluggy",
+  "target": 65,
+  "fixed": 6,
+  "regressions": 0,
+  "fixed_tests": [
+   "testing.test_pluginmanager::test_register_ignores_raising_descriptors[spec-is-class]",
+   "testing.test_pluginmanager::test_register_ignores_raising_descriptors[spec-is-instance]",
+   "testing.test_pluginmanager::test_register_slot_attribute_function_is_not_bound[spec-is-class]",
+   "testing.test_pluginmanager::test_register_slot_attribute_function_is_not_bound[spec-is-instance]",
+   "testing.test_pluginmanager::test_subset_hook_caller_with_specname",
+   "testing.test_pluginmanager::test_unregister_falsy_plugin"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "4 files changed, 324 insertions(+), 18 deletions(-)"
+ },
+ "more-itertools-r1": {
+  "repo": "more-itertools/more-itertools",
+  "target": 40,
+  "fixed": 13,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_more.BucketTests::test_getitem_miss_does_not_add_key",
+   "tests.test_more.BucketTests::test_in_does_not_add_key",
+   "tests.test_more.BucketTests::test_in_does_not_add_key_with_validator",
+   "tests.test_more.BucketTests::test_keys_are_only_those_seen",
+   "tests.test_more.CombinationWithReplacementIndexTests::test_invalid_none_values",
+   "tests.test_more.CombinationWithReplacementIndexTests::test_none_values",
+   "tests.test_more.InterleaveEvenlyTests::test_no_iterables",
+   "tests.test_more.NumericRangeTests::test_len_matches_iteration",
+   "tests.test_more.NumericRangeTests::test_reversed_datetime_limits",
+   "tests.test_more.NumericRangeTests::test_reversed_preserves_float_values",
+   "tests.test_more.ValueChainTests::test_type_error_while_iterating",
+   "tests.test_recipes.RunningWindowSizeTests::test_noninteger_window",
+   "tests.test_recipes.RunningWindowSizeTests::test_nonpositive_index"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "4 files changed, 236 insertions(+), 24 deletions(-)"
+ },
+ "tomlkit-r1": {
+  "repo": "python-poetry/tomlkit",
+  "target": 161,
+  "fixed": 19,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_items::test_adding_to_dotted_key_inside_inline_table",
+   "tests.test_items::test_adding_to_nested_dotted_key_inside_inline_table",
+   "tests.test_items::test_array_slice_assignment_does_not_mutate[index0-replacement0]",
+   "tests.test_items::test_array_slice_assignment_does_not_mutate[index1-replacement1]",
+   "tests.test_items::test_array_slice_assignment_does_not_mutate[index2-replacement2]",
+   "tests.test_items::test_array_slice_assignment_does_not_mutate[index3-replacement3]",
+   "tests.test_items::test_array_slice_assignment_does_not_mutate[index4-replacement4]",
+   "tests.test_items::test_array_slice_assignment_does_not_mutate[index5-replacement5]",
+   "tests.test_items::test_array_slice_deletion_keeps_render_in_sync",
+   "tests.test_items::test_string_add_escapes_appended_content",
+   "tests.test_parser::test_parser_rejects_overlong_decimal_integer",
+   "tests.test_parser::test_parser_rejects_surrogate_unicode_escapes[a = \"\\\\U0000D800\"]",
+   "tests.test_parser::test_parser_rejects_surrogate_unicode_escapes[a = \"\\\\U0000DC00\"]",
+   "tests.test_parser::test_parser_rejects_surrogate_unicode_escapes[a = \"\\\\U0000DFFF\"]",
+   "tests.test_toml_document::test_replace_dotted_key_with_aot_keeps_following_sibling",
+   "tests.test_toml_document::test_replace_dotted_key_with_empty_table_keeps_following_sibling",
+   "tests.test_toml_document::test_replace_dotted_key_with_table_keeps_following_sibling",
+   "tests.test_toml_document::test_replace_middle_table_with_value",
+   "tests.test_toml_document::test_replace_value_with_table_keeps_following_dotted_sibling"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "6 files changed, 638 insertions(+), 80 deletions(-)"
+ }
+}

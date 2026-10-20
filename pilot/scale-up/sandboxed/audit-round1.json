@@ -1,0 +1,508 @@
+{
+ "sqlparse-r2": {
+  "agent": "agent-a087d70936f1a8fb2",
+  "calls": 46,
+  "flags": [
+   [
+    "outside",
+    "Bash: /opensource.org/licenses/BSD-3-Clause"
+   ],
+   [
+    "outside",
+    "Bash: /_STRING_CHARS"
+   ],
+   [
+    "outside",
+    "Bash: /random.seed"
+   ],
+   [
+    "outside",
+    "Bash: /range"
+   ],
+   [
+    "outside",
+    "Bash: /backslash"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "tinydb-r3": {
+  "agent": "agent-a10f2df56889a8895",
+  "calls": 16,
+  "flags": [
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "more-itertools-r3": {
+  "agent": "agent-a251b4f4a24944fb3",
+  "calls": 36,
+  "flags": [
+   [
+    "outside",
+    "Bash: /bugs.python.org/issue38525"
+   ],
+   [
+    "outside",
+    "Bash: /bugs.python.org/issue38525"
+   ],
+   [
+    "outside",
+    "Bash: /indexing/reversed"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "pluggy-r3": {
+  "agent": "agent-a281a6ae1300ab7cb",
+  "calls": 14,
+  "flags": [
+   [
+    "outside",
+    "Bash: /d"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "more-itertools-r2": {
+  "agent": "agent-a2c80228731c649b8",
+  "calls": 42,
+  "flags": [
+   [
+    "outside",
+    "Bash: /n"
+   ],
+   [
+    "outside",
+    "Bash: /bugs.python.org/issue38525"
+   ],
+   [
+    "outside",
+    "Bash: /bugs.python.org/issue38525"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "tomlkit-r2": {
+  "agent": "agent-a4dcaefb1a53ac4b5",
+  "calls": 69,
+  "flags": [
+   [
+    "sensitive",
+    "Read: /root/.claude/projects/-home-claude-repo-lifetime-sim/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/tool-results/bdttlj2jl.txt"
+   ],
+   [
+    "outside",
+    "Read: /root/.claude/projects/-home-claude-repo-lifetime-sim/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/tool-results/bdttlj2jl.txt"
+   ],
+   [
+    "sensitive",
+    "Read: /root/.claude/projects/-home-claude-repo-lifetime-sim/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/tool-results/bumqxdrza.txt"
+   ],
+   [
+    "outside",
+    "Read: /root/.claude/projects/-home-claude-repo-lifetime-sim/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/tool-results/bumqxdrza.txt"
+   ],
+   [
+    "outside",
+    "Bash: /ok"
+   ],
+   [
+    "outside",
+    "Bash: /fails"
+   ],
+   [
+    "outside",
+    "Bash: /if"
+   ],
+   [
+    "outside",
+    "Bash: /assert"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "sqlparse-r1": {
+  "agent": "agent-a4dec8763a03bd328",
+  "calls": 55,
+  "flags": [
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t1.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t1.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t2.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t2.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t3.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t3.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t4.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t4.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/fuzz.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/fuzz.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t2.py"
+   ],
+   [
+    "outside",
+    "Bash: /range"
+   ],
+   [
+    "outside",
+    "Bash: /dev/stdin"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "cachetools-r3": {
+  "agent": "agent-a80962fbe3df4df31",
+  "calls": 21,
+  "flags": [
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "sqlparse-r3": {
+  "agent": "agent-a913a19e4aa631972",
+  "calls": 52,
+  "flags": [
+   [
+    "outside",
+    "Bash: /1"
+   ],
+   [
+    "outside",
+    "Bash: /return"
+   ],
+   [
+    "outside",
+    "Bash: /tmp."
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "marshmallow-r3": {
+  "agent": "agent-a92321723d78ac2e5",
+  "calls": 34,
+  "flags": [
+   [
+    "outside",
+    "Bash: /example.com"
+   ],
+   [
+    "outside",
+    "Bash: /login"
+   ],
+   [
+    "outside",
+    "Bash: /example.com"
+   ],
+   [
+    "outside",
+    "Bash: /example.com/"
+   ],
+   [
+    "outside",
+    "Bash: /x"
+   ],
+   [
+    "outside",
+    "Bash: /y"
+   ],
+   [
+    "outside",
+    "Bash: /x"
+   ],
+   [
+    "outside",
+    "Bash: /a.com"
+   ],
+   [
+    "outside",
+    "Bash: /login"
+   ],
+   [
+    "outside",
+    "Bash: /example.com"
+   ],
+   [
+    "outside",
+    "Bash: /login"
+   ],
+   [
+    "outside",
+    "Bash: /example.com"
+   ],
+   [
+    "outside",
+    "Bash: /x"
+   ],
+   [
+    "outside",
+    "Bash: /a.com"
+   ],
+   [
+    "outside",
+    "Bash: /y"
+   ],
+   [
+    "outside",
+    "Bash: /x"
+   ],
+   [
+    "outside",
+    "Bash: /a.com"
+   ],
+   [
+    "outside",
+    "Bash: /login"
+   ],
+   [
+    "outside",
+    "Bash: /example.com"
+   ],
+   [
+    "outside",
+    "Bash: /a.com"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "tomlkit-r1": {
+  "agent": "agent-ab603153e53f09149",
+  "calls": 56,
+  "flags": [
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t1.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t1.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t2.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t2.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t3.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t3.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t4.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t4.py"
+   ],
+   [
+    "outside",
+    "Bash: /100"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t4.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t1.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t1.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t3.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t3.py"
+   ],
+   [
+    "outside",
+    "Bash: /float"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t2.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t2.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t5.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t5.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t5.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t5.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t6.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t6.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t7.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t7.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/t7.py"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/prof"
+   ],
+   [
+    "outside",
+    "Bash: /tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/prof"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "tomlkit-r3": {
+  "agent": "agent-abccada1027e70860",
+  "calls": 31,
+  "flags": [
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "attrs-r3": {
+  "agent": "agent-ad34e2d47b89b9d25",
+  "calls": 64,
+  "flags": [
+   [
+    "outside",
+    "Bash: /astuple"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "attrs-r2": {
+  "agent": "agent-ae96fbec43977df89",
+  "calls": 27,
+  "flags": [
+   [
+    "outside",
+    "Bash: /@define/s/"
+   ],
+   [
+    "outside",
+    "Bash: /@frozen/"
+   ],
+   [
+    "outside",
+    "Bash: /o"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ },
+ "cachetools-r2": {
+  "agent": "agent-afd70d5ee4035f516",
+  "calls": 22,
+  "flags": [
+   [
+    "outside",
+    "Bash: /200000"
+   ],
+   [
+    "outside",
+    "Bash: /claude.ai/code/session_01BK2DiYnQagSjn22w44MwpZ"
+   ]
+  ]
+ }
+}

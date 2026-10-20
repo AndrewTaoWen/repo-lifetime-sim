@@ -1,0 +1,3114 @@
+{
+ "tinydb": [
+  {
+   "test": "tests.test_middlewares::test_caching_rejects_use_after_close",
+   "why": "added in a fix commit",
+   "commit": "18d73a1",
+   "subject": "fix: reject CachingMiddleware reads and writes after close (#634)",
+   "failure": "Failed: DID NOT RAISE ValueError",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_queries::test_all",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert not True",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_queries::test_any",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert not True",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_queries::test_custom_with_unhashable_params",
+   "why": "added in a fix commit",
+   "commit": "770486f",
+   "subject": "fix: freeze unhashable args in Query.test to prevent TypeError (#618)",
+   "failure": "TypeError: unhashable type: 'list'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_queries::test_regex_flags_affect_hash_and_query_cache",
+   "why": "added in a fix commit",
+   "commit": "e83efcd",
+   "subject": "fix: include regex flags in matches/search query hash (#640)",
+   "failure": "AssertionError: assert ('matches', ('name',), 'john') != ('matches', ('name',), 'john')",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_tables::test_persist_empty_does_not_wipe_existing_data",
+   "why": "added in a fix commit",
+   "commit": "717616b",
+   "subject": "fix: persist_empty must not wipe existing table data (#642)",
+   "failure": "AssertionError: assert 0 == 1",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_tinydb::test_insert_multiple_mixed_document_and_dict[json]",
+   "why": "added in a fix commit",
+   "commit": "bd034d0",
+   "subject": "fix: don't reuse IDs in mixed insert_multiple batches (#633)",
+   "failure": "assert [1, 1] == [1, 2]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_tinydb::test_insert_multiple_mixed_document_and_dict[memory]",
+   "why": "added in a fix commit",
+   "commit": "bd034d0",
+   "subject": "fix: don't reuse IDs in mixed insert_multiple batches (#633)",
+   "failure": "assert [1, 1] == [1, 2]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_utils::test_lru_cache_none_value",
+   "why": "added in a fix commit",
+   "commit": "19066e0",
+   "subject": "fix: fix LRUCache treating stored None values as missing (#635)",
+   "failure": "KeyError: 'a'",
+   "auto_label": "bug",
+   "label": "bug"
+  }
+ ],
+ "attrs": [
+  {
+   "test": "tests.test_annotations::test_is_class_var[annot4]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert False",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_functional.TestReplace::test_is_not_evolve",
+   "why": "wrong behaviour on snapshot",
+   "commit": "f53fc54",
+   "subject": "Stop evolve dunders from being modified (#1606)",
+   "failure": "AssertionError: assert '<bound metho...C1(x=1, y=2)>' == '<bound metho...C1(x=1, y=2)>'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_setattr.TestSetAttr::test_change_with_generator_hook",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4b5b295",
+   "subject": "Make on_setattr hooks accept generators (#1592)",
+   "failure": "AssertionError: assert 'yielded!' == <generator object TestSetAttr.test_change_with_generator_hook.<locals>.hook at 0x7fef91aac5f0>",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_setattr.TestSetAttr::test_generator_hook_class_level",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4b5b295",
+   "subject": "Make on_setattr hooks accept generators (#1592)",
+   "failure": "assert 1 == 0",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_setattr.TestSetAttr::test_generator_hook_executes_after_yielding",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4b5b295",
+   "subject": "Make on_setattr hooks accept generators (#1592)",
+   "failure": "AssertionError: assert [('pre', 'x')...post', 'xxx')] == []",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_setattr.TestSetAttr::test_generator_hook_not_called_in_init",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4b5b295",
+   "subject": "Make on_setattr hooks accept generators (#1592)",
+   "failure": "AssertionError: assert 'hooked' == <generator object TestSetAttr.test_generator_hook_not_called_in_init.<locals>.hook at 0x7fef91aad970>",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_setattr.TestSetAttr::test_generator_hook_with_define",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4b5b295",
+   "subject": "Make on_setattr hooks accept generators (#1592)",
+   "failure": "AssertionError: assert 'WORLD' == <generator object TestSetAttr.test_generator_hook_with_define.<locals>.hook at 0x7fef91f89cb0>",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_setattr.TestSetAttr::test_generator_post_yield_exception",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4b5b295",
+   "subject": "Make on_setattr hooks accept generators (#1592)",
+   "failure": "Failed: DID NOT RAISE RuntimeError",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_setattr.TestSetAttr::test_generator_pre_yield_exception",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4b5b295",
+   "subject": "Make on_setattr hooks accept generators (#1592)",
+   "failure": "Failed: DID NOT RAISE ValueError",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_setattr.TestSetAttr::test_generator_yields_multiple_times",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4b5b295",
+   "subject": "Make on_setattr hooks accept generators (#1592)",
+   "failure": "Failed: DID NOT RAISE RuntimeError",
+   "auto_label": "bug",
+   "label": "feature"
+  }
+ ],
+ "cachetools": [
+  {
+   "test": "tests.test_cache.CacheTest::test_getsizeof_negative",
+   "why": "added in a fix commit",
+   "commit": "d5c7eea",
+   "subject": "Reject negative cache item sizes",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_cache.CacheTest::test_getsizeof_replace_grow",
+   "why": "added in a fix commit",
+   "commit": "39b31bc",
+   "subject": "Fix #405: Fix Cache.__setitem__ over-evicting when growing an existing key",
+   "failure": "AssertionError: 2 != 1",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_cache.CacheTest::test_maxsize_negative",
+   "why": "added in a fix commit",
+   "commit": "dd181c5",
+   "subject": "Reject negative maxsize in Cache.__init__",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_cached.CacheWrapperTest::test_stacked_decorators",
+   "why": "added in a fix commit",
+   "commit": "41e4b16",
+   "subject": "Fix @cached stacking behavior.",
+   "failure": "AssertionError: Cache({}, maxsize=2, currsize=0) is not Cache({}, maxsize=2, currsize=0)",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_cached.NoneWrapperTest::test_decorator",
+   "why": "",
+   "commit": "72adda6",
+   "subject": "Minor test improvements.",
+   "failure": "IndexError: list index out of range",
+   "auto_label": "unclear",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_cached.NoneWrapperTest::test_decorator_attributes",
+   "why": "",
+   "commit": "",
+   "subject": "",
+   "failure": "IndexError: list index out of range",
+   "auto_label": "unclear",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_cached.NoneWrapperTest::test_decorator_clear",
+   "why": "",
+   "commit": "",
+   "subject": "",
+   "failure": "IndexError: list index out of range",
+   "auto_label": "unclear",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_cached.NoneWrapperTest::test_decorator_info",
+   "why": "",
+   "commit": "",
+   "subject": "",
+   "failure": "IndexError: list index out of range",
+   "auto_label": "unclear",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_cachedmethod.CacheMethodTest::test_decorated_override",
+   "why": "",
+   "commit": "c624c83",
+   "subject": "Refactor unit tests.",
+   "failure": "RecursionError: maximum recursion depth exceeded",
+   "auto_label": "unclear",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_cachedmethod.CacheMethodTest::test_multilevel_override",
+   "why": "",
+   "commit": "c624c83",
+   "subject": "Refactor unit tests.",
+   "failure": "RecursionError: maximum recursion depth exceeded",
+   "auto_label": "unclear",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_cachedmethod.CacheMethodTest::test_undecorated_override",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c624c83",
+   "subject": "Refactor unit tests.",
+   "failure": "AssertionError: 0 != 1",
+   "auto_label": "bug",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_cachedmethod.UnboundMethodTest::test_base_class_call",
+   "why": "API missing on snapshot",
+   "commit": "aa73a19",
+   "subject": "Fix #435: Restore class access to cached instance methods (#436)",
+   "failure": "AttributeError: 'NoneType' object has no attribute 'cache'",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_cachedmethod.UnboundMethodTest::test_class_access_identity",
+   "why": "wrong behaviour on snapshot",
+   "commit": "7388397",
+   "subject": "Refactor method descriptor.",
+   "failure": "AssertionError: <cachetools._cachedmethod._unlocked.<locals>.Descriptor.Wrapper object at 0x7f655102a810> is not <cachetools._cachedmethod._unlocked.<locals>.Descriptor.Wrapper object at 0x7f655102a75",
+   "auto_label": "bug",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_cachedmethod.UnboundMethodTest::test_class_call",
+   "why": "API missing on snapshot",
+   "commit": "aa73a19",
+   "subject": "Fix #435: Restore class access to cached instance methods (#436)",
+   "failure": "AttributeError: 'NoneType' object has no attribute 'cache'",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_cachedmethod.UnboundMethodTest::test_class_call_info",
+   "why": "API missing on snapshot",
+   "commit": "c624c83",
+   "subject": "Refactor unit tests.",
+   "failure": "AttributeError: 'NoneType' object has no attribute 'cache'",
+   "auto_label": "feature",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_cachedmethod.UnboundMethodTest::test_class_call_without_instance",
+   "why": "API missing on snapshot",
+   "commit": "95e6add",
+   "subject": "Fix #443: Restore autospec calls to @cachedmethod decorated methods",
+   "failure": "AttributeError: 'NoneType' object has no attribute 'cache'",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_fifo.FIFOCacheTest::test_getsizeof_negative",
+   "why": "added in a fix commit",
+   "commit": "d5c7eea",
+   "subject": "Reject negative cache item sizes",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_fifo.FIFOCacheTest::test_getsizeof_replace_grow",
+   "why": "added in a fix commit",
+   "commit": "39b31bc",
+   "subject": "Fix #405: Fix Cache.__setitem__ over-evicting when growing an existing key",
+   "failure": "AssertionError: 2 != 1",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_fifo.FIFOCacheTest::test_maxsize_negative",
+   "why": "added in a fix commit",
+   "commit": "dd181c5",
+   "subject": "Reject negative maxsize in Cache.__init__",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_func.FIFODecoratorTest::test_stacked_decorators",
+   "why": "added in a fix commit",
+   "commit": "41e4b16",
+   "subject": "Fix @cached stacking behavior.",
+   "failure": "AssertionError: CacheInfo(hits=0, misses=1, maxsize=2, currsize=1) != (1, 1, 3, 1)",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_func.LFUDecoratorTest::test_stacked_decorators",
+   "why": "added in a fix commit",
+   "commit": "41e4b16",
+   "subject": "Fix @cached stacking behavior.",
+   "failure": "AssertionError: CacheInfo(hits=0, misses=1, maxsize=2, currsize=1) != (1, 1, 3, 1)",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_func.LRUDecoratorTest::test_stacked_decorators",
+   "why": "added in a fix commit",
+   "commit": "41e4b16",
+   "subject": "Fix @cached stacking behavior.",
+   "failure": "AssertionError: CacheInfo(hits=0, misses=1, maxsize=2, currsize=1) != (1, 1, 3, 1)",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_func.RRDecoratorTest::test_stacked_decorators",
+   "why": "added in a fix commit",
+   "commit": "41e4b16",
+   "subject": "Fix @cached stacking behavior.",
+   "failure": "AssertionError: CacheInfo(hits=0, misses=1, maxsize=2, currsize=1) != (1, 1, 3, 1)",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_func.TTLDecoratorTest::test_stacked_decorators",
+   "why": "added in a fix commit",
+   "commit": "41e4b16",
+   "subject": "Fix @cached stacking behavior.",
+   "failure": "AssertionError: CacheInfo(hits=0, misses=1, maxsize=2, currsize=1) != (1, 1, 3, 1)",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_lfu.LFUCacheTest::test_getsizeof_negative",
+   "why": "added in a fix commit",
+   "commit": "d5c7eea",
+   "subject": "Reject negative cache item sizes",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_lfu.LFUCacheTest::test_getsizeof_replace_grow",
+   "why": "added in a fix commit",
+   "commit": "39b31bc",
+   "subject": "Fix #405: Fix Cache.__setitem__ over-evicting when growing an existing key",
+   "failure": "AssertionError: 2 != 1",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_lfu.LFUCacheTest::test_maxsize_negative",
+   "why": "added in a fix commit",
+   "commit": "dd181c5",
+   "subject": "Reject negative maxsize in Cache.__init__",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_lru.LRUCacheTest::test_getsizeof_negative",
+   "why": "added in a fix commit",
+   "commit": "d5c7eea",
+   "subject": "Reject negative cache item sizes",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_lru.LRUCacheTest::test_getsizeof_replace_grow",
+   "why": "added in a fix commit",
+   "commit": "39b31bc",
+   "subject": "Fix #405: Fix Cache.__setitem__ over-evicting when growing an existing key",
+   "failure": "AssertionError: 2 != 1",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_lru.LRUCacheTest::test_maxsize_negative",
+   "why": "added in a fix commit",
+   "commit": "dd181c5",
+   "subject": "Reject negative maxsize in Cache.__init__",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_rr.RRCacheTest::test_getsizeof_negative",
+   "why": "added in a fix commit",
+   "commit": "d5c7eea",
+   "subject": "Reject negative cache item sizes",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_rr.RRCacheTest::test_maxsize_negative",
+   "why": "added in a fix commit",
+   "commit": "dd181c5",
+   "subject": "Reject negative maxsize in Cache.__init__",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_rr.RRCacheTest::test_rr_popitem_empty_custom_choice",
+   "why": "added in a fix commit",
+   "commit": "bcf9e81",
+   "subject": "Fix #423: Detect an empty RRCache before calling choice.",
+   "failure": "ValueError: min() iterable argument is empty",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_tlru.TLRUCacheTest::test_getsizeof_negative",
+   "why": "added in a fix commit",
+   "commit": "d5c7eea",
+   "subject": "Reject negative cache item sizes",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_tlru.TLRUCacheTest::test_getsizeof_replace_grow",
+   "why": "added in a fix commit",
+   "commit": "39b31bc",
+   "subject": "Fix #405: Fix Cache.__setitem__ over-evicting when growing an existing key",
+   "failure": "AssertionError: 2 != 1",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_tlru.TLRUCacheTest::test_maxsize_negative",
+   "why": "added in a fix commit",
+   "commit": "dd181c5",
+   "subject": "Reject negative maxsize in Cache.__init__",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_tlru.TLRUCacheTest::test_overwrite_existing_with_expired",
+   "why": "added in a fix commit",
+   "commit": "c0fdf6a",
+   "subject": "Fix TLRUCache silently keeping stale value on expired overwrite",
+   "failure": "AssertionError: 1 unexpectedly found in TLRUCache({1: 5}, maxsize=2, currsize=1)",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_ttl.TTLCacheTest::test_getsizeof_negative",
+   "why": "added in a fix commit",
+   "commit": "d5c7eea",
+   "subject": "Reject negative cache item sizes",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_ttl.TTLCacheTest::test_getsizeof_replace_grow",
+   "why": "added in a fix commit",
+   "commit": "39b31bc",
+   "subject": "Fix #405: Fix Cache.__setitem__ over-evicting when growing an existing key",
+   "failure": "AssertionError: 2 != 1",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_ttl.TTLCacheTest::test_maxsize_negative",
+   "why": "added in a fix commit",
+   "commit": "dd181c5",
+   "subject": "Reject negative maxsize in Cache.__init__",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_ttl.TTLCacheTest::test_ttl_datetime_overflow",
+   "why": "",
+   "commit": "c624c83",
+   "subject": "Refactor unit tests.",
+   "failure": "TypeError: '<' not supported between instances of 'datetime.datetime' and 'NoneType'",
+   "auto_label": "unclear",
+   "label": "unclear"
+  }
+ ],
+ "marshmallow": [
+  {
+   "test": "tests.test_deserialization.TestFieldDeserialization::test_enum_by_value_allow_none_default",
+   "why": "added in a feature commit",
+   "commit": "ec2178c",
+   "subject": "Improve the allow_none default for by_value enums",
+   "failure": "marshmallow.exceptions.ValidationError: Field may not be null.",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_deserialization.TestFieldDeserialization::test_invalid_timedelta_field_deserialization[nan]",
+   "why": "",
+   "commit": "",
+   "subject": "",
+   "failure": "ValueError: cannot convert float NaN to integer",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_fields.TestPluckFiekd::test_pluck_empty_data_key[False]",
+   "why": "added in a fix commit",
+   "commit": "5761bea",
+   "subject": "Fix Pluck handling of empty data_key",
+   "failure": "marshmallow.exceptions.ValidationError: {'child': {'value': ['Unknown field.']}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_fields.TestPluckFiekd::test_pluck_empty_data_key[True]",
+   "why": "added in a fix commit",
+   "commit": "5761bea",
+   "subject": "Fix Pluck handling of empty data_key",
+   "failure": "marshmallow.exceptions.ValidationError: {'child': {0: {'value': ['Unknown field.']}, 1: {'value': ['Unknown field.']}}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_validate::test_url_absolute_valid[http://example.org#fragment]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "marshmallow.exceptions.ValidationError: Not a valid URL.",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_validate::test_url_absolute_valid[http://user@example.com#fragment]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "marshmallow.exceptions.ValidationError: Not a valid URL.",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_validate::test_url_relative_only_valid[#frag]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "marshmallow.exceptions.ValidationError: Not a valid URL.",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_validate::test_url_relative_valid[#frag]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "marshmallow.exceptions.ValidationError: Not a valid URL.",
+   "auto_label": "bug",
+   "label": "bug"
+  }
+ ],
+ "sqlparse": [
+  {
+   "test": "tests.test_dos_prevention.TestDoSPrevention::test_nested_case_within_cap_under_1s",
+   "why": "added in a feature commit",
+   "commit": "f80af6a",
+   "subject": "Add tests from PR, update CHANGELOG and AUTHORS.",
+   "failure": "AssertionError: parse took 2.29s, expected sub-second",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_dos_prevention.TestDoSPrevention::test_nested_paren_within_cap_under_1s",
+   "why": "added in a feature commit",
+   "commit": "f80af6a",
+   "subject": "Add tests from PR, update CHANGELOG and AUTHORS.",
+   "failure": "AssertionError: Regex pattern did not match.",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_format.TestOutputFormat::test_php_escapes_backslashes",
+   "why": "wrong behaviour on snapshot",
+   "commit": "53ff44b",
+   "subject": "Escape backslashes in output formatters.",
+   "failure": "assert '$sql = \"select \\'\\\\foo\\\\\\'\";' == '$sql = \"sele...\\\\foo\\\\\\\\\\'\";'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_format.TestOutputFormat::test_python_escapes_backslashes",
+   "why": "wrong behaviour on snapshot",
+   "commit": "53ff44b",
+   "subject": "Escape backslashes in output formatters.",
+   "failure": "assert \"sql = 'select \\\\'\\\\foo\\\\\\\\''\" == \"sql = 'selec...\\\\foo\\\\\\\\\\\\''\"",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_grouping::test_grouping_alias_ctas_lowercase_as",
+   "why": "added in a fix commit",
+   "commit": "111b35c",
+   "subject": "Fix function grouping skipped for lowercase 'as' in CREATE TABLE AS SELECT",
+   "failure": "AssertionError: assert None == 'col1'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parse::test_get_real_name_multi_part_dotted",
+   "why": "added in a fix commit",
+   "commit": "f66d12c",
+   "subject": "Fix get_real_name for names with more than two dotted parts (#332)",
+   "failure": "AssertionError: assert 'col' == 'schema'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_regressions::test_alter_table_row_format_issue773",
+   "why": "wrong behaviour on snapshot",
+   "commit": "26d7d65",
+   "subject": "Recognize ROW_FORMAT as a keyword (issue773)",
+   "failure": "assert None is not None",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_regressions::test_between_leading_dot_float_issue601[a BETWEEN .03 AND .06]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "a194d31",
+   "subject": "Keep keyword before leading-dot float literal (issue601)",
+   "failure": "assert None is not None",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_regressions::test_between_leading_dot_float_issue601[a between .03 and .06]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "a194d31",
+   "subject": "Keep keyword before leading-dot float literal (issue601)",
+   "failure": "assert None is not None",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_regressions::test_materialized_view_issue752",
+   "why": "wrong behaviour on snapshot",
+   "commit": "ac3b9e0",
+   "subject": "Recognize MATERIALIZED as a keyword (issue752)",
+   "failure": "AssertionError: assert None == Token.Keyword",
+   "auto_label": "bug",
+   "label": "feature"
+  }
+ ],
+ "pluggy": [
+  {
+   "test": "testing.test_details::test_dist_facade_identity_equality_and_hash",
+   "why": "API missing on snapshot",
+   "commit": "53eeddf",
+   "subject": "Add list_plugin_distributions() for direct importlib.metadata access",
+   "failure": "ModuleNotFoundError: No module named 'pluggy._compat'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_details::test_dist_facade_list_attributes",
+   "why": "API missing on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "ModuleNotFoundError: No module named 'pluggy._compat'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_details::test_dist_facade_project_name_and_delegation",
+   "why": "API missing on snapshot",
+   "commit": "53eeddf",
+   "subject": "Add list_plugin_distributions() for direct importlib.metadata access",
+   "failure": "ModuleNotFoundError: No module named 'pluggy._compat'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_details::test_not_all_arguments_warning_points_at_the_caller",
+   "why": "wrong behaviour on snapshot",
+   "commit": "0f2614d",
+   "subject": "Point the missing-argument warning at the code making the hook call",
+   "failure": "AssertionError: assert '/tmp/claude-...ggy/_hooks.py' == '/tmp/claude-...st_details.py'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_details::test_warn_when_deprecated_args_with_defaults_specified",
+   "why": "added in a fix commit",
+   "commit": "6abdcf6",
+   "subject": "Merge pull request #743 from feiiiiii5/fix-warn-defaulted-args",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>,) were emitted.",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_added_after_registration",
+   "why": "added in a feature commit",
+   "commit": "a031c1c",
+   "subject": "Allow hookspecs to declare default values for arguments",
+   "failure": "pluggy._manager.PluginValidationError: Plugin '139648499740896' for hook 'hello'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_basic",
+   "why": "added in a feature commit",
+   "commit": "a031c1c",
+   "subject": "Allow hookspecs to declare default values for arguments",
+   "failure": "pluggy._manager.PluginValidationError: Plugin '139648499740560' for hook 'hello'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_call_extra",
+   "why": "added in a feature commit",
+   "commit": "a031c1c",
+   "subject": "Allow hookspecs to declare default values for arguments",
+   "failure": "pluggy._result.HookCallError: hook call must provide argument 'new_arg'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_call_value_overrides_hookimpl_default",
+   "why": "wrong behaviour on snapshot",
+   "commit": "51ec448",
+   "subject": "Change precedence of hook call value, hookspec default, hookimpl default",
+   "failure": "AssertionError: assert ['impl-default'] == ['call']",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_call_value_overrides_hookimpl_default_in_wrappers",
+   "why": "wrong behaviour on snapshot",
+   "commit": "51ec448",
+   "subject": "Change precedence of hook call value, hookspec default, hookimpl default",
+   "failure": "AssertionError: assert ['impl-default'] == ['call']",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_falsy_values_allowed_as_default[0]",
+   "why": "added in a feature commit",
+   "commit": "a031c1c",
+   "subject": "Allow hookspecs to declare default values for arguments",
+   "failure": "pluggy._manager.PluginValidationError: Plugin '139648499738544' for hook 'hello'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_falsy_values_allowed_as_default[False]",
+   "why": "added in a feature commit",
+   "commit": "a031c1c",
+   "subject": "Allow hookspecs to declare default values for arguments",
+   "failure": "pluggy._manager.PluginValidationError: Plugin '139648499741568' for hook 'hello'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_falsy_values_allowed_as_default[None]",
+   "why": "added in a feature commit",
+   "commit": "a031c1c",
+   "subject": "Allow hookspecs to declare default values for arguments",
+   "failure": "pluggy._manager.PluginValidationError: Plugin '139648499741904' for hook 'hello'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_falsy_values_allowed_as_default[]",
+   "why": "added in a feature commit",
+   "commit": "a031c1c",
+   "subject": "Allow hookspecs to declare default values for arguments",
+   "failure": "pluggy._manager.PluginValidationError: Plugin '139648499738880' for hook 'hello'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_historic_replay",
+   "why": "added in a feature commit",
+   "commit": "a031c1c",
+   "subject": "Allow hookspecs to declare default values for arguments",
+   "failure": "pluggy._manager.PluginValidationError: Plugin '139648498969504' for hook 'hello'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_hookspec_default_and_call_override_hookimpl_default",
+   "why": "wrong behaviour on snapshot",
+   "commit": "51ec448",
+   "subject": "Change precedence of hook call value, hookspec default, hookimpl default",
+   "failure": "AssertionError: assert ['impl-default'] == ['spec-default']",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_invocations.TestHookspecDefaultArgumentValue::test_old_spec_new_impl",
+   "why": "added in a feature commit",
+   "commit": "a031c1c",
+   "subject": "Allow hookspecs to declare default values for arguments",
+   "failure": "AssertionError: assert [(1, 'impl-default')] == [(1, 'call')]",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_hook_tracing_escapes_surrogate_values",
+   "why": "",
+   "commit": "1b23f2e",
+   "subject": "Make hook tracing defensive about repr and surrogates",
+   "failure": "UnicodeEncodeError: 'utf-8' codec can't encode character '\\ud800' in position 31: surrogates not allowed",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_hook_tracing_with_broken_repr[spec-is-class]",
+   "why": "",
+   "commit": "1b23f2e",
+   "subject": "Make hook tracing defensive about repr and surrogates",
+   "failure": "RuntimeError: repr is broken",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_hook_tracing_with_broken_repr[spec-is-instance]",
+   "why": "",
+   "commit": "1b23f2e",
+   "subject": "Make hook tracing defensive about repr and surrogates",
+   "failure": "RuntimeError: repr is broken",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_hookspec_lookup_ignores_properties",
+   "why": "wrong behaviour on snapshot",
+   "commit": "aa6e1f4",
+   "subject": "Do not bind callables stored on the plugin instance",
+   "failure": "AssertionError: assert not True",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_load_setuptools_instantiation[bool-raises]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: Plugin truthiness must not be evaluated",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_load_setuptools_instantiation[falsey]",
+   "why": "",
+   "commit": "",
+   "subject": "",
+   "failure": "ValueError: Plugin name already registered: myname=<test_pluginmanager.test_load_setuptools_instantiation.<locals>.EntryPoint.load.<locals>.PseudoPlugin object at 0x7f0273ceb0e0>",
+   "auto_label": "unclear",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_load_setuptools_instantiation[truthy]",
+   "why": "API missing on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AttributeError: 'PluginManager' object has no attribute 'list_plugin_distributions'. Did you mean: 'list_plugin_distinfo'?",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_hookimpl_above_classmethod[spec-is-class]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c1c39fe",
+   "subject": "Discover hooks via inspect.getattr_static instead of getattr",
+   "failure": "assert [] == [[1]]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_hookimpl_above_classmethod[spec-is-instance]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c1c39fe",
+   "subject": "Discover hooks via inspect.getattr_static instead of getattr",
+   "failure": "assert [] == [[1]]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_hookimpl_above_staticmethod[spec-is-class]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c1c39fe",
+   "subject": "Discover hooks via inspect.getattr_static instead of getattr",
+   "failure": "assert [] == [[1]]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_hookimpl_above_staticmethod[spec-is-instance]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c1c39fe",
+   "subject": "Discover hooks via inspect.getattr_static instead of getattr",
+   "failure": "assert [] == [[1]]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_ignores_cached_property[spec-is-class]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c1c39fe",
+   "subject": "Discover hooks via inspect.getattr_static instead of getattr",
+   "failure": "assert not True",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_ignores_cached_property[spec-is-instance]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c1c39fe",
+   "subject": "Discover hooks via inspect.getattr_static instead of getattr",
+   "failure": "assert not True",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_ignores_none",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2e37743",
+   "subject": "manager: ignore `register(None)` instead of raising `TypeError`",
+   "failure": "AssertionError: assert '10219520' is None",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_ignores_properties[spec-is-class]",
+   "why": "added in a feature commit",
+   "commit": "b2d1c4c",
+   "subject": "remove pydantic-specific logic and support hookspecs too",
+   "failure": "assert not True",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_ignores_properties[spec-is-instance]",
+   "why": "added in a feature commit",
+   "commit": "b2d1c4c",
+   "subject": "remove pydantic-specific logic and support hookspecs too",
+   "failure": "assert not True",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_ignores_raising_descriptors[spec-is-class]",
+   "why": "added in a feature commit",
+   "commit": "09676ee",
+   "subject": "Address review: soften AttributeError comments and add descriptor test",
+   "failure": "AttributeError: descriptor access failed",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_ignores_raising_descriptors[spec-is-instance]",
+   "why": "added in a feature commit",
+   "commit": "09676ee",
+   "subject": "Address review: soften AttributeError comments and add descriptor test",
+   "failure": "AttributeError: descriptor access failed",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_slot_attribute_function_is_not_bound[spec-is-class]",
+   "why": "API missing on snapshot",
+   "commit": "aa6e1f4",
+   "subject": "Do not bind callables stored on the plugin instance",
+   "failure": "AttributeError: 'test_pluginmanager.test_register_slot_attribute_function_is_not_bound.<locals>.Plugin' object has no attribute 'unset'",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_slot_attribute_function_is_not_bound[spec-is-instance]",
+   "why": "API missing on snapshot",
+   "commit": "aa6e1f4",
+   "subject": "Do not bind callables stored on the plugin instance",
+   "failure": "AttributeError: 'test_pluginmanager.test_register_slot_attribute_function_is_not_bound.<locals>.Plugin' object has no attribute 'unset'",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_validation_failure_leaves_no_state[spec-is-class]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "629246a",
+   "subject": "Validate all hookimpls before registering a plugin",
+   "failure": "assert not True",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_register_validation_failure_leaves_no_state[spec-is-instance]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "629246a",
+   "subject": "Validate all hookimpls before registering a plugin",
+   "failure": "assert not True",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_subset_hook_caller_with_specname",
+   "why": "added in a fix commit",
+   "commit": "3d5417a",
+   "subject": "Fix `subset_hook_caller` getting confused by `specname`",
+   "failure": "assert [2, 1] == [2]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_unregister_drops_plugin_distribution",
+   "why": "API missing on snapshot",
+   "commit": "50585e0",
+   "subject": "Drop entry-point distribution info when unregistering a plugin",
+   "failure": "AttributeError: 'PluginManager' object has no attribute 'list_plugin_distributions'. Did you mean: 'list_plugin_distinfo'?",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_unregister_falsy_plugin",
+   "why": "wrong behaviour on snapshot",
+   "commit": "44474dd",
+   "subject": "Fully unregister falsy plugin objects",
+   "failure": "assert not True",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_pluginmanager::test_unregister_plugin_and_name_must_agree",
+   "why": "wrong behaviour on snapshot",
+   "commit": "ccae6b9",
+   "subject": "Raise ValueError when unregister's plugin and name disagree",
+   "failure": "Failed: DID NOT RAISE ValueError",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_broken_exception_repr_falls_back_to_type_name",
+   "why": "",
+   "commit": "0022c46",
+   "subject": "Cover the unpresentable object paths in tracing",
+   "failure": "test_tracer.test_broken_exception_repr_falls_back_to_type_name.<locals>.BadError",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_broken_repr_on_pathlike_does_not_raise",
+   "why": "added in a feature commit",
+   "commit": "2143bb6",
+   "subject": "Cover the repr guards added for traced values",
+   "failure": "RuntimeError: repr is broken",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_broken_repr_value_does_not_raise",
+   "why": "",
+   "commit": "1b23f2e",
+   "subject": "Make hook tracing defensive about repr and surrogates",
+   "failure": "RuntimeError: repr is broken",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_broken_str_label_does_not_raise",
+   "why": "",
+   "commit": "1b23f2e",
+   "subject": "Make hook tracing defensive about repr and surrogates",
+   "failure": "RuntimeError: str is broken",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_broken_str_subclass_value_does_not_raise",
+   "why": "added in a fix commit",
+   "commit": "d57da14",
+   "subject": "Keep hook tracing from crashing on impostor values (#792)",
+   "failure": "assert \"RuntimeError('splitlines is broken') raised in format()\" in 'test [test]\\n    arg: x\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_carriage_return_breaks_the_block[first\\r\\nsecond]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "742393e",
+   "subject": "Treat every line break in a traced value as one",
+   "failure": "AssertionError: assert 'call [test]\\...t\\r\\nsecond\\n' == 'call [test]\\...     second\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_carriage_return_breaks_the_block[first\\rsecond]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "742393e",
+   "subject": "Treat every line break in a traced value as one",
+   "failure": "AssertionError: assert 'call [test]\\...rst\\rsecond\\n' == 'call [test]\\...     second\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_dictargs_escape_surrogate_values",
+   "why": "wrong behaviour on snapshot",
+   "commit": "1b23f2e",
+   "subject": "Make hook tracing defensive about repr and surrogates",
+   "failure": "assert 'test [test]\\...arg: \\ud800\\n' == \"test [test]\\...: '\\\\ud800'\\n\"",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_empty_string_is_visible",
+   "why": "added in a feature commit",
+   "commit": "d5220f7",
+   "subject": "Add detail to traced values where str() is ambiguous",
+   "failure": "AssertionError: assert 'call [test]\\...   right: x\\n' == 'call [test]\\...   right: x\\n'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_tracer::test_enum_shows_member_name",
+   "why": "added in a feature commit",
+   "commit": "d5220f7",
+   "subject": "Add detail to traced values where str() is ambiguous",
+   "failure": "AssertionError: assert 'call [test]\\n    status: 1\\n' == 'call [test]\\....FAILED: 1>\\n'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_tracer::test_error_from_exception_repr_is_not_rendered",
+   "why": "",
+   "commit": "0022c46",
+   "subject": "Cover the unpresentable object paths in tracing",
+   "failure": "test_tracer.test_error_from_exception_repr_is_not_rendered.<locals>.BadError: <exception str() failed>",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_escape_surrogates_from_repr",
+   "why": "wrong behaviour on snapshot",
+   "commit": "1b23f2e",
+   "subject": "Make hook tracing defensive about repr and surrogates",
+   "failure": "AssertionError: assert 'test [test]\\...arg: \\ud800\\n' == 'test [test]\\...rg: \\\\ud800\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_escape_surrogates_in_labels",
+   "why": "wrong behaviour on snapshot",
+   "commit": "1b23f2e",
+   "subject": "Make hook tracing defensive about repr and surrogates",
+   "failure": "AssertionError: assert '\\ud800 [test]\\n' == '\\\\ud800 [test]\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_keyboard_interrupt_from_exception_repr_propagates",
+   "why": "",
+   "commit": "0022c46",
+   "subject": "Cover the unpresentable object paths in tracing",
+   "failure": "test_tracer.test_keyboard_interrupt_from_exception_repr_propagates.<locals>.InterruptingError",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_multiline_value_is_indented_under_its_key",
+   "why": "added in a feature commit",
+   "commit": "6a05326",
+   "subject": "Address review: indent blocks, trim changelog and docs",
+   "failure": "AssertionError: assert 'call [test]\\...cond\\nthird\\n' == 'call [test]\\...      third\\n'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_tracer::test_non_str_with_line_breaks_is_indented",
+   "why": "wrong behaviour on snapshot",
+   "commit": "742393e",
+   "subject": "Treat every line break in a traced value as one",
+   "failure": "AssertionError: assert 'call [test]\\...t\\rsecond\\n\\n' == 'call [test]\\...     second\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_pathlike_shows_its_type",
+   "why": "added in a feature commit",
+   "commit": "d5220f7",
+   "subject": "Add detail to traced values where str() is ambiguous",
+   "failure": "assert 'call [test]\\n    p: /x\\n' == \"call [test]\\...xPath('/x')\\n\"",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_tracer::test_str_enum_shows_member_name",
+   "why": "wrong behaviour on snapshot",
+   "commit": "00ae36a",
+   "subject": "Show the member name of a traced StrEnum",
+   "failure": "assert 'call [test]\\...mode: plain\\n' == \"call [test]\\...N: 'plain'>\\n\"",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "testing.test_tracer::test_tracing_dict_result_is_not_read_as_arguments",
+   "why": "added in a fix commit",
+   "commit": "d57da14",
+   "subject": "Keep hook tracing from crashing on impostor values (#792)",
+   "failure": "assert [\"  echo [hoo...      a: 1\\n'] == [\"  echo [hoo... 1} [hook]\\n\"]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_tracing_impostor_value_is_traced_as_itself[mock-spec-dict]",
+   "why": "API missing on snapshot",
+   "commit": "d57da14",
+   "subject": "Keep hook tracing from crashing on impostor values (#792)",
+   "failure": "TypeError: 'Mock' object is not iterable",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_trailing_newline_string_is_quoted",
+   "why": "wrong behaviour on snapshot",
+   "commit": "742393e",
+   "subject": "Treat every line break in a traced value as one",
+   "failure": "assert 'call [test]\\...val: line\\n\\n' == \"call [test]\\...: 'line\\\\n'\\n\"",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "testing.test_tracer::test_whitespace_strings_are_quoted",
+   "why": "added in a feature commit",
+   "commit": "d5220f7",
+   "subject": "Add detail to traced values where str() is ambiguous",
+   "failure": "assert 'call [test]\\...l:  padded \\n' == \"call [test]\\... ' padded '\\n\"",
+   "auto_label": "feature",
+   "label": "feature"
+  }
+ ],
+ "more-itertools": [
+  {
+   "test": "tests.test_more.BucketTests::test_falsey_validator_is_honoured",
+   "why": "added in a fix commit",
+   "commit": "67fcf64",
+   "subject": "fix: honour a falsey validator in bucket (#1308)",
+   "failure": "AssertionError: Lists differ: [10] != []",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.BucketTests::test_getitem_miss_does_not_add_key",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2b8d5cd",
+   "subject": "Issue 1284: don't let a bucket lookup invent a key",
+   "failure": "AssertionError: Items in the first set but not the second:",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.BucketTests::test_in_does_not_add_key",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2b8d5cd",
+   "subject": "Issue 1284: don't let a bucket lookup invent a key",
+   "failure": "AssertionError: Items in the first set but not the second:",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.BucketTests::test_in_does_not_add_key_with_validator",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2b8d5cd",
+   "subject": "Issue 1284: don't let a bucket lookup invent a key",
+   "failure": "AssertionError: Items in the first set but not the second:",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.BucketTests::test_keys_are_only_those_seen",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2b8d5cd",
+   "subject": "Issue 1284: don't let a bucket lookup invent a key",
+   "failure": "AssertionError: Items in the first set but not the second:",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.ChunkedTests::test_negative",
+   "why": "added in a feature commit",
+   "commit": "43decdd",
+   "subject": "Support negative start/stop in iter_index for general iterables",
+   "failure": "AssertionError: \"n must be at least 0\" does not match \"Stop argument for islice() must be None or an integer: 0 <= x <= sys.maxsize.\"",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_more.CombinationWithReplacementIndexTests::test_invalid_none_values",
+   "why": "added in a feature commit",
+   "commit": "069b110",
+   "subject": "Add @jokrasno's test cases",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.CombinationWithReplacementIndexTests::test_none_values",
+   "why": "added in a feature commit",
+   "commit": "069b110",
+   "subject": "Add @jokrasno's test cases",
+   "failure": "AssertionError: 9 != 8",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.ConstrainedBatchesTests::test_nonpositive_max_count",
+   "why": "wrong behaviour on snapshot",
+   "commit": "87d1257",
+   "subject": "test invalid and one-item batch count limits",
+   "failure": "AssertionError: ValueError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.IchunkedTests::test_negative",
+   "why": "added in a feature commit",
+   "commit": "43decdd",
+   "subject": "Support negative start/stop in iter_index for general iterables",
+   "failure": "AssertionError: 'n must be at least 0' not found in 'Indices for islice() must be None or an integer: 0 <= x <= sys.maxsize.'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_more.IchunkedTests::test_zero_nonempty",
+   "why": "",
+   "commit": "f89d7a3",
+   "subject": "Issue 1304: make ichunked match chunked for n=0 and negative n",
+   "failure": "ValueError: Stop argument for islice() must be None or an integer: 0 <= x <= sys.maxsize.",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.InterleaveEvenlyTests::test_no_iterables",
+   "why": "added in a fix commit",
+   "commit": "f51a53b",
+   "subject": "fix: handle empty interleave_evenly input",
+   "failure": "IndexError: list index out of range",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.NumericRangeTests::test_contains_items_with_inexact_step",
+   "why": "wrong behaviour on snapshot",
+   "commit": "dc2664b",
+   "subject": "Issue 1247: Keep numeric_range consistent with the items it produces",
+   "failure": "AssertionError: 0.30000000000000004 not found in numeric_range(0.0, 1.0, 0.1)",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.NumericRangeTests::test_eq",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: numeric_range(2, 3) != numeric_range(2, 3, 5)",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.NumericRangeTests::test_len_matches_iteration",
+   "why": "wrong behaviour on snapshot",
+   "commit": "dc2664b",
+   "subject": "Issue 1247: Keep numeric_range consistent with the items it produces",
+   "failure": "AssertionError: 2 != 3",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.NumericRangeTests::test_reversed_datetime_limits",
+   "why": "",
+   "commit": "752799b",
+   "subject": "Preserve numeric_range values during reverse iteration",
+   "failure": "OverflowError: date value out of range",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.NumericRangeTests::test_reversed_preserves_float_values",
+   "why": "wrong behaviour on snapshot",
+   "commit": "752799b",
+   "subject": "Preserve numeric_range values during reverse iteration",
+   "failure": "AssertionError: Lists differ: [0.4, 0.30000000000000004, 0.2, 0.1] != [0.4, 0.30000000000000004, 0.2, 0.09999999999999998]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.OneTests::test_falsy_custom_exception",
+   "why": "added in a fix commit",
+   "commit": "def2dab",
+   "subject": "Fix one()/only() dropping a falsy user-supplied exception",
+   "failure": "ValueError: Expected exactly one item in iterable, but got 0, 1, and perhaps more.",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.OneTests::test_too_long_does_not_evaluate_repr",
+   "why": "added in a fix commit",
+   "commit": "def2dab",
+   "subject": "Fix one()/only() dropping a falsy user-supplied exception",
+   "failure": "RuntimeError: repr should not be called",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.OnlyTests::test_falsy_custom_exception",
+   "why": "added in a fix commit",
+   "commit": "def2dab",
+   "subject": "Fix one()/only() dropping a falsy user-supplied exception",
+   "failure": "ValueError: Expected exactly one item in iterable, but got 1, 2, and perhaps more.",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.OnlyTests::test_too_long_does_not_evaluate_repr",
+   "why": "added in a fix commit",
+   "commit": "def2dab",
+   "subject": "Fix one()/only() dropping a falsy user-supplied exception",
+   "failure": "RuntimeError: repr should not be called",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.SeekableTest::test_maxlen_zero_bool_does_not_drop_items",
+   "why": "added in a fix commit",
+   "commit": "6b1907d",
+   "subject": "fix: seekable.peek/bool no longer drop items when maxlen is 0",
+   "failure": "AssertionError: Lists differ: [20, 30] != [10, 20, 30]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.SeekableTest::test_maxlen_zero_peek_does_not_drop_items",
+   "why": "added in a fix commit",
+   "commit": "6b1907d",
+   "subject": "fix: seekable.peek/bool no longer drop items when maxlen is 0",
+   "failure": "AssertionError: 20 != 10",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.SeekableTest::test_repeated_zero_cache_peek_has_bounded_memory",
+   "why": "",
+   "commit": "3eb4053",
+   "subject": "Bound zero-cache seekable lookahead storage",
+   "failure": "StopIteration",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.SlicedTests::test_negative",
+   "why": "added in a feature commit",
+   "commit": "43decdd",
+   "subject": "Support negative start/stop in iter_index for general iterables",
+   "failure": "AssertionError: ValueError not raised by <lambda>",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_more.SplitAfterTest::test_empty_collection",
+   "why": "wrong behaviour on snapshot",
+   "commit": "ce676d2",
+   "subject": "Do not yield an empty list for an empty iterable when maxsplit is 0",
+   "failure": "AssertionError: Lists differ: [[]] != []",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.SplitBeforeTest::test_empty_collection",
+   "why": "wrong behaviour on snapshot",
+   "commit": "ce676d2",
+   "subject": "Do not yield an empty list for an empty iterable when maxsplit is 0",
+   "failure": "AssertionError: Lists differ: [[]] != []",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.SplitWhenTests::test_empty_iterable",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: Lists differ: [[]] != []",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.TestRandomOrderedRange::test_lcg_mitigation",
+   "why": "API missing on snapshot",
+   "commit": "b8fe920",
+   "subject": "Add random ordered combinatoric functions",
+   "failure": "AttributeError: module 'more_itertools' has no attribute 'random_ordered_range'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_more.TestRandomOrderedRange::test_vs_ordered_baseline",
+   "why": "API missing on snapshot",
+   "commit": "b8fe920",
+   "subject": "Add random ordered combinatoric functions",
+   "failure": "AttributeError: module 'more_itertools' has no attribute 'random_ordered_range'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_more.TestRunningMax::test_stability",
+   "why": "added in a fix commit",
+   "commit": "d992be0",
+   "subject": "Fix stability in running_min and running_max",
+   "failure": "AssertionError: Lists differ: [<class 'int'>, <class 'float'>, <class 'fractions.Fraction'>] != [<class 'int'>, <class 'int'>, <class 'float'>]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.TestRunningMin::test_stability",
+   "why": "added in a fix commit",
+   "commit": "d992be0",
+   "subject": "Fix stability in running_min and running_max",
+   "failure": "AssertionError: Lists differ: [<class 'int'>, <class 'float'>, <class 'fractions.Fraction'>] != [<class 'int'>, <class 'int'>, <class 'float'>]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.TestSubfactorial::test_error_cases",
+   "why": "API missing on snapshot",
+   "commit": "842a2b1",
+   "subject": "Add subfactorial()",
+   "failure": "AttributeError: module 'more_itertools' has no attribute 'subfactorial'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_more.TestSubfactorial::test_oeis_baseline",
+   "why": "API missing on snapshot",
+   "commit": "842a2b1",
+   "subject": "Add subfactorial()",
+   "failure": "AttributeError: module 'more_itertools' has no attribute 'subfactorial'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_more.TestSubfactorial::test_vs_derangements",
+   "why": "API missing on snapshot",
+   "commit": "842a2b1",
+   "subject": "Add subfactorial()",
+   "failure": "AttributeError: module 'more_itertools' has no attribute 'subfactorial'",
+   "auto_label": "feature",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_more.ValueChainTests::test_type_error_while_iterating",
+   "why": "wrong behaviour on snapshot",
+   "commit": "7847d43",
+   "subject": "Don't mask TypeError raised while iterating in value_chain",
+   "failure": "AssertionError: TypeError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_more.ZipBroadcastTests::test_single_use_iterable",
+   "why": "",
+   "commit": "e426d25",
+   "subject": "Reuse input iterators in zip_broadcast",
+   "failure": "RuntimeError: input already opened",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_recipes.RunningWindowSizeTests::test_index_protocol",
+   "why": "",
+   "commit": "1fd388b",
+   "subject": "Validate running window sizes through the index protocol",
+   "failure": "TypeError: '<=' not supported between instances of 'WindowSize' and 'int'",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_recipes.RunningWindowSizeTests::test_noninteger_window",
+   "why": "wrong behaviour on snapshot",
+   "commit": "1fd388b",
+   "subject": "Validate running window sizes through the index protocol",
+   "failure": "AssertionError: TypeError not raised",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_recipes.RunningWindowSizeTests::test_nonpositive_index",
+   "why": "",
+   "commit": "1fd388b",
+   "subject": "Validate running window sizes through the index protocol",
+   "failure": "TypeError: '<=' not supported between instances of 'WindowSize' and 'int'",
+   "auto_label": "unclear",
+   "label": "bug"
+  }
+ ],
+ "tomlkit": [
+  {
+   "test": "tests.test_api::test_comment_multiline_is_valid_toml",
+   "why": "wrong behaviour on snapshot",
+   "commit": "5b2b1ff",
+   "subject": "Prefix every line of a multiline comment with # (#511)",
+   "failure": "AssertionError: assert '# line one\\n...\\nline four\\n' == '# line one\\n...# line four\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_create_multiline_string_with_leading_newline_round_trips[kwargs0-\\n]",
+   "why": "added in a fix commit",
+   "commit": "8cd44f5",
+   "subject": "fix: preserve leading newline of multiline string built with string() (#551)",
+   "failure": "AssertionError: assert '' == '\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_create_multiline_string_with_leading_newline_round_trips[kwargs1-\\nMy\\nString\\n]",
+   "why": "added in a fix commit",
+   "commit": "8cd44f5",
+   "subject": "fix: preserve leading newline of multiline string built with string() (#551)",
+   "failure": "AssertionError: assert 'My\\nString\\n' == '\\nMy\\nString\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_create_multiline_string_with_leading_newline_round_trips[kwargs2-\\r\\nMy\\nString]",
+   "why": "added in a fix commit",
+   "commit": "8cd44f5",
+   "subject": "fix: preserve leading newline of multiline string built with string() (#551)",
+   "failure": "AssertionError: assert 'My\\nString' == '\\r\\nMy\\nString'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_create_multiline_string_with_leading_newline_round_trips[kwargs3-\\nMy\\nString]",
+   "why": "added in a fix commit",
+   "commit": "8cd44f5",
+   "subject": "fix: preserve leading newline of multiline string built with string() (#551)",
+   "failure": "AssertionError: assert 'My\\nString' == '\\nMy\\nString'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_create_multiline_string_with_leading_newline_round_trips[kwargs4-\\r\\nMy\\nString]",
+   "why": "added in a fix commit",
+   "commit": "8cd44f5",
+   "subject": "fix: preserve leading newline of multiline string built with string() (#551)",
+   "failure": "AssertionError: assert 'My\\nString' == '\\r\\nMy\\nString'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_create_string[kwargs13-\\nMy\\nString\\n-\"\"\"\\n\\nMy\\nString\\n\"\"\"]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "assert '\"\"\"\\nMy\\nString\\n\"\"\"' == '\"\"\"\\n\\nMy\\nString\\n\"\"\"'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_create_string[kwargs18-My\\rString-\"\"\"My\\\\rString\"\"\"]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "assert '\"\"\"My\\rString\"\"\"' == '\"\"\"My\\\\rString\"\"\"'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_create_string_with_invalid_characters[kwargs8-My\\rString]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidStringError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_create_string_with_invalid_characters[kwargs9-My\\r\\nMy\\rString]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidStringError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_dumps_wrapper_delegating_as_string_preserves_layout",
+   "why": "wrong behaviour on snapshot",
+   "commit": "afa41a5",
+   "subject": "Render self-dumping wrappers via as_string in dumps() (#508)",
+   "failure": "assert '[tool.a]\\nx ... = \"demo\"\\n\\n' == '[tool.a]\\nx ...l.b]\\ny = 2\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_emission_matches_parse[+1_000]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "AssertionError: assert 'n = 1000\\n' == 'n = +1_000\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_emission_matches_parse[0o7_7]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "ValueError: invalid literal for int() with base 10: '0o7_7'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_emission_matches_parse[0xdead_beef]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "ValueError: invalid literal for int() with base 10: '0xdead_beef'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_emission_matches_parse[1_000]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "AssertionError: assert 'n = 1000\\n' == 'n = 1_000\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_preserves_grouping_underscores[+1_000]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "AssertionError: assert '1000' == '+1_000'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_preserves_grouping_underscores[-1_000]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "AssertionError: assert '-1000' == '-1_000'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_preserves_grouping_underscores[0b1_0]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "ValueError: invalid literal for int() with base 10: '0b1_0'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_preserves_grouping_underscores[0o7_7]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "ValueError: invalid literal for int() with base 10: '0o7_7'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_preserves_grouping_underscores[0xDEAD_BEEF]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "ValueError: invalid literal for int() with base 10: '0xDEAD_BEEF'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_preserves_grouping_underscores[0xdead_beef]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "ValueError: invalid literal for int() with base 10: '0xdead_beef'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_preserves_grouping_underscores[1_000]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "AssertionError: assert '1000' == '1_000'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_preserves_grouping_underscores[5_349_221]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "AssertionError: assert '5349221' == '5_349_221'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_rejects_invalid_strings[ 1]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "Failed: DID NOT RAISE <class 'ValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_rejects_invalid_strings[01_2]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "Failed: DID NOT RAISE <class 'ValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_integer_rejects_invalid_strings[1 ]",
+   "why": "added in a fix commit",
+   "commit": "f466807",
+   "subject": "fix: preserve underscores when creating integers from strings (#610)",
+   "failure": "Failed: DID NOT RAISE <class 'ValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_item_inline_table_preserves_key_order",
+   "why": "wrong behaviour on snapshot",
+   "commit": "a963fe1",
+   "subject": "Preserve inline table key order in item() (#546) (#552)",
+   "failure": "AssertionError: assert '[[{b = 2, a = {x = 1}}]]' == '[[{a = {x = 1}, b = 2}]]'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_key_value_raises_on_a_second_pair",
+   "why": "added in a fix commit",
+   "commit": "90365ea",
+   "subject": "Reject trailing characters in key_value() (#594)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.UnexpectedCharError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_key_value_raises_on_invalid_example",
+   "why": "added in a fix commit",
+   "commit": "90365ea",
+   "subject": "Reject trailing characters in key_value() (#594)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.UnexpectedCharError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_key_value_raises_on_trailing_chars[foo = 12 = 13]",
+   "why": "added in a fix commit",
+   "commit": "90365ea",
+   "subject": "Reject trailing characters in key_value() (#594)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.UnexpectedCharError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_key_value_raises_on_trailing_chars[foo = 12 junk]",
+   "why": "added in a fix commit",
+   "commit": "90365ea",
+   "subject": "Reject trailing characters in key_value() (#594)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.UnexpectedCharError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_key_value_raises_on_trailing_chars[foo = 12]]]]",
+   "why": "added in a fix commit",
+   "commit": "90365ea",
+   "subject": "Reject trailing characters in key_value() (#594)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.UnexpectedCharError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_key_with_single_element_list_is_a_single_key",
+   "why": "wrong behaviour on snapshot",
+   "commit": "483f240",
+   "subject": "Return a single key from key() for a single-element list (#520)",
+   "failure": "AssertionError: assert 'foo' in {'foo': 'value'}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_api::test_parse_accepts_nesting_at_the_depth_limit",
+   "why": "API missing on snapshot",
+   "commit": "ea9263f",
+   "subject": "Limit parser nesting depth instead of crashing with RecursionError (#510)",
+   "failure": "AttributeError: type object 'Parser' has no attribute 'MAX_NESTING_DEPTH'",
+   "auto_label": "feature",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_api::test_parse_rejects_deeply_nested_documents[[[a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a]]\\nx = 1]",
+   "why": "added in a fix commit",
+   "commit": "ea9263f",
+   "subject": "Limit parser nesting depth instead of crashing with RecursionError (#510)",
+   "failure": "RecursionError: maximum recursion depth exceeded",
+   "auto_label": "bug",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_api::test_parse_rejects_deeply_nested_documents[[a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a]\\nx = 1]",
+   "why": "added in a fix commit",
+   "commit": "ea9263f",
+   "subject": "Limit parser nesting depth instead of crashing with RecursionError (#510)",
+   "failure": "RecursionError: maximum recursion depth exceeded",
+   "auto_label": "bug",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_api::test_parse_rejects_deeply_nested_documents[a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a = 1]",
+   "why": "added in a fix commit",
+   "commit": "ea9263f",
+   "subject": "Limit parser nesting depth instead of crashing with RecursionError (#510)",
+   "failure": "RecursionError: maximum recursion depth exceeded",
+   "auto_label": "bug",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_api::test_parse_rejects_deeply_nested_documents[x = [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+   "why": "added in a fix commit",
+   "commit": "ea9263f",
+   "subject": "Limit parser nesting depth instead of crashing with RecursionError (#510)",
+   "failure": "RecursionError: maximum recursion depth exceeded",
+   "auto_label": "bug",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_api::test_parse_rejects_deeply_nested_documents[x = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = [{a = 1}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]]",
+   "why": "added in a fix commit",
+   "commit": "ea9263f",
+   "subject": "Limit parser nesting depth instead of crashing with RecursionError (#510)",
+   "failure": "RecursionError: maximum recursion depth exceeded",
+   "auto_label": "bug",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_api::test_parse_rejects_deeply_nested_documents[x = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = {a = 1}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}]",
+   "why": "added in a fix commit",
+   "commit": "ea9263f",
+   "subject": "Limit parser nesting depth instead of crashing with RecursionError (#510)",
+   "failure": "RecursionError: maximum recursion depth exceeded",
+   "auto_label": "bug",
+   "label": "unclear"
+  },
+  {
+   "test": "tests.test_items::test_adding_to_dotted_key_inside_inline_table",
+   "why": "added in a fix commit",
+   "commit": "a076a6a",
+   "subject": "Fix corrupt output when adding to a dotted key inside an inline table (#500)",
+   "failure": "AssertionError: assert 'a = {b.c = 1d = 2\\n}\\n' == 'a = {b.c = 1, b.d = 2}\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_adding_to_nested_dotted_key_inside_inline_table",
+   "why": "added in a fix commit",
+   "commit": "a076a6a",
+   "subject": "Fix corrupt output when adding to a dotted key inside an inline table (#500)",
+   "failure": "AssertionError: assert 'a = {b.c.e = 1c.g = 2\\n}\\n' == 'a = {b.c.e = 1, b.c.g = 2}\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_append_key_after_inline_table_trailing_comment",
+   "why": "wrong behaviour on snapshot",
+   "commit": "281ca00",
+   "subject": "Place inline-table separator after the value, not the comment (#514)",
+   "failure": "AssertionError: assert '# comment,' not in 'tbl = {\\n  ...added = 3}\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_append_table_to_inline_table_raises",
+   "why": "added in a fix commit",
+   "commit": "11e22ae",
+   "subject": "fix: reject tables inside inline tables (#532)",
+   "failure": "Failed: DID NOT RAISE <class 'ValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_appending_to_comma_first_array_does_not_double_separator",
+   "why": "added in a fix commit",
+   "commit": "f8ce14b",
+   "subject": "Fix doubled comma when inserting into a comma-first array (#499)",
+   "failure": "tomlkit.exceptions.UnexpectedCharError: Unexpected character: ',' at line 4 col 5",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_appending_to_compact_inline_table_uses_spaced_separator",
+   "why": "wrong behaviour on snapshot",
+   "commit": "1e70531",
+   "subject": "Use \", \" separator when appending to a spaced inline table (#595)",
+   "failure": "AssertionError: assert 'a = {x = 1, y = 2,z = 3}\\n' == 'a = {x = 1, y = 2, z = 3}\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_array_add_line_multiline_comment_is_rejected",
+   "why": "added in a fix commit",
+   "commit": "21a4942",
+   "subject": "reject a comment containing line breaks in Item.comment and add_line (#544)",
+   "failure": "Failed: DID NOT RAISE <class 'ValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_array_add_line_single_line_comment_round_trips",
+   "why": "",
+   "commit": "88aa4b1",
+   "subject": "Keep single-line array bracket off a trailing comment line (#581)",
+   "failure": "tomlkit.exceptions.UnexpectedCharError: Unexpected character: '\\x00' at line 2 col 17",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_array_slice_assignment_does_not_mutate[index0-replacement0]",
+   "why": "added in a fix commit",
+   "commit": "4b38bec",
+   "subject": "fix: reject array slice assignment before mutation (#600)",
+   "failure": "assert [4, 5, 6] == [1, 2, 3]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_array_slice_assignment_does_not_mutate[index1-replacement1]",
+   "why": "added in a fix commit",
+   "commit": "4b38bec",
+   "subject": "fix: reject array slice assignment before mutation (#600)",
+   "failure": "assert [1, 4, 5, 3] == [1, 2, 3]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_array_slice_assignment_does_not_mutate[index2-replacement2]",
+   "why": "added in a fix commit",
+   "commit": "4b38bec",
+   "subject": "fix: reject array slice assignment before mutation (#600)",
+   "failure": "assert [1, 4, 2, 3] == [1, 2, 3]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_array_slice_assignment_does_not_mutate[index3-replacement3]",
+   "why": "added in a fix commit",
+   "commit": "4b38bec",
+   "subject": "fix: reject array slice assignment before mutation (#600)",
+   "failure": "assert [1] == [1, 2, 3]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_array_slice_assignment_does_not_mutate[index4-replacement4]",
+   "why": "added in a fix commit",
+   "commit": "4b38bec",
+   "subject": "fix: reject array slice assignment before mutation (#600)",
+   "failure": "assert [4, 2, 5] == [1, 2, 3]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_array_slice_assignment_does_not_mutate[index5-replacement5]",
+   "why": "added in a fix commit",
+   "commit": "4b38bec",
+   "subject": "fix: reject array slice assignment before mutation (#600)",
+   "failure": "assert [6, 5, 4] == [1, 2, 3]",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_array_slice_deletion_keeps_render_in_sync",
+   "why": "added in a fix commit",
+   "commit": "8c30fc1",
+   "subject": "Fix Array.__delitem__ corrupting rendered output on slice deletion (#599)",
+   "failure": "AssertionError: assert '[]' == '[1, 2, 3]'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_booleans_compare_equal_to_each_other",
+   "why": "wrong behaviour on snapshot",
+   "commit": "18e7f98",
+   "subject": "Compare Bool items by value (#660)",
+   "failure": "assert True == True",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_comment_method_multiline_comment_is_rejected",
+   "why": "added in a fix commit",
+   "commit": "21a4942",
+   "subject": "reject a comment containing line breaks in Item.comment and add_line (#544)",
+   "failure": "Failed: DID NOT RAISE <class 'ValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_datetime_subtraction_preserves_input_fold[1]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "40dd59c",
+   "subject": "Preserve fold in datetime subtraction (#623)",
+   "failure": "assert (DateTime(2018, 11, 4, 1, 30, tzinfo=<tests.test_items.tz_fold.<locals>.FoldTimezone object at 0x7f5aa0a3f230>) - datetime.datetime(2018, 11, 4, 6, 30, tzinfo=datetime.timezone.utc)) == (dateti",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_datetimes_behave_like_datetimes_fold",
+   "why": "added in a fix commit",
+   "commit": "49d6efa",
+   "subject": "fix: add the stdlib `fold` argument to Time and DateTime (#619) (#620)",
+   "failure": "assert 0 == 1",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_items::test_deleting_inline_table_middle_element_does_not_leave_double_separator",
+   "why": "added in a fix commit",
+   "commit": "5687396",
+   "subject": "Fix duplicated comma when removing a middle inline table element (#486)",
+   "failure": "AssertionError: assert ', ,' not in 'a = {foo = 1, , baz = 3}\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_float_is_not_a_sequence",
+   "why": "wrong behaviour on snapshot",
+   "commit": "94e62fb",
+   "subject": "Float is not a sequence  (#563)",
+   "failure": "assert not 1",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_inline_table_render_after_edits",
+   "why": "wrong behaviour on snapshot",
+   "commit": "86f4562",
+   "subject": "Render inline tables in O(n) instead of O(n^2) (#525)",
+   "failure": "AssertionError: assert (',,' not in 't = {a = 1, , c = 3}'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_inserting_into_comma_first_array_does_not_double_separator",
+   "why": "added in a fix commit",
+   "commit": "f8ce14b",
+   "subject": "Fix doubled comma when inserting into a comma-first array (#499)",
+   "failure": "tomlkit.exceptions.UnexpectedCharError: Unexpected character: ',' at line 3 col 5",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_no_extra_plus_sign_on_negative_zero",
+   "why": "added in a feature commit",
+   "commit": "76d4714",
+   "subject": "Do not add a plus sign to a negative zero float result (#629)",
+   "failure": "AssertionError: assert 'a = +-0.0' == 'a = -0.0'",
+   "auto_label": "feature",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_string_add_escapes_appended_content",
+   "why": "wrong behaviour on snapshot",
+   "commit": "61941de",
+   "subject": "Escape content appended to a String via __add__ (#612)",
+   "failure": "assert '\"foo\"\"' == '\"foo\\\\\"\"'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_time_with_tzinfo_renders_as_local_time",
+   "why": "wrong behaviour on snapshot",
+   "commit": "ce8f8ee",
+   "subject": "Render tz-aware times as local times without an offset (#613)",
+   "failure": "AssertionError: assert '07:32:00+02:00' == '07:32:00'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_items::test_times_behave_like_times_fold",
+   "why": "added in a fix commit",
+   "commit": "49d6efa",
+   "subject": "fix: add the stdlib `fold` argument to Time and DateTime (#619) (#620)",
+   "failure": "assert 0 == 1",
+   "auto_label": "bug",
+   "label": "feature"
+  },
+  {
+   "test": "tests.test_items::test_unwrap_keeps_fold",
+   "why": "wrong behaviour on snapshot",
+   "commit": "89cdcc7",
+   "subject": "Keep fold when unwrapping a datetime or time. (#626)",
+   "failure": "assert 0 == 1",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_array_with_malformed_element_raises",
+   "why": "wrong behaviour on snapshot",
+   "commit": "d548e18",
+   "subject": "raise on malformed array element instead of dropping it (#527)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.UnexpectedCharError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_accepts_uppercase_exponent_after_leading_zero",
+   "why": "wrong behaviour on snapshot",
+   "commit": "7ab7469",
+   "subject": "Accept uppercase E exponent after a leading-zero mantissa (#586)",
+   "failure": "tomlkit.exceptions.InvalidNumberError: Invalid number at line 1 col 7",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_preserves_valid_numeric_literals[+0E+2-0.0]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "tomlkit.exceptions.InvalidNumberError: Invalid number at line 1 col 9",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_preserves_valid_numeric_literals[-0E-2--0.0]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "tomlkit.exceptions.InvalidNumberError: Invalid number at line 1 col 9",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_preserves_valid_numeric_literals[0E2-0.0]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "tomlkit.exceptions.InvalidNumberError: Invalid number at line 1 col 7",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_aot_header_missing_second_bracket[[[a.b]x]",
+   "why": "added in a fix commit",
+   "commit": "9c12677",
+   "subject": "reject array-of-tables header missing its second closing bracket (#519)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_aot_header_missing_second_bracket[[[a]]",
+   "why": "added in a fix commit",
+   "commit": "9c12677",
+   "subject": "reject array-of-tables header missing its second closing bracket (#519)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_aot_header_missing_second_bracket[[[a]b]",
+   "why": "added in a fix commit",
+   "commit": "9c12677",
+   "subject": "reject array-of-tables header missing its second closing bracket (#519)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_aot_header_missing_second_bracket[[[a]x\\ny = 1]",
+   "why": "added in a fix commit",
+   "commit": "9c12677",
+   "subject": "reject array-of-tables header missing its second closing bracket (#519)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_hex_unicode_escapes[a = \"\\\\U0000_0041\"]",
+   "why": "added in a fix commit",
+   "commit": "8571bcd",
+   "subject": "reject non-hex digits in \\u and \\U escapes (#501)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidUnicodeValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_hex_unicode_escapes[a = \"\\\\U0010_FFFF\"]",
+   "why": "added in a fix commit",
+   "commit": "8571bcd",
+   "subject": "reject non-hex digits in \\u and \\U escapes (#501)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidUnicodeValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_hex_unicode_escapes[a = \"\\\\u 123\"]",
+   "why": "added in a fix commit",
+   "commit": "8571bcd",
+   "subject": "reject non-hex digits in \\u and \\U escapes (#501)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidUnicodeValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_hex_unicode_escapes[a = \"\\\\u+123\"]",
+   "why": "added in a fix commit",
+   "commit": "8571bcd",
+   "subject": "reject non-hex digits in \\u and \\U escapes (#501)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidUnicodeValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_hex_unicode_escapes[a = \"\\\\u12_3\"]",
+   "why": "added in a fix commit",
+   "commit": "8571bcd",
+   "subject": "reject non-hex digits in \\u and \\U escapes (#501)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidUnicodeValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_hex_unicode_escapes[a = \"\\\\u1_23\"]",
+   "why": "added in a fix commit",
+   "commit": "8571bcd",
+   "subject": "reject non-hex digits in \\u and \\U escapes (#501)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidUnicodeValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[INF-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[INF--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[INf-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[INf--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[InF-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[InF--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[Inf-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[Inf--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[NAN-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[NAN--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[NAn-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[NAn--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[NaN-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[NaN--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[Nan-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[Nan--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[iNF-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[iNF--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[iNf-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[iNf--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[inF-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[inF--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[nAN-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[nAN--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[nAn-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[nAn--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[naN-+]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_non_lowercase_special_floats[naN--]",
+   "why": "added in a fix commit",
+   "commit": "446d6fa",
+   "subject": "Reject non-lowercase special float literals (#628)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_overlong_decimal_integer",
+   "why": "added in a fix commit",
+   "commit": "b48c094",
+   "subject": "reject overlong decimal integer instead of coercing to inf (#538)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidNumberError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_surrogate_unicode_escapes[a = \"\\\\U0000D800\"]",
+   "why": "added in a fix commit",
+   "commit": "b1399c3",
+   "subject": "reject surrogate code points in \\U unicode escapes (#493)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidUnicodeValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_surrogate_unicode_escapes[a = \"\\\\U0000DC00\"]",
+   "why": "added in a fix commit",
+   "commit": "b1399c3",
+   "subject": "reject surrogate code points in \\U unicode escapes (#493)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidUnicodeValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_surrogate_unicode_escapes[a = \"\\\\U0000DFFF\"]",
+   "why": "added in a fix commit",
+   "commit": "b1399c3",
+   "subject": "reject surrogate code points in \\U unicode escapes (#493)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.InvalidUnicodeValueError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_tab_in_bare_key[[a\\tb]]",
+   "why": "added in a fix commit",
+   "commit": "a1c5bd2",
+   "subject": "reject tab characters in bare keys (#497)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_tab_in_bare_key[a\\tb = 1]",
+   "why": "added in a fix commit",
+   "commit": "a1c5bd2",
+   "subject": "reject tab characters in bare keys (#497)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_tab_in_bare_key[x.y\\tz = 1]",
+   "why": "added in a fix commit",
+   "commit": "a1c5bd2",
+   "subject": "reject tab characters in bare keys (#497)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_table_redefined_after_parent[[a.b.c]\\n[a]\\n[a.b.c]]",
+   "why": "added in a fix commit",
+   "commit": "7c978a5",
+   "subject": "reject a table redefined after its parent table header (#516)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_table_redefined_after_parent[[a.b]\\n[a.c]\\n[a]\\n[a.b]]",
+   "why": "added in a fix commit",
+   "commit": "7c978a5",
+   "subject": "reject a table redefined after its parent table header (#516)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_table_redefined_after_parent[[a.b]\\n[a]\\n[a.b]]",
+   "why": "added in a fix commit",
+   "commit": "7c978a5",
+   "subject": "reject a table redefined after its parent table header (#516)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_rejects_table_redefined_after_parent[[a.b]\\nx = 1\\n[a]\\n[a.b]\\ny = 2]",
+   "why": "added in a fix commit",
+   "commit": "7c978a5",
+   "subject": "reject a table redefined after its parent table header (#516)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_reports_the_right_position_for_mixed_line_endings",
+   "why": "added in a fix commit",
+   "commit": "c07c0c1",
+   "subject": "fix: report the right line and column for CRLF and mixed line endings (#642)",
+   "failure": "assert 5 == 4",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_parser::test_parser_reports_the_same_position_regardless_of_line_ending[\\r\\n]",
+   "why": "added in a fix commit",
+   "commit": "c07c0c1",
+   "subject": "fix: report the right line and column for CRLF and mixed line endings (#642)",
+   "failure": "assert 4 == 3",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_add_key_after_dotted_inline_table_without_ending_newline",
+   "why": "added in a fix commit",
+   "commit": "43668dd",
+   "subject": "fix: keep newline after dotted inline table (#533)",
+   "failure": "AssertionError: assert '[x]\\na.b = {}c = 3\\n' == '[x]\\na.b = {}\\nc = 3\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_array_of_tables_is_hoisted_above_table_headers",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'t': {'q': 2}} == {'a': [], 't': {'q': 2}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_array_of_tables_is_relative_to_the_nearest_header",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert '[t]\\n' == '[t]\\nu.a = []\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_array_of_tables_keeps_preceding_scalars",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'v': 9} == {'a': [], 'v': 9}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_array_of_tables_renders_as_empty_array",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert '' == 'a = []\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_array_of_tables_under_implicit_parent_keeps_its_path",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert '' == 't.a = []\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[[e]]\\nn = 1\\n\\n[[e.a]]\\nx = 1\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'e': [{'n': 1}]} == {'e': [{'a': [], 'n': 1}]}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[[e]]\\nn = 1\\n\\n[[e.s.a]]\\nx = 1\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'e': [{'n': 1}]} == {'e': [{'n': ...: {'a': []}}]}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[[t.a]]\\nx = 1\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {} == {'t': {'a': []}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[[t.u.a]]\\nx = 1\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {} == {'t': {'u': {'a': []}}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[t]\\n\\n[[t.a]]\\nx = 1\\n\\n[t.b]\\ny = 3\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'t': {'b': {'y': 3}}} == {'t': {'a': [...b': {'y': 3}}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[t]\\n\\n[[t.u.a]]\\nx = 1\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'t': {}} == {'t': {'u': {'a': []}}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[t]\\n\\n[[t.u.a]]\\nx = 1\\n\\n[t.u.b]\\ny = 3\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'t': {'u': {'b': {'y': 3}}}} == {'t': {'u': {...': {'y': 3}}}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[t]\\n\\n[t.b]\\ny = 3\\n\\n[[t.a]]\\nx = 1\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'t': {'b': {'y': 3}}} == {'t': {'a': [...b': {'y': 3}}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[t]\\n\\n[t.u]\\n\\n[[t.u.a]]\\nx = 1\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'t': {'u': {}}} == {'t': {'u': {'a': []}}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[t]\\nq = 2\\n\\n[[t.a]]\\nx = 1\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'t': {'q': 2}} == {'t': {'a': [], 'q': 2}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[x]\\nq = 1\\n\\n[[t.a]]\\nx = 1\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'x': {'q': 1}} == {'t': {'a': [...'x': {'q': 1}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_emptied_nested_array_of_tables_round_trips[[x]\\nq = 1\\n\\n[[t.a]]\\nx = 1\\n\\n[t.b]\\ny = 3\\n-<lambda>]",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6b5f079",
+   "subject": "Render an emptied array of tables as an empty array (#567)",
+   "failure": "AssertionError: assert {'t': {'b': {...'x': {'q': 1}} == {'t': {'a': [...'x': {'q': 1}}",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_out_of_order_table_merges_aot_fragments",
+   "why": "",
+   "commit": "25ae63a",
+   "subject": "Merge AoT fragments when building an out-of-order table proxy (#507)",
+   "failure": "tomlkit.exceptions.ParseError: Key \"Stop\" already exists. at line 13 col 0",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_out_of_order_table_merges_three_aot_fragments",
+   "why": "",
+   "commit": "25ae63a",
+   "subject": "Merge AoT fragments when building an out-of-order table proxy (#507)",
+   "failure": "tomlkit.exceptions.ParseError: Key \"Stop\" already exists. at line 18 col 0",
+   "auto_label": "unclear",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_reject_out_of_order_dotted_key_redefinition_at_parse",
+   "why": "added in a fix commit",
+   "commit": "d3c76f0",
+   "subject": "fix: reject out-of-order concrete+super table redefinitions at parse time (#530)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_replace_dotted_key_with_aot_keeps_following_sibling",
+   "why": "added in a fix commit",
+   "commit": "67d3e86",
+   "subject": "Fix array of tables replacing a dotted key swallowing the next sibling (#542) (#549)",
+   "failure": "AssertionError: assert '[[a]]\\nx = 9\\nc.d = 2\\n' == 'c.d = 2\\n\\n[[a]]\\nx = 9\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_replace_dotted_key_with_empty_table_keeps_following_sibling",
+   "why": "added in a fix commit",
+   "commit": "ee4eedb",
+   "subject": "Fix duplicated prefix and captured sibling when replacing a dotted key with a table (#526)",
+   "failure": "AssertionError: assert '[a]\\n\\nc.d = 2\\n' == 'c.d = 2\\n\\n[a]\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_replace_dotted_key_with_table",
+   "why": "added in a fix commit",
+   "commit": "ee4eedb",
+   "subject": "Fix duplicated prefix and captured sibling when replacing a dotted key with a table (#526)",
+   "failure": "AssertionError: assert '[fruit]\\nfruit.a = 1\\n' == '[fruit]\\na = 1\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_replace_dotted_key_with_table_keeps_following_sibling",
+   "why": "added in a fix commit",
+   "commit": "ee4eedb",
+   "subject": "Fix duplicated prefix and captured sibling when replacing a dotted key with a table (#526)",
+   "failure": "AssertionError: assert '[a]\\na.x = 9\\n\\nc.d = 2\\n' == 'c.d = 2\\n\\n[a]\\nx = 9\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_replace_middle_table_with_value",
+   "why": "wrong behaviour on snapshot",
+   "commit": "f9b4b22",
+   "subject": "Move a value replacing a table out of the table region (#506)",
+   "failure": "AssertionError: assert '[a]\\naa = 1\\...[c]\\ncc = 3\\n' == 'b = 2\\n\\n[a]...[c]\\ncc = 3\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_replace_super_table_preserves_whitespace",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b282137",
+   "subject": "Preserve whitespace when replacing super tables (#534)",
+   "failure": "assert '[env.pro1.rs...]\\nname = 3\\n' == '[env.pro1.rs...]\\nname = 3\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_replace_table_with_itself_preserves_display_name",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4906936",
+   "subject": "Preserve table display names on self assignment (#537)",
+   "failure": "assert \"[keys.a]\\n[k... 'd'\\t= 'e'\\n\" == \"[keys.a]\\n[k... 'd'\\t= 'e'\\n\"",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_replace_value_with_table_keeps_following_dotted_sibling",
+   "why": "added in a fix commit",
+   "commit": "ee4eedb",
+   "subject": "Fix duplicated prefix and captured sibling when replacing a dotted key with a table (#526)",
+   "failure": "AssertionError: assert '[x]\\n\\nc.d = 2\\n' == 'c.d = 2\\n\\n[x]\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_repr_out_of_order_table_proxy",
+   "why": "wrong behaviour on snapshot",
+   "commit": "cc05afa",
+   "subject": "Represent out-of-order table proxies with merged values (#536)",
+   "failure": "assert \"{'b': {'e': 'f'}}\" == \"{'b': {'c': 'd', 'e': 'f'}}\"",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_scalar_is_not_captured_by_table_rendered_from_dotted_key",
+   "why": "added in a fix commit",
+   "commit": "495a42e",
+   "subject": "Fix top-level scalar captured by a table rendered from a dotted key (#550)",
+   "failure": "AssertionError: assert 'a.b = 1\\n\\n[a.c]\\nz = 2\\n' == 'z = 2\\n\\na.b = 1\\n\\n[a.c]\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_set_value_on_out_of_order_table_with_empty_concrete_part",
+   "why": "added in a fix commit",
+   "commit": "e23a254",
+   "subject": "fix: avoid duplicate table header when adding a key to an out-of-order table (#545)",
+   "failure": "AssertionError: assert '[x]\\nc = 3\\n...z.w]\\n\\n[x]\\n' == '[x.y.z.w]\\n\\n[x]\\nc = 3\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_subtable_of_aot_element_after_other_table",
+   "why": "added in a fix commit",
+   "commit": "de68fd0",
+   "subject": "Fix ParseError when a sub-table extends an array of tables out of order (#498)",
+   "failure": "tomlkit.exceptions.ParseError: Key \"fruit\" already exists. at line 7 col 0",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_unwrap_preserves_raise_on_invalid_out_of_order_fragment",
+   "why": "wrong behaviour on snapshot",
+   "commit": "9ac3f98",
+   "subject": "Speed up unwrap() by resolving keys from the key map, not items() (#521)",
+   "failure": "Failed: DID NOT RAISE <class 'tomlkit.exceptions.ParseError'>",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_toml_document::test_valid_out_of_order_super_table_extended_by_dotted_key",
+   "why": "added in a fix commit",
+   "commit": "229ee86",
+   "subject": "fix: don't reject an out-of-order super-table extended by a dotted key (#565)",
+   "failure": "tomlkit.exceptions.ParseError: Redefinition of an existing table at line 3 col 0",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_write::test_write_escape_char_as_unicode_escape",
+   "why": "added in a fix commit",
+   "commit": "01b0f45",
+   "subject": "fix: write ESC as \\u001b instead of TOML 1.1-only \\e (#641)",
+   "failure": "assert '\"a\\\\u001bk\" ...u001by\\n\"\"\"\\n' == '\"a\\\\ek\" = \"a...\"x\\\\ey\\n\"\"\"\\n'",
+   "auto_label": "bug",
+   "label": "bug"
+  },
+  {
+   "test": "tests.test_write::test_write_escape_char_readable_by_tomllib",
+   "why": "added in a fix commit",
+   "commit": "01b0f45",
+   "subject": "fix: write ESC as \\u001b instead of TOML 1.1-only \\e (#641)",
+   "failure": "tomllib.TOMLDecodeError: Unescaped '\\' in a string (at line 1, column 5)",
+   "auto_label": "bug",
+   "label": "bug"
+  }
+ ]
+}

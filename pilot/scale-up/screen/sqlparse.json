@@ -1,0 +1,26 @@
+{
+ "repo": "andialbrecht/sqlparse",
+ "snapshot": "c923da9c5a8e8403dd32efc2171b60a177444d43",
+ "snapshot_date": "2026-05-21",
+ "head": "60cdc649726bf1bc4f1b336050560b336da715ec",
+ "head_date": "2026-08-13",
+ "packages": [
+  "sqlparse"
+ ],
+ "tests": "tests",
+ "future_on_future": "506 passed, 2 xfailed, 1 xpassed in 2.34s",
+ "future_on_snapshot": "10 failed, 496 passed, 2 xfailed, 1 xpassed in 9.44s",
+ "n_future_pass": 507,
+ "future_tests_failing_on_snapshot": [
+  "tests.test_dos_prevention.TestDoSPrevention::test_nested_case_within_cap_under_1s",
+  "tests.test_dos_prevention.TestDoSPrevention::test_nested_paren_within_cap_under_1s",
+  "tests.test_format.TestOutputFormat::test_php_escapes_backslashes",
+  "tests.test_format.TestOutputFormat::test_python_escapes_backslashes",
+  "tests.test_grouping::test_grouping_alias_ctas_lowercase_as",
+  "tests.test_parse::test_get_real_name_multi_part_dotted",
+  "tests.test_regressions::test_alter_table_row_format_issue773",
+  "tests.test_regressions::test_between_leading_dot_float_issue601[a BETWEEN .03 AND .06]",
+  "tests.test_regressions::test_between_leading_dot_float_issue601[a between .03 and .06]",
+  "tests.test_regressions::test_materialized_view_issue752"
+ ]
+}

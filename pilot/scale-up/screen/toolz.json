@@ -1,0 +1,16 @@
+{
+ "repo": "pytoolz/toolz",
+ "snapshot": "568c2b8393973cd172a466546c9d95779c452438",
+ "snapshot_date": "2025-10-16",
+ "head": "451af60dec590a6010e2babdbf391ea8f815122f",
+ "head_date": "2026-09-18",
+ "packages": [
+  "tlz",
+  "toolz"
+ ],
+ "tests": ".",
+ "future_on_future": "1 failed, 210 passed, 1 skipped in 3.70s",
+ "future_on_snapshot": "1 failed, 204 passed in 3.46s",
+ "n_future_pass": 210,
+ "future_tests_failing_on_snapshot": []
+}

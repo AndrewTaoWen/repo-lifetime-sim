@@ -1,0 +1,26 @@
+{
+ "repo": "python-attrs/attrs",
+ "snapshot": "48ea7a120c841912195146a27223840612b2e861",
+ "snapshot_date": "2026-05-28",
+ "head": "ee66e7274852438cc23d4240a1a9cd632fda8b52",
+ "head_date": "2026-10-13",
+ "packages": [
+  "src"
+ ],
+ "tests": "tests",
+ "future_on_future": "1 failed, 1407 passed, 3 skipped, 1 xfailed in 18.32s",
+ "future_on_snapshot": "11 failed, 1223 passed, 3 skipped, 1 xfailed, 2 errors in 15.40s",
+ "n_future_pass": 1407,
+ "future_tests_failing_on_snapshot": [
+  "tests.test_annotations::test_is_class_var[annot4]",
+  "tests.test_functional.TestReplace::test_is_not_evolve",
+  "tests.test_setattr.TestSetAttr::test_change_with_generator_hook",
+  "tests.test_setattr.TestSetAttr::test_generator_hook_class_level",
+  "tests.test_setattr.TestSetAttr::test_generator_hook_executes_after_yielding",
+  "tests.test_setattr.TestSetAttr::test_generator_hook_not_called_in_init",
+  "tests.test_setattr.TestSetAttr::test_generator_hook_with_define",
+  "tests.test_setattr.TestSetAttr::test_generator_post_yield_exception",
+  "tests.test_setattr.TestSetAttr::test_generator_pre_yield_exception",
+  "tests.test_setattr.TestSetAttr::test_generator_yields_multiple_times"
+ ]
+}

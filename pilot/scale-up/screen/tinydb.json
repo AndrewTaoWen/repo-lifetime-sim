@@ -1,0 +1,25 @@
+{
+ "repo": "msiemens/tinydb",
+ "snapshot": "a7174d1bf711d1f59455f8f363a5ccee2ebdf8e7",
+ "snapshot_date": "2026-05-28",
+ "head": "edff96aeb2616402e9489d46e90a592c05565621",
+ "head_date": "2026-10-15",
+ "packages": [
+  "tinydb"
+ ],
+ "tests": "tests",
+ "future_on_future": "228 passed in 0.90s",
+ "future_on_snapshot": "9 failed, 219 passed in 0.95s",
+ "n_future_pass": 228,
+ "future_tests_failing_on_snapshot": [
+  "tests.test_middlewares::test_caching_rejects_use_after_close",
+  "tests.test_queries::test_all",
+  "tests.test_queries::test_any",
+  "tests.test_queries::test_custom_with_unhashable_params",
+  "tests.test_queries::test_regex_flags_affect_hash_and_query_cache",
+  "tests.test_tables::test_persist_empty_does_not_wipe_existing_data",
+  "tests.test_tinydb::test_insert_multiple_mixed_document_and_dict[json]",
+  "tests.test_tinydb::test_insert_multiple_mixed_document_and_dict[memory]",
+  "tests.test_utils::test_lru_cache_none_value"
+ ]
+}

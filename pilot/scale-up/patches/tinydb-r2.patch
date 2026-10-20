@@ -1,0 +1,699 @@
+diff --git a/tests/test_queries.py b/tests/test_queries.py
+index 6e0dd8f..479bd92 100644
+--- a/tests/test_queries.py
++++ b/tests/test_queries.py
+@@ -443,3 +443,80 @@ def test_get_item():
+ 
+     assert query({'test': 1})
+     assert not query({'test': 0})
++
++
++# --- Regression tests -------------------------------------------------------
++
++def test_regex_flags_are_part_of_hash():
++    query = Query()
++    assert query.val.matches('a', flags=re.I) != query.val.matches('a')
++    assert query.val.search('a', flags=re.I) != query.val.search('a')
++    assert hash(query.val.matches('a', flags=re.I)) != \
++        hash(query.val.matches('a'))
++
++
++def test_regex_flags_query_cache():
++    from tinydb import TinyDB
++    from tinydb.storages import MemoryStorage
++    db = TinyDB(storage=MemoryStorage)
++    db.insert({'s': 'ABC'})
++    assert len(db.search(Query().s.matches('abc', flags=re.I))) == 1
++    assert len(db.search(Query().s.matches('abc'))) == 0
++    assert len(db.search(Query().s.search('b', flags=re.I))) == 1
++    assert len(db.search(Query().s.search('b'))) == 0
++
++
++def test_fragment_path_is_part_of_hash():
++    query = Query()
++    assert query.a.fragment({'x': 1}) != query.b.fragment({'x': 1})
++
++    from tinydb import TinyDB
++    from tinydb.storages import MemoryStorage
++    db = TinyDB(storage=MemoryStorage)
++    db.insert({'a': {'x': 1}, 'b': {'x': 2}})
++    assert len(db.search(query.a.fragment({'x': 1}))) == 1
++    assert len(db.search(query.b.fragment({'x': 1}))) == 0
++
++
++def test_fragment_non_mapping_value():
++    query = Query().a.fragment({'x': 1})
++    assert not query({'a': 5})
++    assert not query({'a': None})
++    assert not query({'a': [1]})
++
++
++def test_one_of_generator():
++    query = Query().val.one_of(x for x in [2, 3])
++    assert not query({'val': 1})
++    assert query({'val': 2})
++    assert query({'val': 3})
++
++
++def test_comparison_with_unhashable_rhs():
++    query = Query().val < [3]
++    assert query({'val': [1, 2]})
++    hash(query)
++    hash(Query().val.test(lambda v, x: True, [1, {'a': [1]}]))
++
++
++def test_any_all_with_non_cacheable_query():
++    query = Query()
++    assert not query.l.any(query.map(lambda x: x) == 1).is_cacheable()
++    assert not query.l.all(query.map(lambda x: x) == 1).is_cacheable()
++
++    from tinydb import TinyDB
++    from tinydb.storages import MemoryStorage
++    db = TinyDB(storage=MemoryStorage)
++    db.insert({'l': [1]})
++    assert len(db.search(query.l.any(query.map(lambda x: x) == 1))) == 1
++    assert len(db.search(query.l.any(query.map(lambda x: -x) == 1))) == 0
++
++
++def test_query_copy_and_dunder_fields():
++    import copy
++    query = Query()
++    assert copy.deepcopy(query.a == 1) == (query.a == 1)
++    copy.deepcopy(query)
++    assert not hasattr(query, '__array__')
++    # Dunder-named fields are still reachable via item access
++    assert (query['__x__'] == 1)({'__x__': 1})
+diff --git a/tests/test_storages.py b/tests/test_storages.py
+index 6e433a1..0231916 100644
+--- a/tests/test_storages.py
++++ b/tests/test_storages.py
+@@ -285,3 +285,22 @@ def test_json_invalid_mode_warning(tmpdir):
+     path = str(tmpdir.join('test.db'))
+     with pytest.warns(UserWarning, match='Using an `access_mode` other than'):
+         JSONStorage(path, access_mode='w')
++
++
++# --- Regression tests -------------------------------------------------------
++
++def test_create_dirs_without_directory_component(tmp_path, monkeypatch):
++    monkeypatch.chdir(tmp_path)
++    JSONStorage('db.json', create_dirs=True).close()
++    assert os.path.exists(tmp_path / 'db.json')
++
++
++def test_binary_access_mode(tmp_path):
++    path = str(tmp_path / 'db.json')
++    db = TinyDB(path, access_mode='rb+')
++    db.insert({'a': 1, 'u': 'ü'})
++    db.close()
++
++    db = TinyDB(path, access_mode='rb')
++    assert db.all() == [{'a': 1, 'u': 'ü'}]
++    db.close()
+diff --git a/tests/test_tinydb.py b/tests/test_tinydb.py
+index 762a460..2b093f4 100644
+--- a/tests/test_tinydb.py
++++ b/tests/test_tinydb.py
+@@ -761,3 +761,111 @@ def test_lambda_query():
+     query.is_cacheable = lambda: False
+     assert db.search(query) == [{'foo': 'bar'}]
+     assert not db._query_cache
++
++
++# --- Regression tests -------------------------------------------------------
++
++def test_insert_multiple_explicit_id_not_overwritten(db: TinyDB):
++    db.truncate()
++    ids = db.insert_multiple([
++        Document({'n': 'x'}, doc_id=2), {'n': 'y'}, {'n': 'z'}
++    ])
++
++    assert len(set(ids)) == 3
++    assert len(db) == 3
++    assert db.get(doc_id=2) == {'n': 'x'}
++    assert sorted(d['n'] for d in db.all()) == ['x', 'y', 'z']
++
++    # The following automatic IDs must not collide either
++    new_id = db.insert({'n': 'w'})
++    assert new_id not in ids
++    assert len(db) == 4
++
++
++def test_remove_duplicate_doc_ids(db: TinyDB):
++    assert db.remove(doc_ids=[1, 1]) == [1]
++    assert len(db) == 2
++
++
++def test_update_duplicate_doc_ids(db: TinyDB):
++    from tinydb.operations import increment
++    assert db.update(increment('int'), doc_ids=[1, 1]) == [1]
++    assert db.get(doc_id=1)['int'] == 2
++
++
++def test_update_multiple_with_generator(db: TinyDB):
++    from tinydb.operations import increment
++    updates = ((increment('int'), where('char') == c) for c in 'ac')
++    assert sorted(db.update_multiple(updates)) == [1, 3]
++    assert [d['int'] for d in db.all()] == [2, 1, 2]
++
++
++def test_search_result_modification_does_not_affect_cache(db: TinyDB):
++    results = db.search(where('char') == 'a')
++    results[0]['char'] = 'modified'
++    results.append('junk')
++
++    assert db.search(where('char') == 'a') == [{'int': 1, 'char': 'a'}]
++
++    results = db.search(where('char') == 'a')
++    results[0]['char'] = 'modified'
++    assert db.search(where('char') == 'a') == [{'int': 1, 'char': 'a'}]
++
++
++def test_failed_update_is_atomic(db: TinyDB):
++    db.insert({'other': 1})
++    # Prime the query cache
++    assert len(db.search(where('int') == 1)) == 3
++
++    def fail_on_missing(doc):
++        doc['int'] += 1  # raises KeyError for the last document
++
++    with pytest.raises(KeyError):
++        db.update(fail_on_missing)
++
++    assert [d.get('int') for d in db.all()] == [1, 1, 1, None]
++    assert len(db.search(where('int') == 1)) == 3
++    assert db.search(where('int') == 2) == []
++
++
++def test_search_unhashable_query(db: TinyDB):
++    db.insert({'lst': [1, 2]})
++    assert db.search(where('lst') < [3]) == [{'lst': [1, 2]}]
++    assert db.search(
++        where('lst').test(lambda v, x: v == x, [1, 2])
++    ) == [{'lst': [1, 2]}]
++    # Cached results are returned on the second call
++    assert db.search(where('lst') < [3]) == [{'lst': [1, 2]}]
++
++
++def test_get_by_string_doc_id_returns_int_id(db: TinyDB):
++    assert db.get(doc_id='1').doc_id == 1
++
++
++def test_drop_table_resets_held_table_instance():
++    db = TinyDB(storage=MemoryStorage)
++    table = db.table('t')
++    table.insert({'a': 1})
++    assert len(table.search(where('a') == 1)) == 1
++
++    db.drop_table('t')
++    assert table.search(where('a') == 1) == []
++    assert table.insert({'a': 2}) == 1
++
++    db.drop_tables()
++    assert table.search(where('a') == 2) == []
++
++
++def test_copy_database_does_not_recurse():
++    import copy
++    db = TinyDB(storage=MemoryStorage)
++    db.insert({'a': 1})
++    db2 = copy.copy(db)
++    assert db2.all() == [{'a': 1}]
++
++
++def test_copy_middleware_does_not_recurse():
++    import copy
++    storage = CachingMiddleware(MemoryStorage)()
++    storage.write({'a': {}})
++    assert copy.copy(storage).read() == {'a': {}}
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index 59c8112..e5837a1 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -140,3 +140,15 @@ def test_freeze():
+ 
+     with pytest.raises(TypeError):
+         frozen[3].update({'a': 9})
++
++
++def test_freeze_mixed_key_types_hashable():
++    hash(freeze({1: 'a', 'b': 2}))
++    assert hash(FrozenDict({'a': 1, 'b': 2})) == \
++        hash(FrozenDict({'b': 2, 'a': 1}))
++
++
++def test_freeze_tuple_with_unhashable_elements():
++    frozen = freeze((1, [2, 3], {'a': [4]}))
++    hash(frozen)
++    assert frozen == (1, (2, 3), {'a': (4,)})
+diff --git a/tinydb/database.py b/tinydb/database.py
+index 0cd2b7e..f4df19a 100644
+--- a/tinydb/database.py
++++ b/tinydb/database.py
+@@ -169,6 +169,13 @@ class TinyDB(TableBase):
+         # to the storage thereby returning to the initial state with no tables.
+         self.storage.write({})
+ 
++        # Reset the state of the table instances in case someone still holds
++        # a reference to one of them, so they don't serve stale cached
++        # results or document IDs
++        for table in self._tables.values():
++            table.clear_cache()
++            table._next_id = None
++
+         # After that we need to remember to empty the ``_tables`` dict, so we'll
+         # create new table instances when a table is accessed again.
+         self._tables.clear()
+@@ -183,6 +190,11 @@ class TinyDB(TableBase):
+         # If the table is currently opened, we need to forget the table class
+         # instance
+         if name in self._tables:
++            # Reset the instance's state in case someone still holds a
++            # reference to it, so it doesn't serve stale cached results or
++            # document IDs
++            self._tables[name].clear_cache()
++            self._tables[name]._next_id = None
+             del self._tables[name]
+ 
+         data = self.storage.read()
+@@ -252,6 +264,12 @@ class TinyDB(TableBase):
+         """
+         Forward all unknown attribute calls to the default table instance.
+         """
++        # Avoid infinite recursion if the instance isn't fully initialized
++        # (e.g. while being copied or unpickled, or if ``__init__`` failed)
++        if name in ('_storage', '_tables', '_opened') or (
++                name.startswith('__') and name.endswith('__')):
++            raise AttributeError(name)
++
+         return getattr(self.table(self.default_table_name), name)
+ 
+     # Here we forward magic methods to the default table instance. These are
+diff --git a/tinydb/middlewares.py b/tinydb/middlewares.py
+index 7973012..9d3c93d 100644
+--- a/tinydb/middlewares.py
++++ b/tinydb/middlewares.py
+@@ -70,7 +70,14 @@ class Middleware:
+         remain as transparent as possible.
+         """
+ 
+-        return getattr(self.__dict__['storage'], name)
++        try:
++            storage = self.__dict__['storage']
++        except KeyError:
++            # Not fully initialized (e.g. while being copied or unpickled):
++            # ``hasattr``/``getattr`` expect an ``AttributeError`` here
++            raise AttributeError(name) from None
++
++        return getattr(storage, name)
+ 
+ 
+ class CachingMiddleware(Middleware):
+diff --git a/tinydb/queries.py b/tinydb/queries.py
+index 66810ce..2ae3994 100644
+--- a/tinydb/queries.py
++++ b/tinydb/queries.py
+@@ -17,7 +17,7 @@ False
+ """
+ 
+ import re
+-from collections.abc import Mapping, Callable
++from collections.abc import Mapping, Callable, Iterator
+ from typing import Any, Union, Optional, Protocol
+ 
+ from .utils import freeze
+@@ -181,6 +181,16 @@ class Query(QueryInstance):
+         return super().__hash__()
+ 
+     def __getattr__(self, item: str):
++        # Don't treat special (dunder) attribute lookups as field accesses.
++        # Python's protocols (``copy``, ``pickle``, ...) probe for these and
++        # expect an ``AttributeError`` if they're missing. Fields with such
++        # names can still be queried using ``Query()['__name__']``.
++        if item.startswith('__') and item.endswith('__'):
++            raise AttributeError(item)
++
++        return self._path_query(item)
++
++    def _path_query(self, item: str):
+         # Generate a new query object with the new query path
+         # We use type(self) to get the class of the current query in case
+         # someone uses a subclass of ``Query``
+@@ -203,7 +213,7 @@ class Query(QueryInstance):
+         # calling e.g. ``Query()['test']`` will always generate a query for a
+         # document's ``test`` field instead of returning a reference to the
+         # ``Query.test`` method
+-        return self.__getattr__(item)
++        return self._path_query(item)
+ 
+     def _generate_test(
+             self,
+@@ -277,7 +287,7 @@ class Query(QueryInstance):
+         """
+         return self._generate_test(
+             lambda value: value < rhs,
+-            ('<', self._path, rhs)
++            ('<', self._path, freeze(rhs))
+         )
+ 
+     def __le__(self, rhs: Any) -> QueryInstance:
+@@ -290,7 +300,7 @@ class Query(QueryInstance):
+         """
+         return self._generate_test(
+             lambda value: value <= rhs,
+-            ('<=', self._path, rhs)
++            ('<=', self._path, freeze(rhs))
+         )
+ 
+     def __gt__(self, rhs: Any) -> QueryInstance:
+@@ -303,7 +313,7 @@ class Query(QueryInstance):
+         """
+         return self._generate_test(
+             lambda value: value > rhs,
+-            ('>', self._path, rhs)
++            ('>', self._path, freeze(rhs))
+         )
+ 
+     def __ge__(self, rhs: Any) -> QueryInstance:
+@@ -316,7 +326,7 @@ class Query(QueryInstance):
+         """
+         return self._generate_test(
+             lambda value: value >= rhs,
+-            ('>=', self._path, rhs)
++            ('>=', self._path, freeze(rhs))
+         )
+ 
+     def exists(self) -> QueryInstance:
+@@ -345,7 +355,9 @@ class Query(QueryInstance):
+ 
+             return re.match(regex, value, flags) is not None
+ 
+-        return self._generate_test(test, ('matches', self._path, regex))
++        return self._generate_test(
++            test, ('matches', self._path, regex, flags)
++        )
+ 
+     def search(self, regex: str, flags: int = 0) -> QueryInstance:
+         """
+@@ -364,7 +376,9 @@ class Query(QueryInstance):
+ 
+             return re.search(regex, value, flags) is not None
+ 
+-        return self._generate_test(test, ('search', self._path, regex))
++        return self._generate_test(
++            test, ('search', self._path, regex, flags)
++        )
+ 
+     def test(self, func: Callable[[Mapping], bool], *args) -> QueryInstance:
+         """
+@@ -388,7 +402,7 @@ class Query(QueryInstance):
+         """
+         return self._generate_test(
+             lambda value: func(value, *args),
+-            ('test', self._path, func, args)
++            ('test', self._path, func, freeze(args))
+         )
+ 
+     def any(self, cond: Union[QueryInstance, list[Any]]) -> QueryInstance:
+@@ -423,7 +437,7 @@ class Query(QueryInstance):
+ 
+         return self._generate_test(
+             lambda value: test(value),
+-            ('any', self._path, freeze(cond))
++            _sub_query_hash(('any', self._path, freeze(cond)), cond)
+         )
+ 
+     def all(self, cond: Union['QueryInstance', list[Any]]) -> QueryInstance:
+@@ -456,7 +470,7 @@ class Query(QueryInstance):
+ 
+         return self._generate_test(
+             lambda value: test(value),
+-            ('all', self._path, freeze(cond))
++            _sub_query_hash(('all', self._path, freeze(cond)), cond)
+         )
+ 
+     def one_of(self, items: list[Any]) -> QueryInstance:
+@@ -467,6 +481,11 @@ class Query(QueryInstance):
+ 
+         :param items: The list of items to check with
+         """
++        # Iterators (e.g. generators) can only be consumed once, but the
++        # test is run for every document, so materialize them
++        if isinstance(items, Iterator):
++            items = list(items)
++
+         return self._generate_test(
+             lambda value: value in items,
+             ('one_of', self._path, freeze(items))
+@@ -474,6 +493,9 @@ class Query(QueryInstance):
+ 
+     def fragment(self, document: Mapping) -> QueryInstance:
+         def test(value):
++            if not isinstance(value, Mapping):
++                return False
++
+             for key in document:
+                 if key not in value or value[key] != document[key]:
+                     return False
+@@ -482,7 +504,7 @@ class Query(QueryInstance):
+ 
+         return self._generate_test(
+             lambda value: test(value),
+-            ('fragment', freeze(document)),
++            ('fragment', self._path, freeze(document)),
+             allow_empty_path=True
+         )
+ 
+@@ -514,6 +536,18 @@ class Query(QueryInstance):
+ 
+         return query
+ 
++def _sub_query_hash(hashval, cond):
++    """
++    Return ``hashval`` unless ``cond`` is a non-cacheable query, in which case
++    the resulting query must not be cacheable either.
++    """
++    is_cacheable = getattr(cond, 'is_cacheable', None)
++    if is_cacheable is not None and not is_cacheable():
++        return None
++
++    return hashval
++
++
+ def where(key: str) -> Query:
+     """
+     A shorthand for ``Query()[key]``
+diff --git a/tinydb/storages.py b/tinydb/storages.py
+index 63bb1d1..c08142f 100644
+--- a/tinydb/storages.py
++++ b/tinydb/storages.py
+@@ -23,9 +23,11 @@ def touch(path: str, create_dirs: bool):
+     if create_dirs:
+         base_dir = os.path.dirname(path)
+ 
+-        # Check if we need to create missing parent directories
+-        if not os.path.exists(base_dir):
+-            os.makedirs(base_dir)
++        # Check if we need to create missing parent directories. A path
++        # without a directory component (e.g. ``db.json``) refers to the
++        # current directory, which always exists.
++        if base_dir and not os.path.exists(base_dir):
++            os.makedirs(base_dir, exist_ok=True)
+ 
+     # Create the file by opening it in 'a' mode which creates the file if it
+     # does not exist yet but does not modify its contents
+@@ -105,6 +107,10 @@ class JSONStorage(Storage):
+         self._mode = access_mode
+         self.kwargs = kwargs
+ 
++        # In binary mode we have to encode the serialized JSON ourselves
++        self._binary = 'b' in access_mode
++        self._encoding = encoding
++
+         if access_mode not in ('r', 'rb', 'r+', 'rb+'):
+             warnings.warn(
+                 'Using an `access_mode` other than \'r\', \'rb\', \'r+\' '
+@@ -117,7 +123,11 @@ class JSONStorage(Storage):
+             touch(path, create_dirs=create_dirs)
+ 
+         # Open the file for reading/writing
+-        self._handle = open(path, mode=self._mode, encoding=encoding)
++        self._handle = open(
++            path,
++            mode=self._mode,
++            encoding=None if self._binary else encoding
++        )
+ 
+     def close(self) -> None:
+         self._handle.close()
+@@ -146,6 +156,9 @@ class JSONStorage(Storage):
+         # Serialize the database state using the user-provided arguments
+         serialized = json.dumps(data, **self.kwargs)
+ 
++        if self._binary:
++            serialized = serialized.encode(self._encoding or 'utf-8')
++
+         # Write the serialized data to the file
+         try:
+             self._handle.write(serialized)
+diff --git a/tinydb/table.py b/tinydb/table.py
+index 17a0fb6..c8e97a2 100644
+--- a/tinydb/table.py
++++ b/tinydb/table.py
+@@ -204,12 +204,23 @@ class Table:
+                     doc_id = document.doc_id
+                     doc_ids.append(doc_id)
+                     table[doc_id] = dict(document)
++
++                    # Make sure that auto-generated IDs for the following
++                    # documents won't collide with this explicit ID
++                    if (self._next_id is not None
++                            and isinstance(doc_id, int)
++                            and doc_id >= self._next_id):
++                        self._next_id = doc_id + 1
+                     continue
+ 
+                 # Generate new document ID for this document
+                 # Store the doc_id, so we can return all document IDs
+-                # later, then save the document with the new doc_id
++                # later, then save the document with the new doc_id.
++                # Skip IDs already in use (e.g. by explicit ``Document`` IDs
++                # inserted earlier in this batch) to avoid overwriting them.
+                 doc_id = self._get_next_id()
++                while doc_id in table:
++                    doc_id = self._get_next_id()
+                 doc_ids.append(doc_id)
+                 table[doc_id] = dict(document)
+ 
+@@ -242,9 +253,22 @@ class Table:
+ 
+         # First, we check the query cache to see if it has results for this
+         # query
+-        cached_results = self._query_cache.get(cond)
++        try:
++            cached_results = self._query_cache.get(cond)
++        except TypeError:
++            # The query is not hashable and thus can't be cached
++            cached_results = None
++            hashable = False
++        else:
++            hashable = True
++
+         if cached_results is not None:
+-            return cached_results[:]
++            # Return copies of the cached documents so that callers modifying
++            # the returned documents don't corrupt the query cache
++            return [
++                self.document_class(doc, doc.doc_id)
++                for doc in cached_results
++            ]
+ 
+         # Perform the search by applying the query to all documents.
+         # Then, only if the document matches the query, convert it
+@@ -270,9 +294,12 @@ class Table:
+         # are cacheable.
+         is_cacheable: Callable[[], bool] = getattr(cond, 'is_cacheable',
+                                                    lambda: True)
+-        if is_cacheable():
+-            # Update the query cache
+-            self._query_cache[cond] = docs[:]
++        if hashable and is_cacheable():
++            # Update the query cache. We store copies of the documents so that
++            # callers modifying the returned documents don't corrupt the cache
++            self._query_cache[cond] = [
++                self.document_class(doc, doc.doc_id) for doc in docs
++            ]
+ 
+         return docs
+ 
+@@ -343,7 +370,7 @@ class Table:
+                 return None
+ 
+             # Convert the raw data to the document class
+-            return self.document_class(raw_doc, doc_id)
++            return self.document_class(raw_doc, self.document_id_class(doc_id))
+ 
+         elif doc_ids is not None:
+             # Filter the table by extracting out all those documents which
+@@ -366,7 +393,7 @@ class Table:
+             # doesn't think that `doc_id_` (which is a string) needs
+             # to have the same type as `doc_id` which is this function's
+             # parameter and is an optional `int`.
+-            for doc_id_, doc in self._read_table().items():
++            for doc_id_, doc in table.items():
+                 if cond(doc):
+                     return self.document_class(
+                         doc,
+@@ -439,7 +466,8 @@ class Table:
+             # (see issue #591). The list of *actually* updated IDs is
+             # determined inside the updater so it reflects the table state at
+             # write time.
+-            requested_ids = list(doc_ids)
++            # Duplicate IDs are ignored so each document is updated only once
++            requested_ids = list(dict.fromkeys(doc_ids))
+             updated_ids: list[int] = []
+ 
+             def updater(table: dict):
+@@ -528,6 +556,10 @@ class Table:
+                 # data
+                 table[doc_id].update(fields)
+ 
++        # The updates are iterated once per document, so make sure that
++        # one-shot iterables (e.g. generators) work as well
++        updates = list(updates)
++
+         # Perform the update operation for documents specified by a query
+ 
+         # Collect affected doc_ids
+@@ -622,7 +654,8 @@ class Table:
+             # ``get(doc_ids=...)`` (see issue #591). The list of *actually*
+             # removed IDs is determined inside the updater so it reflects the
+             # table state at write time.
+-            requested_ids = list(doc_ids)
++            # Duplicate IDs are ignored (removing twice would fail)
++            requested_ids = list(dict.fromkeys(doc_ids))
+             removed_ids: list[int] = []
+ 
+             def updater(table: dict):
+@@ -808,8 +841,13 @@ class Table:
+         # This is required as the rest of TinyDB expects the document IDs
+         # to be an instance of ``self.document_id_class`` but the storage
+         # might convert dict keys to strings.
++        #
++        # The documents are (shallowly) copied so that an updater that fails
++        # halfway through doesn't leave the storage's data (which may be
++        # held in memory, e.g. by MemoryStorage or CachingMiddleware)
++        # partially modified.
+         table = {
+-            self.document_id_class(doc_id): doc
++            self.document_id_class(doc_id): dict(doc)
+             for doc_id, doc in raw_table.items()
+         }
+ 
+diff --git a/tinydb/utils.py b/tinydb/utils.py
+index 85a224c..4f67ba2 100644
+--- a/tinydb/utils.py
++++ b/tinydb/utils.py
+@@ -121,8 +121,10 @@ class FrozenDict(dict):
+     """
+ 
+     def __hash__(self):
+-        # Calculate the has by hashing a tuple of all dict items
+-        return hash(tuple(sorted(self.items())))
++        # Calculate the hash by hashing a frozenset of all dict items. Unlike
++        # sorting the items, this works for keys of mixed, unorderable types
++        # and doesn't depend on the item order either.
++        return hash(frozenset(self.items()))
+ 
+     def _immutable(self, *args, **kws):
+         raise TypeError('object is immutable')
+@@ -151,6 +153,9 @@ def freeze(obj):
+     elif isinstance(obj, list):
+         # Transform lists into tuples
+         return tuple(freeze(el) for el in obj)
++    elif type(obj) is tuple:
++        # Freeze the elements of plain tuples (which may contain e.g. lists)
++        return tuple(freeze(el) for el in obj)
+     elif isinstance(obj, set):
+         # Transform sets into ``frozenset``s
+         return frozenset(obj)

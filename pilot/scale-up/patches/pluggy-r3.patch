@@ -1,0 +1,534 @@
+diff --git a/src/pluggy/_callers.py b/src/pluggy/_callers.py
+index 450db1a..adfa652 100644
+--- a/src/pluggy/_callers.py
++++ b/src/pluggy/_callers.py
+@@ -159,6 +159,10 @@ def _multicall(
+                 # Try to force finalizers otherwise postponed till GC action.
+                 # Note: close() may raise if generator handles GeneratorExit.
+                 teardown.close()
++                # Raise inside the try so the error propagates to the
++                # remaining (outer) wrappers instead of skipping their
++                # teardowns entirely.
++                _raise_wrapfail(teardown, "has second yield")
+             except StopIteration as si:
+                 result = si.value
+                 exception = None
+@@ -166,7 +170,6 @@ def _multicall(
+             except BaseException as e:
+                 exception = e
+                 continue
+-            _raise_wrapfail(teardown, "has second yield")
+ 
+     if exception is not None:
+         raise exception
+diff --git a/src/pluggy/_hooks.py b/src/pluggy/_hooks.py
+index f079d3b..97c8a6d 100644
+--- a/src/pluggy/_hooks.py
++++ b/src/pluggy/_hooks.py
+@@ -6,9 +6,9 @@ from __future__ import annotations
+ 
+ from collections.abc import Callable
+ from collections.abc import Generator
++from collections.abc import Iterable
+ from collections.abc import Mapping
+ from collections.abc import Sequence
+-from collections.abc import Set
+ import inspect
+ import sys
+ import types
+@@ -470,7 +470,7 @@ class HookCaller:
+ 
+     def _remove_plugin(self, plugin: _Plugin) -> None:
+         """Remove all hook implementations registered by the given plugin."""
+-        remaining = [impl for impl in self._hookimpls if impl.plugin != plugin]
++        remaining = [impl for impl in self._hookimpls if impl.plugin is not plugin]
+         if len(remaining) == len(self._hookimpls):
+             raise ValueError(f"plugin {plugin!r} not found")
+         self._hookimpls[:] = remaining
+@@ -636,20 +636,26 @@ class _SubsetHookCaller(HookCaller):
+     __slots__ = (
+         "_orig",
+         "_remove_plugins",
++        "_remove_ids",
+     )
+ 
+-    def __init__(self, orig: HookCaller, remove_plugins: Set[_Plugin]) -> None:
++    def __init__(
++        self, orig: HookCaller, remove_plugins: Iterable[_Plugin]
++    ) -> None:
+         self._orig = orig
++        remove_plugins = tuple(remove_plugins)
+         self._remove_plugins = remove_plugins
++        # Compare by identity: plugins need not be hashable (e.g. dataclass
++        # instances) and may define a custom ``__eq__``.
++        self._remove_ids = frozenset(id(p) for p in remove_plugins)
+         self.name = orig.name  # type: ignore[misc]
+         self._hookexec = orig._hookexec  # type: ignore[misc]
+ 
+     @property  # type: ignore[misc]
+     def _hookimpls(self) -> list[HookImpl]:
++        remove_ids = self._remove_ids
+         return [
+-            impl
+-            for impl in self._orig._hookimpls
+-            if impl.plugin not in self._remove_plugins
++            impl for impl in self._orig._hookimpls if id(impl.plugin) not in remove_ids
+         ]
+ 
+     @property
+diff --git a/src/pluggy/_manager.py b/src/pluggy/_manager.py
+index c20105c..1534a3f 100644
+--- a/src/pluggy/_manager.py
++++ b/src/pluggy/_manager.py
+@@ -151,26 +151,37 @@ class PluginManager:
+                 f"{plugin_name}={plugin}\n{self._name2plugin}"
+             )
+ 
+-        # XXX if an error happens we should make sure no state has been
+-        # changed at point of return
+         self._name2plugin[plugin_name] = plugin
+ 
+         # register matching hook implementations of the plugin
+-        for name in dir(plugin):
+-            hookimpl_opts = self.parse_hookimpl_opts(plugin, name)
+-            if hookimpl_opts is not None:
+-                normalize_hookimpl_opts(hookimpl_opts)
+-                method: _HookImplFunction[object] = getattr(plugin, name)
+-                hookimpl = HookImpl(plugin, plugin_name, method, hookimpl_opts)
+-                name = hookimpl_opts.get("specname") or name
+-                hook: HookCaller | None = getattr(self.hook, name, None)
+-                if hook is None:
+-                    hook = HookCaller(name, self._hookexec)
+-                    setattr(self.hook, name, hook)
+-                elif hook.has_spec():
+-                    self._verify_hook(hook, hookimpl)
+-                    hook._maybe_apply_history(hookimpl)
+-                hook._add_hookimpl(hookimpl)
++        added: list[HookCaller] = []
++        try:
++            for name in dir(plugin):
++                hookimpl_opts = self.parse_hookimpl_opts(plugin, name)
++                if hookimpl_opts is not None:
++                    normalize_hookimpl_opts(hookimpl_opts)
++                    method: _HookImplFunction[object] = getattr(plugin, name)
++                    hookimpl = HookImpl(plugin, plugin_name, method, hookimpl_opts)
++                    name = hookimpl_opts.get("specname") or name
++                    hook: HookCaller | None = getattr(self.hook, name, None)
++                    if hook is None:
++                        hook = HookCaller(name, self._hookexec)
++                        setattr(self.hook, name, hook)
++                    elif hook.has_spec():
++                        self._verify_hook(hook, hookimpl)
++                        hook._maybe_apply_history(hookimpl)
++                    hook._add_hookimpl(hookimpl)
++                    added.append(hook)
++        except BaseException:
++            # Roll back a partial registration so a failed register() (e.g.
++            # PluginValidationError) leaves no half-registered plugin behind
++            # and the plugin/name can be registered again later.
++            for hook in added:
++                if any(impl.plugin is plugin for impl in hook._hookimpls):
++                    hook._remove_plugin(plugin)
++            if self._name2plugin.get(plugin_name) is plugin:
++                del self._name2plugin[plugin_name]
++            raise
+         return plugin_name
+ 
+     def parse_hookimpl_opts(self, plugin: _Plugin, name: str) -> HookimplOpts | None:
+@@ -184,7 +195,12 @@ class PluginManager:
+         customize how hook implementation are picked up. By default, returns the
+         options for items decorated with :class:`HookimplMarker`.
+         """
+-        method: object = getattr(plugin, name)
++        try:
++            method: object = getattr(plugin, name)
++        except Exception:
++            # Attributes listed by dir() may raise on access (e.g. properties,
++            # module __getattr__); they can't be hook implementations.
++            return None
+         if not inspect.isroutine(method):
+             return None
+         try:
+@@ -213,10 +229,30 @@ class PluginManager:
+             name = self.get_name(plugin)
+             assert name is not None, "plugin is not registered"
+ 
++        registered = self.get_plugin(name)
+         if plugin is None:
+-            plugin = self.get_plugin(name)
++            plugin = registered
+             if plugin is None:
+                 return None
++        else:
++            if registered is not None and not (
++                registered is plugin or registered == plugin
++            ):
++                raise ValueError(
++                    f"Plugin name {name!r} is registered to a different plugin: "
++                    f"{registered!r} (got {plugin!r})"
++                )
++            if registered is None:
++                other_name = self.get_name(plugin)
++                if other_name is not None and other_name != name:
++                    raise ValueError(
++                        f"Plugin {plugin!r} is registered under {other_name!r}, "
++                        f"not {name!r}"
++                    )
++            else:
++                # Use the actual registered object; hook implementations are
++                # matched by identity.
++                plugin = registered
+ 
+         hookcallers = self.get_hookcallers(plugin)
+         if hookcallers:
+@@ -224,8 +260,7 @@ class PluginManager:
+                 hookcaller._remove_plugin(plugin)
+ 
+         # if self._name2plugin[name] == None registration was blocked: ignore
+-        if self._name2plugin.get(name):
+-            assert name is not None
++        if self._name2plugin.get(name) is not None:
+             del self._name2plugin[name]
+ 
+         return plugin
+@@ -266,8 +301,14 @@ class PluginManager:
+                 else:
+                     # Plugins registered this hook without knowing the spec.
+                     hc.set_specification(module_or_class, spec_opts)
+-                    for hookfunction in hc.get_hookimpls():
+-                        self._verify_hook(hc, hookfunction)
++                    try:
++                        for hookfunction in hc.get_hookimpls():
++                            self._verify_hook(hc, hookfunction)
++                    except BaseException:
++                        # Don't leave a spec attached that failed validation.
++                        hc.spec = None
++                        hc._call_history = None
++                        raise
+                 names.append(name)
+ 
+         if not names:
+@@ -412,7 +453,7 @@ class PluginManager:
+                     ep.group != group
+                     or (name is not None and ep.name != name)
+                     # already registered
+-                    or self.get_plugin(ep.name)
++                    or self.get_plugin(ep.name) is not None
+                     or self.is_blocked(ep.name)
+                 ):
+                     continue
+@@ -462,6 +503,7 @@ class PluginManager:
+         which represents the result of the overall hook call.
+         """
+         oldcall = self._inner_hookexec
++        active = True
+ 
+         def traced_hookexec(
+             hook_name: str,
+@@ -469,6 +511,10 @@ class PluginManager:
+             caller_kwargs: Mapping[str, object],
+             firstresult: bool,
+         ) -> object | list[object]:
++            if not active:
++                # Undone while other monitors were stacked on top of us;
++                # act as a transparent pass-through.
++                return oldcall(hook_name, hook_impls, caller_kwargs, firstresult)
+             before(hook_name, hook_impls, caller_kwargs)
+             outcome = Result.from_call(
+                 lambda: oldcall(hook_name, hook_impls, caller_kwargs, firstresult)
+@@ -479,7 +525,12 @@ class PluginManager:
+         self._inner_hookexec = traced_hookexec
+ 
+         def undo() -> None:
+-            self._inner_hookexec = oldcall
++            nonlocal active
++            active = False
++            # Only unhook ourselves if we are the outermost layer; otherwise
++            # restoring ``oldcall`` would also drop monitors added after us.
++            if self._inner_hookexec is traced_hookexec:
++                self._inner_hookexec = oldcall
+ 
+         return undo
+ 
+@@ -515,7 +566,15 @@ class PluginManager:
+         method which manages calls to all registered plugins except the ones
+         from remove_plugins."""
+         orig: HookCaller = getattr(self.hook, name)
+-        plugins_to_remove = {plug for plug in remove_plugins if hasattr(plug, name)}
++        impl_plugin_ids = {id(impl.plugin) for impl in orig.get_hookimpls()}
++        # Match by identity (plugins need not be hashable), and also account
++        # for implementations registered under a different attribute name via
++        # ``specname``.
++        plugins_to_remove = [
++            plug
++            for plug in remove_plugins
++            if hasattr(plug, name) or id(plug) in impl_plugin_ids
++        ]
+         if plugins_to_remove:
+             return _SubsetHookCaller(orig, plugins_to_remove)
+         return orig
+diff --git a/testing/test_hardening.py b/testing/test_hardening.py
+new file mode 100644
+index 0000000..df3f6bb
+--- /dev/null
++++ b/testing/test_hardening.py
+@@ -0,0 +1,259 @@
++"""Regression tests for robustness fixes."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++
++import pytest
++
++from pluggy import HookimplMarker
++from pluggy import HookspecMarker
++from pluggy import PluginManager
++from pluggy import PluginValidationError
++
++
++hookspec = HookspecMarker("example")
++hookimpl = HookimplMarker("example")
++
++
++class Spec:
++    @hookspec
++    def he_method1(self, arg):
++        pass
++
++    @hookspec(historic=True)
++    def he_hist(self, arg):
++        pass
++
++
++@pytest.fixture
++def pm() -> PluginManager:
++    pm = PluginManager("example")
++    pm.add_hookspecs(Spec)
++    return pm
++
++
++def test_second_yield_does_not_skip_outer_wrapper_teardown(pm: PluginManager) -> None:
++    out = []
++
++    class Outer:
++        @hookimpl(wrapper=True, tryfirst=True)
++        def he_method1(self, arg):
++            try:
++                return (yield)
++            except RuntimeError as e:
++                out.append(("outer saw", "second yield" in str(e)))
++                raise
++            finally:
++                out.append("outer teardown")
++
++    class Bad:
++        @hookimpl(wrapper=True)
++        def he_method1(self, arg):
++            yield
++            yield
++
++    pm.register(Outer())
++    pm.register(Bad())
++    with pytest.raises(RuntimeError, match="has second yield"):
++        pm.hook.he_method1(arg=1)
++    assert out == [("outer saw", True), "outer teardown"]
++
++
++def test_failed_register_is_rolled_back(pm: PluginManager) -> None:
++    class Bad:
++        @hookimpl
++        def he_method1(self, arg):
++            return 1
++
++        @hookimpl
++        def he_method1_x(self, arg, notinspec):  # no spec -> pending, ok
++            pass
++
++        @hookimpl(specname="he_method1")
++        def zzz(self, arg, unknown_arg):
++            pass
++
++    bad = Bad()
++    with pytest.raises(PluginValidationError):
++        pm.register(bad, name="bad")
++    assert not pm.is_registered(bad)
++    assert pm.get_plugin("bad") is None
++    assert pm.hook.he_method1.get_hookimpls() == []
++    assert pm.hook.he_method1(arg=1) == []
++
++    class Good:
++        @hookimpl
++        def he_method1(self, arg):
++            return 2
++
++    pm.register(Good(), name="bad")
++    assert pm.hook.he_method1(arg=1) == [2]
++
++
++def test_failed_historic_replay_is_rolled_back(pm: PluginManager) -> None:
++    pm.hook.he_hist.call_historic(kwargs=dict(arg=1))
++
++    class Bad:
++        @hookimpl
++        def he_hist(self, arg):
++            raise ValueError("boom")
++
++    bad = Bad()
++    with pytest.raises(ValueError):
++        pm.register(bad)
++    assert not pm.is_registered(bad)
++    assert pm.hook.he_hist.get_hookimpls() == []
++
++
++def test_add_hookspecs_validation_failure_does_not_leave_spec(
++    pm: PluginManager,
++) -> None:
++    class Plugin:
++        @hookimpl(wrapper=True)
++        def later(self):
++            yield
++
++    pm.register(Plugin())
++
++    class Spec2:
++        @hookspec(historic=True)
++        def later(self):
++            pass
++
++    with pytest.raises(PluginValidationError):
++        pm.add_hookspecs(Spec2)
++    assert not pm.hook.later.has_spec()
++    assert not pm.hook.later.is_historic()
++
++
++def test_falsy_plugin_unregister(pm: PluginManager) -> None:
++    class Falsy:
++        def __bool__(self):
++            return False
++
++        @hookimpl
++        def he_method1(self, arg):
++            return arg
++
++    p = Falsy()
++    pm.register(p, name="falsy")
++    assert pm.unregister(p) is p
++    assert not pm.is_registered(p)
++    assert pm.get_plugin("falsy") is None
++    assert "falsy" not in dict(pm.list_name_plugin())
++    pm.register(p, name="falsy")
++    assert pm.hook.he_method1(arg=3) == [3]
++
++
++def test_unregister_equal_but_distinct_plugin(pm: PluginManager) -> None:
++    @dataclass
++    class P:
++        x: int
++
++        @hookimpl
++        def he_method1(self, arg):
++            return self.x
++
++    p = P(1)
++    pm.register(p, name="p")
++    assert pm.unregister(P(1)) is p
++    assert pm.hook.he_method1(arg=0) == []
++    assert not pm.get_plugins()
++
++
++def test_unregister_name_and_plugin_must_agree(pm: PluginManager) -> None:
++    class A:
++        @hookimpl
++        def he_method1(self, arg):
++            return "a"
++
++    class B:
++        @hookimpl
++        def he_method1(self, arg):
++            return "b"
++
++    a, b = A(), B()
++    pm.register(a, "a")
++    pm.register(b, "b")
++    with pytest.raises(ValueError):
++        pm.unregister(a, "b")
++    assert sorted(pm.hook.he_method1(arg=0)) == ["a", "b"]
++    assert pm.get_plugin("a") is a and pm.get_plugin("b") is b
++
++
++def test_register_plugin_with_raising_property(pm: PluginManager) -> None:
++    class Plugin:
++        @property
++        def broken(self):
++            raise RuntimeError("no")
++
++        @hookimpl
++        def he_method1(self, arg):
++            return arg
++
++    pm.register(Plugin())
++    assert pm.hook.he_method1(arg=5) == [5]
++
++
++def test_subset_hook_caller_specname(pm: PluginManager) -> None:
++    class A:
++        @hookimpl(specname="he_method1")
++        def renamed(self, arg):
++            return "a"
++
++    class B:
++        @hookimpl
++        def he_method1(self, arg):
++            return "b"
++
++    a, b = A(), B()
++    pm.register(a)
++    pm.register(b)
++    hc = pm.subset_hook_caller("he_method1", [a])
++    assert hc(arg=0) == ["b"]
++
++
++def test_subset_hook_caller_unhashable_plugin(pm: PluginManager) -> None:
++    @dataclass
++    class P:
++        x: int
++
++        @hookimpl
++        def he_method1(self, arg):
++            return self.x
++
++    p1, p2 = P(1), P(2)
++    pm.register(p1, "p1")
++    pm.register(p2, "p2")
++    hc = pm.subset_hook_caller("he_method1", [p1])
++    assert hc(arg=0) == [2]
++
++
++def test_hookcall_monitoring_undo_out_of_order(pm: PluginManager) -> None:
++    calls: list[str] = []
++
++    class Plugin:
++        @hookimpl
++        def he_method1(self, arg):
++            return arg
++
++    pm.register(Plugin())
++
++    def mk(tag):
++        return (
++            lambda *a: calls.append(tag + ":before"),
++            lambda *a: calls.append(tag + ":after"),
++        )
++
++    undo_a = pm.add_hookcall_monitoring(*mk("a"))
++    undo_b = pm.add_hookcall_monitoring(*mk("b"))
++    undo_a()
++    pm.hook.he_method1(arg=1)
++    assert calls == ["b:before", "b:after"]
++    calls.clear()
++    undo_b()
++    pm.hook.he_method1(arg=1)
++    assert calls == []
++
++

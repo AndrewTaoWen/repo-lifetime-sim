@@ -1,0 +1,670 @@
+diff --git a/more_itertools/more.py b/more_itertools/more.py
+index 06f4426..8e1960a 100755
+--- a/more_itertools/more.py
++++ b/more_itertools/more.py
+@@ -2,7 +2,7 @@ import math
+ import types
+ 
+ from collections import Counter, defaultdict, deque
+-from collections.abc import Sequence
++from collections.abc import Mapping, Sequence
+ from contextlib import suppress
+ from functools import cached_property, partial, wraps
+ from heapq import heapify, heapreplace
+@@ -24,7 +24,7 @@ from itertools import (
+     product,
+ )
+ from math import comb, e, exp, factorial, floor, fsum, log, log1p, perm, tau
+-from math import ceil, prod
++from math import ceil, inf, prod
+ from queue import Empty, Queue
+ from random import random, randrange, shuffle, uniform
+ from operator import (
+@@ -282,20 +282,41 @@ def last(iterable, default=_marker):
+     If *default* is not provided and there are no items in the iterable,
+     raise ``ValueError``.
+     """
+-    try:
+-        if isinstance(iterable, Sequence):
++    # Only the "is it empty?" checks are guarded here. Exceptions raised
++    # while iterating over *iterable* (e.g. a TypeError from inside a
++    # generator or map() call) must propagate rather than being mistaken
++    # for an empty iterable.
++    if isinstance(iterable, Sequence):
++        try:
+             return iterable[-1]
+-        # Work around https://bugs.python.org/issue38525
+-        if getattr(iterable, '__reversed__', None):
+-            return next(reversed(iterable))
+-        return deque(iterable, maxlen=1)[-1]
+-    except (IndexError, TypeError, StopIteration):
+-        if default is _marker:
+-            raise ValueError(
+-                'last() was called on an empty iterable, '
+-                'and no default value was provided.'
+-            )
+-        return default
++        except IndexError:
++            return _last_default(default)
++        except TypeError:
++            pass
++    # Work around https://bugs.python.org/issue38525
++    elif getattr(iterable, '__reversed__', None):
++        try:
++            reversed_iterator = reversed(iterable)
++        except TypeError:
++            pass
++        else:
++            for item in reversed_iterator:
++                return item
++            return _last_default(default)
++
++    tail = deque(iterable, maxlen=1)
++    if tail:
++        return tail[0]
++    return _last_default(default)
++
++
++def _last_default(default):
++    if default is _marker:
++        raise ValueError(
++            'last() was called on an empty iterable, '
++            'and no default value was provided.'
++        )
++    return default
+ 
+ 
+ def nth_or_last(iterable, n, default=_marker):
+@@ -457,14 +478,18 @@ class peekable:
+ 
+         # If either the start or stop index is negative, we'll need to cache
+         # the rest of the iterable in order to slice from the right side.
+-        if (start < 0) or (stop < 0):
++        # (An omitted stop with a negative step means "through the first
++        # item", which doesn't require reading ahead.)
++        if (start < 0) or (index.stop is not None and stop < 0):
+             self._cache.extend(self._it)
+         # Otherwise we'll need to find the rightmost index and cache to that
+         # point.
+         else:
+-            n = min(max(start, stop) + 1, maxsize)
++            # A positive step needs items up to (but not including) stop;
++            # a negative step needs items up to and including start.
++            n = min(stop if step > 0 else start + 1, maxsize)
+             cache_len = len(self._cache)
+-            if n >= cache_len:
++            if n > cache_len:
+                 self._cache.extend(islice(self._it, n - cache_len))
+ 
+         return list(self._cache)[index]
+@@ -1195,8 +1220,12 @@ class bucket:
+         while True:
+             # If we've cached some items that match the target value, emit
+             # the first one and evict it from the cache.
+-            if self._cache[value]:
+-                yield self._cache[value].popleft()
++            # Use .get() so that looking up a value that has no items
++            # doesn't create an empty entry in the cache (which would
++            # otherwise show up as a phantom key when iterating).
++            cached = self._cache.get(value)
++            if cached:
++                yield cached.popleft()
+             # Otherwise we need to advance the parent iterator to search for
+             # a matching item, caching the rest.
+             else:
+@@ -1207,6 +1236,8 @@ class bucket:
+                         return
+                     item_value = self._key(item)
+                     if item_value == value:
++                        # Record the key, since it has at least one item
++                        self._cache[value]
+                         yield item
+                         break
+                     elif self._validator(item_value):
+@@ -1218,7 +1249,9 @@ class bucket:
+             if self._validator(item_value):
+                 self._cache[item_value].append(item)
+ 
+-        return iter(self._cache)
++        # Return a snapshot of the keys so that selecting buckets while
++        # iterating over the keys can't change the dict's size.
++        return iter(list(self._cache))
+ 
+     def __getitem__(self, value):
+         if not self._validator(value):
+@@ -1336,6 +1369,8 @@ def interleave_evenly(iterables, lengths=None):
+         raise ValueError('Mismatching number of iterables and lengths.')
+ 
+     dims = len(lengths)
++    if not dims:
++        return
+ 
+     # sort iterables by length, descending
+     lengths_permute = sorted(
+@@ -1995,8 +2030,13 @@ def sort_together(
+                 *get_key_items(zipped_items)
+             )
+ 
++    iterables = tuple(iterables)
+     transposed = zip(*iterables, strict=strict)
+     reordered = sorted(transposed, key=key_argument, reverse=reverse)
++    if not reordered:
++        # zip(*[]) would produce an empty list; return one (empty) tuple
++        # per input iterable so that the result can always be unpacked.
++        return [()] * len(iterables)
+     untransposed = zip(*reordered, strict=strict)
+     return list(untransposed)
+ 
+@@ -2074,12 +2114,17 @@ def divide(n, iterable):
+     if n < 1:
+         raise ValueError('n must be at least 1')
+ 
+-    try:
+-        iterable[:0]
+-    except TypeError:
++    if isinstance(iterable, Mapping):
++        # Mappings may accept slice objects as keys (slices are hashable as
++        # of Python 3.12), so don't try to slice them.
+         seq = tuple(iterable)
+     else:
+-        seq = iterable
++        try:
++            iterable[:0]
++        except (TypeError, KeyError):
++            seq = tuple(iterable)
++        else:
++            seq = iterable
+ 
+     q, r = divmod(len(seq), n)
+ 
+@@ -2321,12 +2366,17 @@ class numeric_range(Sequence):
+             return self._start > self._stop
+ 
+     def __contains__(self, elem):
+-        if self._growing:
+-            if self._start <= elem < self._stop:
+-                return (elem - self._start) % self._step == self._zero
+-        else:
+-            if self._start >= elem > self._stop:
+-                return (self._start - elem) % (-self._step) == self._zero
++        try:
++            if self._growing:
++                if self._start <= elem < self._stop:
++                    return (elem - self._start) % self._step == self._zero
++            else:
++                if self._start >= elem > self._stop:
++                    return (self._start - elem) % (-self._step) == self._zero
++        except TypeError:
++            # Like range(), values that can't be compared with the range's
++            # items simply aren't members.
++            return False
+ 
+         return False
+ 
+@@ -2392,7 +2442,29 @@ class numeric_range(Sequence):
+             return 0
+         else:  # distance > 0 and step > 0: regular euclidean division
+             q, r = divmod(distance, step)
+-            return int(q) + int(r != self._zero)
++            n = int(q) + int(r != self._zero)
++
++        # With inexact types (e.g. float) the division above can disagree
++        # with the values actually produced by start + i * step.  Adjust so
++        # that the length matches what iteration yields, and so that
++        # indexing never returns a value outside of the range.  Rounding
++        # errors are at most a few steps, so the correction is bounded (this
++        # also keeps len() fast for huge ranges where floats are too coarse
++        # to represent every step).
++        in_range = self._in_range
++        for _ in range(4):
++            if n > 0 and not in_range(self._start + (n - 1) * self._step):
++                n -= 1
++            elif in_range(self._start + n * self._step):
++                n += 1
++            else:
++                break
++        return n
++
++    def _in_range(self, value):
++        if self._growing:
++            return value < self._stop
++        return value > self._stop
+ 
+     def __reduce__(self):
+         return numeric_range, (self._start, self._stop, self._step)
+@@ -2405,30 +2477,31 @@ class numeric_range(Sequence):
+         )
+ 
+     def __reversed__(self):
+-        # Empty iterator
+-        try:
+-            start = self._get_by_index(-1)
+-        except IndexError:
+-            return iter([])
+-
+-        return iter(
+-            numeric_range(start, self._start - self._step, -self._step)
+-        )
++        # Compute each value the same way as forward iteration and indexing
++        # do, so that reversing yields exactly the same items (with inexact
++        # types, stepping backwards from the last item can drift and even
++        # produce an extra item).
++        start = self._start
++        step = self._step
++        return (start + i * step for i in reversed(range(self._len)))
+ 
+     def count(self, value):
+         return int(value in self)
+ 
+     def index(self, value):
+-        if self._growing:
+-            if self._start <= value < self._stop:
+-                q, r = divmod(value - self._start, self._step)
+-                if r == self._zero:
+-                    return int(q)
+-        else:
+-            if self._start >= value > self._stop:
+-                q, r = divmod(self._start - value, -self._step)
+-                if r == self._zero:
+-                    return int(q)
++        try:
++            if self._growing:
++                if self._start <= value < self._stop:
++                    q, r = divmod(value - self._start, self._step)
++                    if r == self._zero:
++                        return int(q)
++            else:
++                if self._start >= value > self._stop:
++                    q, r = divmod(self._start - value, -self._step)
++                    if r == self._zero:
++                        return int(q)
++        except TypeError:
++            pass
+ 
+         raise ValueError(f"{value} is not in numeric range")
+ 
+@@ -3679,10 +3752,15 @@ def iequals(*iterables):
+     elements of iterable are equal to each other.
+ 
+     """
+-    try:
+-        return all(map(all_equal, zip(*iterables, strict=True)))
+-    except ValueError:
+-        return False
++    # Use a sentinel rather than zip(..., strict=True) so that a ValueError
++    # raised by one of the iterables (or by comparing items) isn't
++    # mistaken for a length mismatch.
++    for items in zip_longest(*iterables, fillvalue=_marker):
++        if any(item is _marker for item in items):
++            return False
++        if not all_equal(items):
++            return False
++    return True
+ 
+ 
+ def distinct_combinations(iterable, r):
+@@ -3702,7 +3780,7 @@ def distinct_combinations(iterable, r):
+         yield ()
+         return
+     pool = tuple(iterable)
+-    generators = [unique_everseen(enumerate(pool), key=itemgetter(1))]
++    generators = [_unique_pairs_by_value(enumerate(pool))]
+     current_combo = [None] * r
+     level = 0
+     while generators:
+@@ -3717,14 +3795,31 @@ def distinct_combinations(iterable, r):
+             yield tuple(current_combo)
+         else:
+             generators.append(
+-                unique_everseen(
+-                    enumerate(pool[cur_idx + 1 :], cur_idx + 1),
+-                    key=itemgetter(1),
++                _unique_pairs_by_value(
++                    enumerate(pool[cur_idx + 1 :], cur_idx + 1)
+                 )
+             )
+             level += 1
+ 
+ 
++def _unique_pairs_by_value(pairs):
++    # Yield (index, value) pairs whose value hasn't been seen before.
++    # Unlike unique_everseen(), unhashable values are supported.
++    seen_set = set()
++    seen_list = []
++    for pair in pairs:
++        value = pair[1]
++        try:
++            if value in seen_set:
++                continue
++            seen_set.add(value)
++        except TypeError:
++            if value in seen_list:
++                continue
++            seen_list.append(value)
++        yield pair
++
++
+ def filter_except(validator, iterable, *exceptions):
+     """Yield the items from *iterable* for which the *validator* function does
+     not raise one of the specified *exceptions*.
+@@ -3823,36 +3918,47 @@ def _sample_weighted(iterator, k, weights, strict):
+     # "Weighted random sampling with a reservoir".
+ 
+     # Log-transform for numerical stability for weights that are small/large
+-    weight_keys = (log(random()) / weight for weight in weights)
++    # Items with a weight of zero get a key of -inf, so they are only
++    # selected when there aren't enough items with positive weight.
++    weight_keys = (
++        log(random()) / weight if weight else -inf for weight in weights
++    )
++
++    # A tie-breaker keeps the heap from ever comparing the elements
++    # themselves (which may not be orderable) when weight-keys are equal.
++    tie_breaker = count()
+ 
+     # Fill up the reservoir (collection of samples) with the first `k`
+     # weight-keys and elements, then heapify the list.
+-    reservoir = take(k, zip(weight_keys, iterator))
++    reservoir = take(k, zip(weight_keys, tie_breaker, iterator))
+     if strict and len(reservoir) < k:
+         raise ValueError('Sample larger than population')
+ 
++    if not reservoir:
++        return []
++
+     heapify(reservoir)
+ 
+     # The number of jumps before changing the reservoir is a random variable
+     # with an exponential distribution. Sample it using random() and logs.
+-    smallest_weight_key, _ = reservoir[0]
++    smallest_weight_key = reservoir[0][0]
+     weights_to_skip = log(random()) / smallest_weight_key
+ 
+     for weight, element in zip(weights, iterator):
+-        if weight >= weights_to_skip:
++        if weight and weight >= weights_to_skip:
+             # The notation here is consistent with the paper, but we store
+             # the weight-keys in log-space for better numerical stability.
+-            smallest_weight_key, _ = reservoir[0]
++            smallest_weight_key = reservoir[0][0]
+             t_w = exp(weight * smallest_weight_key)
+             r_2 = uniform(t_w, 1)  # generate U(t_w, 1)
+             weight_key = log(r_2) / weight
+-            heapreplace(reservoir, (weight_key, element))
+-            smallest_weight_key, _ = reservoir[0]
++            heapreplace(reservoir, (weight_key, next(tie_breaker), element))
++            smallest_weight_key = reservoir[0][0]
+             weights_to_skip = log(random()) / smallest_weight_key
+         else:
+             weights_to_skip -= weight
+ 
+-    ret = [element for weight_key, element in reservoir]
++    ret = [element for weight_key, _, element in reservoir]
+     shuffle(ret)
+     return ret
+ 
+@@ -4367,9 +4473,13 @@ def value_chain(*args):
+             yield value
+             continue
+         try:
+-            yield from value
++            iterator = iter(value)
+         except TypeError:
+             yield value
++            continue
++        # Errors raised while iterating must propagate; only a failure to
++        # create an iterator means *value* is a scalar.
++        yield from iterator
+ 
+ 
+ def product_index(element, *iterables, repeat=1):
+@@ -4469,15 +4579,20 @@ def combination_with_replacement_index(element, iterable):
+ 
+     indexes = []
+     pool = tuple(iterable)
++    exhausted = False
+     for n, x in enumerate(pool):
+         while x == y:
+             indexes.append(n)
+             tmp, y = next(element, (None, None))
+             if tmp is None:
++                # Track exhaustion explicitly: the element itself may
++                # contain None values, so y being None isn't a reliable
++                # signal.
++                exhausted = True
+                 break
+             else:
+                 k = tmp
+-        if y is None:
++        if exhausted:
+             break
+     else:
+         raise ValueError(
+@@ -5048,6 +5163,9 @@ def outer_product(func, xs, ys, *args, **kwargs):
+     [('cat', 'cat', 'cat'), ('cat', 'wolf', 'wolf'), ('cat', 'wolf', 'mouse')]
+     """
+     ys = tuple(ys)
++    if not ys:
++        # batched() rejects n=0; each row of the matrix is simply empty.
++        return map(lambda x: (), xs)
+     return batched(
+         starmap(lambda x, y: func(x, y, *args, **kwargs), product(xs, ys)),
+         n=len(ys),
+diff --git a/tests/test_more.py b/tests/test_more.py
+index a019677..cb707d6 100644
+--- a/tests/test_more.py
++++ b/tests/test_more.py
+@@ -6993,3 +6993,213 @@ class TestRunningStats(TestCase):
+             list(mi.running_statistics(map(complex, data)))
+         with self.assertRaises(TypeError):
+             list(mi.running_statistics(map(complex, data), maxlen=3))
++
++
++class LastErrorPropagationTests(TestCase):
++    def test_error_while_iterating_propagates(self):
++        # A TypeError raised while iterating must not be mistaken for an
++        # empty iterable.
++        with self.assertRaises(TypeError):
++            mi.last(map(lambda x: x + 1, ['a']), 'default')
++        with self.assertRaises(TypeError):
++            mi.nth_or_last(map(lambda x: x + 1, [1, 'a']), 5, 'default')
++
++    def test_empty_still_uses_default(self):
++        self.assertEqual(mi.last(iter([]), 'd'), 'd')
++        self.assertEqual(mi.last([], 'd'), 'd')
++        self.assertEqual(mi.last({}, 'd'), 'd')
++        with self.assertRaises(ValueError):
++            mi.last(iter([]))
++
++    def test_sequence_without_negative_indexing(self):
++        class OnlyPositive(Sequence):
++            def __len__(self):
++                return 3
++
++            def __getitem__(self, i):
++                if i < 0:
++                    raise TypeError('no negative indexes')
++                if i >= 3:
++                    raise IndexError(i)
++                return i
++
++        self.assertEqual(mi.last(OnlyPositive()), 2)
++
++
++class ValueChainErrorPropagationTests(TestCase):
++    def test_error_while_iterating_propagates(self):
++        def gen():
++            yield 1
++            raise TypeError('boom')
++
++        with self.assertRaises(TypeError):
++            list(mi.value_chain(gen()))
++
++
++class BucketKeyTests(TestCase):
++    def test_missing_key_lookup_does_not_add_key(self):
++        D = mi.bucket(['a1', 'b1', 'a2'], key=lambda x: x[0])
++        self.assertNotIn('z', D)
++        self.assertEqual(list(D['y']), [])
++        self.assertEqual(sorted(D), ['a', 'b'])
++
++    def test_lookup_while_iterating_keys(self):
++        D = mi.bucket(['a1', 'b1', 'a2'], key=lambda x: x[0])
++        actual = [(k, list(D['missing' + k])) for k in D]
++        self.assertEqual(actual, [('a', []), ('b', [])])
++        self.assertEqual(list(D['a']), ['a1', 'a2'])
++
++
++class NumericRangeFloatConsistencyTests(TestCase):
++    def test_len_matches_iteration(self):
++        for args in [(-4, 5, 0.3), (0, 1, 0.1), (0.0, 2.1, 0.7)]:
++            with self.subTest(args=args):
++                r = mi.numeric_range(*args)
++                items = list(r)
++                self.assertEqual(len(r), len(items))
++                self.assertEqual(r[-1], items[-1])
++                self.assertLess(r[-1], args[1])
++
++    def test_reversed_matches_forward(self):
++        for args in [
++            (0, 1, 0.1),
++            (1, -5, -0.9346777581709618),
++            (0.5, 3.75, 0.25),
++        ]:
++            with self.subTest(args=args):
++                r = mi.numeric_range(*args)
++                self.assertEqual(list(reversed(r)), list(r)[::-1])
++
++    def test_reversed_empty(self):
++        self.assertEqual(list(reversed(mi.numeric_range(1.0, 0.0))), [])
++
++
++class SortTogetherEmptyTests(TestCase):
++    def test_empty_iterables(self):
++        self.assertEqual(mi.sort_together([[], []]), [(), ()])
++        a, b, c = mi.sort_together(iter([[], (), '']), key_list=(1,))
++        self.assertEqual((a, b, c), ((), (), ()))
++        self.assertEqual(mi.sort_together([]), [])
++
++
++class CombinationWithReplacementIndexNoneTests(TestCase):
++    def test_none_values(self):
++        for pool in ([0, None, 3], [None, 1, 2], [1, None]):
++            for r in range(4):
++                combos = list(combinations_with_replacement(pool, r))
++                for element in combos:
++                    with self.subTest(pool=pool, element=element):
++                        self.assertEqual(
++                            mi.combination_with_replacement_index(
++                                element, pool
++                            ),
++                            combos.index(element),
++                        )
++
++
++class SampleZeroWeightTests(TestCase):
++    def test_zero_weights(self):
++        seed(0)
++        for _ in range(50):
++            actual = mi.sample('abcde', 2, weights=[0, 1, 0, 1, 0])
++            self.assertCountEqual(actual, ['b', 'd'])
++
++    def test_zero_weights_fill_when_needed(self):
++        actual = mi.sample('abc', 3, weights=[0, 5, 0])
++        self.assertCountEqual(actual, ['a', 'b', 'c'])
++
++    def test_empty_population(self):
++        self.assertEqual(mi.sample([], 3, weights=[]), [])
++        self.assertEqual(mi.sample([], 3), [])
++        with self.assertRaises(ValueError):
++            mi.sample([], 3, weights=[], strict=True)
++
++    def test_unorderable_elements_with_tied_keys(self):
++        actual = mi.sample([{}, {}, {}], 2, weights=[0, 0, 0])
++        self.assertEqual(actual, [{}, {}])
++
++
++class OuterProductEmptyTests(TestCase):
++    def test_empty_ys(self):
++        self.assertEqual(
++            list(mi.outer_product(mul, [1, 2, 3], [])), [(), (), ()]
++        )
++        self.assertEqual(list(mi.outer_product(mul, [], [])), [])
++
++
++class InterleaveEvenlyNoIterablesTests(TestCase):
++    def test_no_iterables(self):
++        self.assertEqual(list(mi.interleave_evenly([])), [])
++        self.assertEqual(list(mi.interleave_evenly([], lengths=[])), [])
++
++
++class DistinctCombinationsUnhashableTests(TestCase):
++    def test_unhashable(self):
++        iterable = [[1], [1], [2], {3: 4}]
++        for r in range(len(iterable) + 1):
++            with self.subTest(r=r):
++                actual = list(mi.distinct_combinations(iterable, r))
++                expected = []
++                for combo in combinations(iterable, r):
++                    if combo not in expected:
++                        expected.append(combo)
++                self.assertEqual(actual, expected)
++
++
++class DivideMappingTests(TestCase):
++    def test_dict(self):
++        actual = [list(x) for x in mi.divide(2, {'a': 1, 'b': 2, 'c': 3})]
++        self.assertEqual(actual, [['a', 'b'], ['c']])
++        actual = [list(x) for x in mi.divide(2, Counter('aab'))]
++        self.assertEqual(actual, [['a'], ['b']])
++
++
++class IequalsErrorPropagationTests(TestCase):
++    def test_value_error_propagates(self):
++        with self.assertRaises(ValueError):
++            mi.iequals(map(int, ['1', 'x']), [1, 2])
++
++    def test_lengths(self):
++        self.assertTrue(mi.iequals())
++        self.assertTrue(mi.iequals([1, 2]))
++        self.assertTrue(mi.iequals([], iter([])))
++        self.assertFalse(mi.iequals([1], [1, 2]))
++        self.assertFalse(mi.iequals([1, 2], [1]))
++        self.assertFalse(mi.iequals([], [None]))
++
++
++class PeekableSliceReadAheadTests(TestCase):
++    def _tracked(self, n):
++        consumed = []
++
++        def gen():
++            for i in range(n):
++                consumed.append(i)
++                yield i
++
++        return consumed, mi.peekable(gen())
++
++    def test_positive_step_reads_only_needed_items(self):
++        consumed, p = self._tracked(10)
++        self.assertEqual(p[:2], [0, 1])
++        self.assertEqual(consumed, [0, 1])
++        self.assertEqual(p[1:3], [1, 2])
++        self.assertEqual(consumed, [0, 1, 2])
++        self.assertEqual(list(p), list(range(10)))
++
++    def test_negative_step_without_stop(self):
++        consumed, p = self._tracked(10)
++        self.assertEqual(p[2::-1], [2, 1, 0])
++        self.assertEqual(consumed, [0, 1, 2])
++        self.assertEqual(list(p), list(range(10)))
++
++
++class NumericRangeIncomparableTests(TestCase):
++    def test_contains_and_index(self):
++        r = mi.numeric_range(3)
++        for value in ['a', None, 1j, (1,)]:
++            with self.subTest(value=value):
++                self.assertNotIn(value, r)
++                self.assertEqual(r.count(value), 0)
++                with self.assertRaises(ValueError):
++                    r.index(value)

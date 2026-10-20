@@ -1,0 +1,735 @@
+diff --git a/src/marshmallow/class_registry.py b/src/marshmallow/class_registry.py
+index 6c02f9c..d152e94 100644
+--- a/src/marshmallow/class_registry.py
++++ b/src/marshmallow/class_registry.py
+@@ -54,11 +54,15 @@ def register(classname: str, cls: SchemaType) -> None:
+     # If the class is already registered; need to check if the entries are
+     # in the same module as cls to avoid having multiple instances of the same
+     # class in the registry
+-    if classname in _registry and not any(
+-        each.__module__ == module for each in _registry[classname]
+-    ):
+-        _registry[classname].append(cls)
+-    elif classname not in _registry:
++    if classname in _registry:
++        # Replace an existing entry from the same module (e.g. the class was
++        # redefined), so that lookups by class name and by full path agree.
++        classes = [
++            each for each in _registry[classname] if each.__module__ != module
++        ]
++        classes.append(cls)
++        _registry[classname] = classes
++    else:
+         _registry[classname] = [cls]
+ 
+     # Also register the full path
+diff --git a/src/marshmallow/experimental/context.py b/src/marshmallow/experimental/context.py
+index ccb1711..7f84c7a 100644
+--- a/src/marshmallow/experimental/context.py
++++ b/src/marshmallow/experimental/context.py
+@@ -42,6 +42,9 @@ except ImportError:  # Python<3.10
+ _ContextT = typing.TypeVar("_ContextT")
+ _DefaultT = typing.TypeVar("_DefaultT")
+ _CURRENT_CONTEXT: contextvars.ContextVar = contextvars.ContextVar("context")
++_TOKEN_STACK: contextvars.ContextVar[tuple[contextvars.Token, ...]] = (
++    contextvars.ContextVar("context_tokens", default=())
++)
+ 
+ 
+ class Context(contextlib.AbstractContextManager, typing.Generic[_ContextT]):
+@@ -56,10 +59,20 @@ class Context(contextlib.AbstractContextManager, typing.Generic[_ContextT]):
+ 
+     def __enter__(self) -> Context[_ContextT]:
+         self.token = _CURRENT_CONTEXT.set(self.context)
++        # Keep a per-execution-context stack of tokens so that the same
++        # instance can be entered re-entrantly (or concurrently from different
++        # threads/tasks) and each exit restores the correct previous value.
++        _TOKEN_STACK.set((*_TOKEN_STACK.get(), self.token))
+         return self
+ 
+     def __exit__(self, *args, **kwargs) -> None:
+-        _CURRENT_CONTEXT.reset(typing.cast("contextvars.Token", self.token))
++        stack = _TOKEN_STACK.get()
++        if stack:
++            token = stack[-1]
++            _TOKEN_STACK.set(stack[:-1])
++        else:  # pragma: no cover - only reachable if __exit__ is called manually
++            token = typing.cast("contextvars.Token", self.token)
++        _CURRENT_CONTEXT.reset(token)
+ 
+     @classmethod
+     def get(cls, default: _DefaultT | EllipsisType = ...) -> _ContextT | _DefaultT:
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index e6c7366..39d41fe 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -386,8 +386,11 @@ class Field(typing.Generic[_InternalT]):
+         for func in self.pre_load:
+             value = func(value)
+ 
+-        if self.allow_none and value is None:
+-            return None
++        if value is None:
++            if self.allow_none:
++                return None
++            # A pre_load function may have turned the input into None
++            raise self.make_error("null")
+ 
+         output = self._deserialize(value, attr, data, **kwargs)
+         # Apply validators
+@@ -563,6 +566,14 @@ class Nested(Field):
+         self._schema: Schema | None = None  # Cached Schema instance
+         super().__init__(**kwargs)
+ 
++    def __deepcopy__(self, memo):
++        ret = super().__deepcopy__(memo)
++        # Don't share the cached schema with the copy: copies are re-bound to
++        # a (possibly different) parent and may receive different ``only``,
++        # ``exclude``, ``load_only`` and ``dump_only`` options.
++        ret._schema = None
++        return ret
++
+     @property
+     def schema(self) -> Schema:
+         """The nested Schema object."""
+@@ -1572,6 +1583,9 @@ class TimeDelta(Field[dt.timedelta]):
+     def _deserialize(self, value, attr, data, **kwargs) -> dt.timedelta:
+         if isinstance(value, dt.timedelta):
+             return value
++        # (value is True or value is False) is ~5x faster than isinstance(value, bool)
++        if value is True or value is False:
++            raise self.make_error("invalid")
+         try:
+             value = float(value)
+         except (TypeError, ValueError) as error:
+@@ -1581,7 +1595,7 @@ class TimeDelta(Field[dt.timedelta]):
+ 
+         try:
+             return dt.timedelta(**kwargs)
+-        except OverflowError as error:
++        except (OverflowError, ValueError) as error:
+             raise self.make_error("invalid") from error
+ 
+ 
+diff --git a/src/marshmallow/orderedset.py b/src/marshmallow/orderedset.py
+index 0ae9ee9..4e0225a 100644
+--- a/src/marshmallow/orderedset.py
++++ b/src/marshmallow/orderedset.py
+@@ -20,7 +20,7 @@
+ #     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ #     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ #     OTHER DEALINGS IN THE SOFTWARE.
+-from collections.abc import MutableSet
++from collections.abc import Iterable, MutableSet
+ 
+ 
+ class OrderedSet(MutableSet):  # noqa: PLW1641
+@@ -78,7 +78,12 @@ class OrderedSet(MutableSet):  # noqa: PLW1641
+     def __eq__(self, other):
+         if isinstance(other, OrderedSet):
+             return len(self) == len(other) and list(self) == list(other)
+-        return set(self) == set(other)
++        if not isinstance(other, Iterable):
++            return NotImplemented
++        try:
++            return set(self) == set(other)
++        except TypeError:
++            return NotImplemented
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py
+index 24efa90..2ca76f9 100644
+--- a/src/marshmallow/schema.py
++++ b/src/marshmallow/schema.py
+@@ -16,7 +16,6 @@ import uuid
+ from abc import ABCMeta
+ from collections import defaultdict
+ from collections.abc import Mapping, Sequence
+-from itertools import zip_longest
+ 
+ from marshmallow import class_registry, types
+ from marshmallow import fields as ma_fields
+@@ -43,6 +42,46 @@ if typing.TYPE_CHECKING:
+     from marshmallow.fields import Field
+ 
+ 
++def _get_loaded_value(data, key: str):
++    """Get the value stored at ``key`` in deserialized ``data``, following
++    dot-delimited paths the same way `set_value` stores them.
++
++    :raises KeyError: If the value is not present.
++    """
++    for part in key.split("."):
++        if not isinstance(data, Mapping):
++            raise KeyError(key)
++        data = data[part]
++    return data
++
++
++def _pop_loaded_value(data, key: str) -> None:
++    """Remove the value stored at ``key`` (possibly dot-delimited) in ``data``."""
++    *parents, last = key.split(".")
++    for part in parents:
++        data = data.get(part) if isinstance(data, Mapping) else None
++    if isinstance(data, dict):
++        data.pop(last, None)
++
++
++def _pair_with_originals(data, original_data):
++    """Pair each item of ``data`` with the matching item of ``original_data``.
++
++    ``original_data`` may not have the same length as ``data`` (e.g. when a
++    ``pre_load`` processor filtered or expanded the collection) or may not be a
++    sequence at all, in which case `None` is used for missing originals.
++    """
++    if is_sequence_but_not_string(original_data):
++        originals = original_data
++    elif original_data is not None and is_collection(original_data):
++        originals = list(original_data)
++    else:
++        originals = []
++    n_originals = len(originals)
++    for idx, item in enumerate(data):
++        yield item, (originals[idx] if idx < n_originals else None)
++
++
+ def _get_fields(attrs) -> list[tuple[str, Field]]:
+     """Get fields from a class
+ 
+@@ -693,7 +732,9 @@ class Schema(metaclass=SchemaMeta):
+                     field_obj.data_key if field_obj.data_key is not None else field_name
+                     for field_name, field_obj in self.load_fields.items()
+                 }
+-                for key in set(data) - fields:
++                # Iterate over the input keys (rather than a set difference) so
++                # that unknown keys are handled in a deterministic order.
++                for key in [k for k in data if k not in fields]:
+                     value = data[key]
+                     if unknown == INCLUDE:
+                         ret_d[key] = value
+@@ -969,6 +1010,12 @@ class Schema(metaclass=SchemaMeta):
+         nested_options = defaultdict(list)  # type: defaultdict
+         for parent, nested_names in nested_fields:
+             nested_options[parent].append(nested_names)
++        invalid_fields = self.set_class(
++            key for key in nested_options if key not in self.declared_fields
++        )
++        if invalid_fields:
++            message = f"Invalid fields for {self}: {invalid_fields}."
++            raise ValueError(message)
+         # Apply the nested field options.
+         for key, options in iter(nested_options.items()):
+             new_options = self.set_class(options)
+@@ -984,13 +1031,16 @@ class Schema(metaclass=SchemaMeta):
+         """Update self.fields, self.load_fields, and self.dump_fields based on schema options.
+         This method is private API.
+         """
++        invalid_fields = self.set_class()
++
+         if self.opts.fields:
+             available_field_names = self.set_class(self.opts.fields)
++            invalid_fields |= available_field_names - self.set_class(
++                self.declared_fields.keys()
++            )
+         else:
+             available_field_names = self.set_class(self.declared_fields.keys())
+ 
+-        invalid_fields = self.set_class()
+-
+         if self.only is not None:
+             # Return only fields specified in only option
+             field_names: typing.AbstractSet[typing.Any] = self.set_class(self.only)
+@@ -1141,10 +1191,11 @@ class Schema(metaclass=SchemaMeta):
+                 )
+                 do_validate = functools.partial(validator, data_key=data_key)
+ 
++                attribute = field_obj.attribute or field_name
+                 if many:
+                     for idx, item in enumerate(data):
+                         try:
+-                            value = item[field_obj.attribute or field_name]
++                            value = _get_loaded_value(item, attribute)
+                         except KeyError:
+                             pass
+                         else:
+@@ -1156,10 +1207,10 @@ class Schema(metaclass=SchemaMeta):
+                                 index=(idx if self.opts.index_errors else None),
+                             )
+                             if validated_value is missing:
+-                                item.pop(field_name, None)
++                                _pop_loaded_value(item, attribute)
+                 else:
+                     try:
+-                        value = data[field_obj.attribute or field_name]
++                        value = _get_loaded_value(data, attribute)
+                     except KeyError:
+                         pass
+                     else:
+@@ -1170,7 +1221,7 @@ class Schema(metaclass=SchemaMeta):
+                             error_store=error_store,
+                         )
+                         if validated_value is missing:
+-                            data.pop(field_name, None)
++                            _pop_loaded_value(data, attribute)
+ 
+     def _invoke_schema_validators(
+         self,
+@@ -1194,7 +1245,7 @@ class Schema(metaclass=SchemaMeta):
+ 
+             if many and not pass_collection:
+                 for idx, (item, orig) in enumerate(
+-                    zip(data, original_data, strict=True)
++                    _pair_with_originals(data, original_data)
+                 ):
+                     self._run_validator(
+                         validator,
+@@ -1240,7 +1291,9 @@ class Schema(metaclass=SchemaMeta):
+                 if pass_original:
+                     data = [
+                         processor(item, original, many=many, **kwargs)
+-                        for item, original in zip_longest(data, original_data)
++                        for item, original in _pair_with_originals(
++                            data, original_data
++                        )
+                     ]
+                 else:
+                     data = [processor(item, many=many, **kwargs) for item in data]
+diff --git a/src/marshmallow/utils.py b/src/marshmallow/utils.py
+index bda3c06..581ffcc 100644
+--- a/src/marshmallow/utils.py
++++ b/src/marshmallow/utils.py
+@@ -125,6 +125,10 @@ def _get_value_for_key(obj, key, default):
+     try:
+         return obj[key]
+     except (KeyError, IndexError, TypeError, AttributeError):
++        # Don't return the built-in methods of a mapping (e.g. ``dict.items``)
++        # when a key with the same name is missing from it.
++        if isinstance(obj, Mapping) and isinstance(key, str) and hasattr(dict, key):
++            return default
+         return getattr(obj, key, default)
+ 
+ 
+diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py
+index 3463a47..b5ae854 100644
+--- a/src/marshmallow/validate.py
++++ b/src/marshmallow/validate.py
+@@ -5,6 +5,7 @@ from __future__ import annotations
+ import re
+ import typing
+ from abc import ABC, abstractmethod
++from collections.abc import Iterator
+ from operator import attrgetter
+ 
+ from marshmallow.exceptions import ValidationError
+@@ -13,6 +14,16 @@ if typing.TYPE_CHECKING:
+     from marshmallow import types
+ 
+ _T = typing.TypeVar("_T")
++
++
++def _materialize(iterable):
++    """Turn one-shot iterators (e.g. generators) into a list so that they can be
++    iterated over more than once. Other iterables are returned unchanged.
++    """
++    if isinstance(iterable, Iterator):
++        return list(iterable)
++    return iterable
++
+ _UNICODE_LETTERS = "\u00a1-\uffff"
+ 
+ 
+@@ -186,6 +197,8 @@ class URL(Validator):
+             return self._memoized[key]
+ 
+     _regex = RegexMemoizer()
++    # Characters allowed in the scheme part of the URL regex
++    _SCHEME_CHARS_REGEX = re.compile(r"[a-z0-9\.\-\+]*", re.IGNORECASE)
+ 
+     default_message = "Not a valid URL."
+     default_schemes = {"http", "https", "ftp", "ftps"}
+@@ -223,9 +236,14 @@ class URL(Validator):
+         # Check first if the scheme is valid
+         scheme = None
+         if "://" in value:
+-            scheme = value.split("://", maxsplit=1)[0].lower()
+-            if scheme not in self.schemes:
+-                raise ValidationError(message)
++            prefix = value.split("://", maxsplit=1)[0]
++            # Only treat the prefix as a scheme if it looks like one. Otherwise
++            # "://" is part of a relative URL's path or query string, e.g.
++            # "/login?next=https://example.com".
++            if self._SCHEME_CHARS_REGEX.fullmatch(prefix):
++                scheme = prefix.lower()
++                if scheme not in self.schemes:
++                    raise ValidationError(message)
+ 
+         regex = self._regex(
+             relative=self.relative, absolute=self.absolute, require_tld=self.require_tld
+@@ -566,7 +584,7 @@ class NoneOf(Validator):
+     default_message = "Invalid input."
+ 
+     def __init__(self, iterable: typing.Iterable, *, error: str | None = None):
+-        self.iterable = iterable
++        self.iterable = _materialize(iterable)
+         self.values_text = ", ".join(str(each) for each in self.iterable)
+         self.error: str = error or self.default_message
+ 
+@@ -604,9 +622,9 @@ class OneOf(Validator):
+         *,
+         error: str | None = None,
+     ):
+-        self.choices = choices
++        self.choices = _materialize(choices)
+         self.choices_text = ", ".join(str(choice) for choice in self.choices)
+-        self.labels = labels if labels is not None else []
++        self.labels = _materialize(labels) if labels is not None else []
+         self.labels_text = ", ".join(str(label) for label in self.labels)
+         self.error: str = error or self.default_message
+ 
+@@ -679,7 +697,11 @@ class ContainsOnly(OneOf):
+     def __call__(self, value: typing.Sequence[_T]) -> typing.Sequence[_T]:
+         # We can't use set.issubset because does not handle unhashable types
+         for val in value:
+-            if val not in self.choices:
++            try:
++                is_valid = val in self.choices
++            except TypeError:  # e.g. unhashable value and choices is a set
++                is_valid = False
++            if not is_valid:
+                 raise ValidationError(self._format_error(value))
+         return value
+ 
+@@ -703,6 +725,10 @@ class ContainsNoneOf(NoneOf):
+ 
+     def __call__(self, value: typing.Sequence[_T]) -> typing.Sequence[_T]:
+         for val in value:
+-            if val in self.iterable:
++            try:
++                is_invalid = val in self.iterable
++            except TypeError:  # e.g. unhashable value and iterable is a set
++                is_invalid = False
++            if is_invalid:
+                 raise ValidationError(self._format_error(value))
+         return value
+diff --git a/tests/test_regressions.py b/tests/test_regressions.py
+new file mode 100644
+index 0000000..3e235b2
+--- /dev/null
++++ b/tests/test_regressions.py
+@@ -0,0 +1,315 @@
++"""Regression tests for latent bugs fixed during hardening."""
++
++import threading
++
++import pytest
++
++from marshmallow import (
++    INCLUDE,
++    Schema,
++    ValidationError,
++    class_registry,
++    fields,
++    missing,
++    post_load,
++    pre_load,
++    validate,
++    validates,
++    validates_schema,
++)
++from marshmallow.experimental.context import Context
++from marshmallow.orderedset import OrderedSet
++from marshmallow.utils import get_value
++
++
++# fields.TimeDelta
++
++
++@pytest.mark.parametrize("value", ["nan", float("nan"), "-nan", True, False])
++def test_timedelta_rejects_nan_and_bool(value):
++    with pytest.raises(ValidationError, match="Not a valid period of time."):
++        fields.TimeDelta().deserialize(value)
++
++
++# fields.Field.deserialize + pre_load
++
++
++def test_pre_load_returning_none_respects_allow_none():
++    field = fields.Raw(pre_load=lambda v: v or None)
++    with pytest.raises(ValidationError, match="Field may not be null."):
++        field.deserialize("")
++    assert fields.Raw(pre_load=lambda v: v or None, allow_none=True).deserialize(
++        ""
++    ) is None
++
++
++def test_pre_load_returning_none_gives_null_error_in_schema():
++    class S(Schema):
++        num = fields.Int(pre_load=lambda v: v.strip() or None)
++
++    with pytest.raises(ValidationError) as excinfo:
++        S().load({"num": "  "})
++    assert excinfo.value.messages == {"num": ["Field may not be null."]}
++
++
++# fields.Nested schema cache
++
++
++def test_nested_schema_cache_not_shared_with_bound_copies():
++    class Child(Schema):
++        a = fields.Int()
++        b = fields.Int()
++
++    class Parent(Schema):
++        child = fields.Nested(Child)
++
++    # Introspecting the class-level field caches its schema...
++    assert isinstance(Parent._declared_fields["child"].schema, Child)
++    # ...which must not leak into schema instances with their own options
++    data = {"child": {"a": 1, "b": 2}}
++    assert Parent(only=("child.a",)).dump(data) == {"child": {"a": 1}}
++    assert Parent(exclude=("child.a",)).dump(data) == {"child": {"b": 2}}
++    assert Parent().dump(data) == data
++
++
++# utils.get_value
++
++
++def test_get_value_does_not_return_dict_methods_for_missing_keys():
++    for name in ("items", "keys", "values", "get", "copy", "pop"):
++        assert get_value({}, name) is missing
++        assert get_value({name: 1}, name) == 1
++
++
++def test_dump_dict_with_missing_key_named_like_dict_method():
++    class S(Schema):
++        items = fields.Str()
++        values = fields.Raw()
++        name = fields.Str()
++
++    assert S().dump({"name": "x"}) == {"name": "x"}
++    assert S().dump({"name": "x", "items": "y"}) == {"name": "x", "items": "y"}
++
++
++def test_get_value_still_falls_back_to_attributes_on_objects():
++    class Obj:
++        items = 42
++
++    assert get_value(Obj(), "items") == 42
++
++
++# Schema: @validates with attribute
++
++
++def test_validates_runs_for_field_with_dotted_attribute():
++    class S(Schema):
++        x = fields.Int(attribute="a.b")
++
++        @validates("x")
++        def validate_x(self, value, data_key):
++            if value < 0:
++                raise ValidationError("negative")
++
++    with pytest.raises(ValidationError) as excinfo:
++        S().load({"x": -1})
++    assert excinfo.value.messages == {"x": ["negative"]}
++    assert excinfo.value.valid_data == {"a": {}}
++    assert S().load({"x": 1}) == {"a": {"b": 1}}
++    with pytest.raises(ValidationError):
++        S(many=True).load([{"x": 1}, {"x": -1}])
++
++
++@pytest.mark.parametrize("many", [True, False])
++def test_validates_failure_removes_value_stored_under_attribute(many):
++    class S(Schema):
++        y = fields.Int(attribute="yy")
++
++        @validates("y")
++        def validate_y(self, value, data_key):
++            raise ValidationError("bad")
++
++    data = [{"y": 1}] if many else {"y": 1}
++    with pytest.raises(ValidationError) as excinfo:
++        S(many=many).load(data)
++    assert excinfo.value.valid_data == ([{}] if many else {})
++
++
++# Schema: collection length changed by pre_load
++
++
++class FilteringSchema(Schema):
++    x = fields.Int()
++
++    @pre_load(pass_collection=True)
++    def drop_empty(self, data, **kwargs):
++        return [item for item in data if item]
++
++    @validates_schema(pass_original=True)
++    def check(self, data, original_data, **kwargs):
++        if data["x"] < 0:
++            raise ValidationError("negative")
++
++    @post_load(pass_original=True)
++    def add_original(self, data, original_data, **kwargs):
++        data["original"] = original_data
++        return data
++
++
++def test_schema_validators_and_post_load_when_pre_load_changes_length():
++    result = FilteringSchema(many=True).load([{"x": 1}, {}])
++    assert result == [{"x": 1, "original": {"x": 1}}]
++    with pytest.raises(ValidationError) as excinfo:
++        FilteringSchema(many=True).load([{}, {"x": 1}, {"x": -1}])
++    assert excinfo.value.messages == {1: {"_schema": ["negative"]}}
++
++
++# Schema: invalid field names
++
++
++def test_meta_fields_with_undeclared_field_raises_value_error():
++    class S(Schema):
++        a = fields.Int()
++
++        class Meta:
++            fields = ("a", "b")
++
++    with pytest.raises(ValueError, match="Invalid fields"):
++        S()
++
++
++@pytest.mark.parametrize("param", ["only", "exclude"])
++def test_unknown_dotted_field_name_raises_value_error(param):
++    class S(Schema):
++        a = fields.Int()
++
++    with pytest.raises(ValueError, match="Invalid fields"):
++        S(**{param: ("nope.x",)})
++
++
++# Schema: unknown=INCLUDE ordering
++
++
++def test_include_unknown_preserves_input_order():
++    class S(Schema):
++        known = fields.Int()
++
++        class Meta:
++            unknown = INCLUDE
++
++    data = {k: 1 for k in "zyxwvutsrq"}
++    data["known"] = 2
++    assert list(S().load(data)) == ["known", *"zyxwvutsrq"]
++
++
++# class_registry
++
++
++def test_registry_redefinition_in_same_module_replaces_class():
++    first = type("MyRedefinedSchema", (Schema,), {"__module__": "redef_module"})
++    second = type("MyRedefinedSchema", (Schema,), {"__module__": "redef_module"})
++    assert class_registry.get_class("MyRedefinedSchema") is second
++    assert class_registry.get_class("redef_module.MyRedefinedSchema") is second
++    assert first is not second
++
++
++# validate
++
++
++def test_oneof_accepts_iterators():
++    validator = validate.OneOf((c for c in "abc"), labels=iter(["A", "B", "C"]))
++    assert validator("a") == "a"
++    assert validator("c") == "c"
++    with pytest.raises(ValidationError):
++        validator("d")
++    assert list(validator.options()) == [("a", "A"), ("b", "B"), ("c", "C")]
++
++
++def test_noneof_accepts_iterators():
++    validator = validate.NoneOf(c for c in "abc")
++    with pytest.raises(ValidationError):
++        validator("a")
++    assert validator("d") == "d"
++
++
++def test_contains_only_unhashable_values_with_set_choices():
++    validator = validate.ContainsOnly({"a", "b"})
++    with pytest.raises(ValidationError):
++        validator([["a"]])
++    assert validator(["a"]) == ["a"]
++
++
++def test_contains_none_of_unhashable_values_with_set_iterable():
++    validator = validate.ContainsNoneOf({"a", "b"})
++    assert validator([["a"]]) == [["a"]]
++    with pytest.raises(ValidationError):
++        validator(["a"])
++
++
++@pytest.mark.parametrize(
++    "url",
++    [
++        "/login?next=https://example.com",
++        "/redirect?to=ftp://example.com/file",
++        "?next=http://example.com",
++    ],
++)
++def test_relative_url_with_url_in_query_string(url):
++    assert validate.URL(relative=True)(url) == url
++    with pytest.raises(ValidationError):
++        validate.URL(relative=False)(url)
++
++
++@pytest.mark.parametrize("url", ["1http://example.com", "://example.com"])
++def test_url_invalid_scheme_still_rejected(url):
++    with pytest.raises(ValidationError):
++        validate.URL(relative=True)(url)
++
++
++# OrderedSet
++
++
++@pytest.mark.parametrize("other", [None, 5, object()])
++def test_ordered_set_compares_unequal_to_non_iterables(other):
++    assert (OrderedSet([1]) == other) is False
++    assert (OrderedSet([1]) != other) is True
++
++
++# experimental.context.Context
++
++
++def test_context_instance_is_reentrant():
++    ctx = Context({"a": 1})
++    other = Context({"b": 2})
++    with ctx:
++        with other:
++            with ctx:
++                assert Context.get() == {"a": 1}
++            assert Context.get() == {"b": 2}
++        assert Context.get() == {"a": 1}
++    assert Context.get(None) is None
++
++
++def test_context_instance_shared_between_threads():
++    ctx = Context({"a": 1})
++    entered = threading.Event()
++    release = threading.Event()
++    errors = []
++
++    def worker():
++        try:
++            with ctx:
++                entered.set()
++                release.wait(5)
++        except Exception as exc:  # pragma: no cover
++            errors.append(exc)
++
++    thread = threading.Thread(target=worker)
++    thread.start()
++    entered.wait(5)
++    with ctx:
++        release.set()
++        thread.join(5)
++        assert Context.get() == {"a": 1}
++    assert Context.get(None) is None
++    assert errors == []
++

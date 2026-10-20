@@ -1,0 +1,673 @@
+diff --git a/tests/test_regressions_hardening.py b/tests/test_regressions_hardening.py
+new file mode 100644
+index 0000000..e605abf
+--- /dev/null
++++ b/tests/test_regressions_hardening.py
+@@ -0,0 +1,187 @@
++from __future__ import annotations
++
++import copy
++import time
++
++import pytest
++
++import tomlkit
++
++from tomlkit import item
++from tomlkit import parse
++from tomlkit.exceptions import InvalidStringError
++from tomlkit.exceptions import ParseError
++
++
++def test_aot_setitem_keeps_list_in_sync() -> None:
++    doc = parse("[[a]]\nx = 1\n[[a]]\nx = 2\n")
++    doc["a"][0] = {"x": 9}
++    assert doc["a"] == [{"x": 9}, {"x": 2}]
++    assert list.__getitem__(doc["a"], 0) is doc["a"][0]
++    assert parse(doc.as_string())["a"] == [{"x": 9}, {"x": 2}]
++
++
++def test_array_slice_assignment_does_not_corrupt() -> None:
++    a = item([1, 2, 3])
++    with pytest.raises(ValueError):
++        a[0:1] = [5]
++    assert list(a) == [1, 2, 3]
++    assert a.as_string() == "[1, 2, 3]"
++
++
++@pytest.mark.parametrize(
++    "sl",
++    [slice(-2, None), slice(0, 0), slice(None, None, -2), slice(1, 100), slice(-100, 2)],
++)
++def test_array_delete_slices(sl: slice) -> None:
++    a = item([1, 2, 3, 4, 5])
++    expected = [1, 2, 3, 4, 5]
++    del a[sl]
++    del expected[sl]
++    assert list(a) == expected
++    assert parse("x = " + a.as_string())["x"] == expected
++
++
++def test_array_sort_and_imul_update_rendering() -> None:
++    a = item([3, 1, 2])
++    a.sort()
++    assert a.as_string() == "[1, 2, 3]"
++    a.sort(reverse=True)
++    assert a.as_string() == "[3, 2, 1]"
++    b = item([1, 2])
++    b *= 2
++    assert b.as_string() == "[1, 2, 1, 2]"
++    b *= 0
++    assert b.as_string() == "[]"
++
++
++def test_array_append_is_not_quadratic() -> None:
++    a = tomlkit.array()
++    start = time.perf_counter()
++    for i in range(5000):
++        a.append(i)
++    assert time.perf_counter() - start < 1.5
++    assert parse("x = " + a.as_string())["x"] == list(range(5000))
++
++
++def test_document_many_keys_is_not_quadratic() -> None:
++    start = time.perf_counter()
++    out = tomlkit.dumps({f"k{i}": i for i in range(5000)})
++    assert time.perf_counter() - start < 1.5
++    assert len(parse(out)) == 5000
++
++
++def test_round_float_without_ndigits_returns_int() -> None:
++    r = round(item(2.6))
++    assert r == 3
++    assert type(r) is int
++    assert round(item(2.567), 2) == 2.57
++
++
++def test_bool_items_compare_equal() -> None:
++    assert item(True) == item(True)
++    assert item(True) != item(False)
++    assert item([True, False]) == item([True, False])
++
++
++def test_string_concat_escapes_plain_str() -> None:
++    doc = tomlkit.document()
++    doc["k"] = "x"
++    doc["k"] += '"y\n'
++    assert parse(doc.as_string())["k"] == 'x"y\n'
++
++    ml = tomlkit.string('a""', multiline=True) + '"b'
++    assert parse("k = " + ml.as_string())["k"] == 'a"""b'
++
++    with pytest.raises(InvalidStringError):
++        tomlkit.string("a", literal=True) + "'"
++
++
++def test_esc_char_written_as_toml_10_escape() -> None:
++    assert item("\x1b").as_string() == '"\\u001b"'
++    assert parse('a = "\\e"')["a"] == "\x1b"
++
++
++def test_multiline_strings_with_lone_carriage_return() -> None:
++    s = tomlkit.string("a\rb\r\nc", multiline=True)
++    assert parse("k = " + s.as_string())["k"] == "a\rb\r\nc"
++    with pytest.raises(InvalidStringError):
++        tomlkit.string("a\rb", multiline=True, literal=True)
++
++
++def test_copy_keeps_table_keys() -> None:
++    doc = parse("[a.b]\nx = 1\n")
++    c = copy.copy(doc)
++    c.append("a", tomlkit.table(True))
++    assert "a" in c
++
++
++def test_dumps_sort_keys_table_and_no_mutation() -> None:
++    src = "b = 1\n[t]\nb = 1\na = 2\n"
++    doc = parse(src)
++    assert tomlkit.dumps(doc["t"], sort_keys=True) == "a = 2\nb = 1\n"
++    tomlkit.dumps(doc, sort_keys=True)
++    assert doc.as_string() == src
++
++
++@pytest.mark.parametrize(
++    "src",
++    [
++        'a = "\\U0000D800"',
++        'a = "\\uDFFF"',
++        'a = "\\u+123"',
++        'a = "\\u_123"',
++        "a = -infinity",
++        "a = +Inf",
++        "a = NaN",
++        "[a]\nx = 1\n[b]\n[a.c]\n[a]\n",
++    ],
++)
++def test_invalid_documents_are_rejected(src: str) -> None:
++    with pytest.raises(ParseError):
++        parse(src)
++
++
++def test_valid_floats_still_parse() -> None:
++    doc = parse("a = 1e5\nb = -1.5E-3\nc = +inf\nd = -nan\ne = 224_617.445_991\n")
++    assert doc["a"] == 1e5
++    assert doc["b"] == -1.5e-3
++    assert doc["e"] == 224617.445991
++
++
++def test_non_string_key_lookup_is_a_miss() -> None:
++    doc = parse("a = 1\n[t]\nx = 1\n")
++    assert 1 not in doc
++    assert None not in doc
++    assert doc.get(1) is None
++    assert 1 not in doc["t"]
++    with pytest.raises(KeyError):
++        doc[1]  # type: ignore[index]
++    with pytest.raises(TypeError):
++        doc[1] = 2  # type: ignore[index]
++
++
++def test_multiline_comments_cannot_inject_values() -> None:
++    doc = tomlkit.document()
++    doc["a"] = 1
++    doc["a"].comment("x\ny = 2")
++    doc.add(tomlkit.comment("p\r\nq = 1"))
++    assert parse(doc.as_string()).unwrap() == {"a": 1}
++
++
++def test_replace_table_with_value_goes_before_first_table() -> None:
++    doc = parse("[a]\nx = 1\n[b]\ny = 2\n[a.c]\nz = 3\n")
++    doc["b"] = 3
++    assert parse(doc.as_string()).unwrap() == {"a": {"x": 1, "c": {"z": 3}}, "b": 3}
++
++
++def test_replace_dotted_key_table_with_table() -> None:
++    doc = parse("a.b = 1\nx = 2\n[t]\ny = 1\n")
++    doc["a"] = {"c": 3}
++    doc["z"] = 1
++    assert parse(doc.as_string()).unwrap() == {
++        "a": {"c": 3},
++        "x": 2,
++        "t": {"y": 1},
++        "z": 1,
++    }
+diff --git a/tomlkit/_utils.py b/tomlkit/_utils.py
+index 3c20574..0eb7338 100644
+--- a/tomlkit/_utils.py
++++ b/tomlkit/_utils.py
+@@ -115,7 +115,9 @@ _escaped = {
+     "\\": "\\",
+ }
+ _compact_escapes = {
+-    **{v: f"\\{k}" for k, v in _escaped.items()},
++    # "\e" is only valid since TOML 1.1, so ESC is written as "\u001b" to keep
++    # the output readable by TOML 1.0 parsers (e.g. tomllib before 3.14).
++    **{v: f"\\{k}" for k, v in _escaped.items() if k != "e"},
+     '"""': '""\\"',
+ }
+ _basic_escapes = CONTROL_CHARS | {'"', "\\"}
+diff --git a/tomlkit/api.py b/tomlkit/api.py
+index 1ecf84f..ec390a6 100644
+--- a/tomlkit/api.py
++++ b/tomlkit/api.py
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import contextlib
++import copy
+ import datetime as _datetime
+ 
+ from collections.abc import Iterable
+@@ -33,6 +34,7 @@ from tomlkit.items import Table
+ from tomlkit.items import Time
+ from tomlkit.items import Trivia
+ from tomlkit.items import Whitespace
++from tomlkit.items import _prefix_comment_lines
+ from tomlkit.items import item as item
+ from tomlkit.parser import Parser
+ from tomlkit.toml_document import TOMLDocument as TOMLDocument
+@@ -61,6 +63,13 @@ def dumps(data: Mapping[str, Any], sort_keys: bool = False) -> str:
+         if not sort_keys:
+             return data.as_string()
+ 
++        # Building the sorted table re-parents the existing items, which
++        # alters their formatting: work on a copy to leave ``data`` untouched.
++        data = copy.deepcopy(data)
++        if isinstance(data, (Table, InlineTable)):
++            # item() returns items unchanged, so sort the underlying container
++            return item(data.value, _parent=data, _sort_keys=True).as_string()
++
+         return item(data, _sort_keys=True).as_string()
+ 
+     table = item(dict(data), _sort_keys=sort_keys)
+@@ -297,7 +306,9 @@ def nl() -> Whitespace:
+ 
+ def comment(string: str) -> Comment:
+     """Create a comment item."""
+-    return Comment(Trivia(comment_ws="  ", comment="# " + string))
++    return Comment(
++        Trivia(comment_ws="  ", comment=_prefix_comment_lines("# " + string))
++    )
+ 
+ 
+ def register_encoder(encoder: E) -> E:
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 4387471..9b3e61a 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -44,6 +44,9 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+         self._body: list[tuple[Key | None, Item]] = []
+         self._parsed = parsed
+         self._table_keys: list[Key] = []
++        # Whether a table or array of tables has ever been added to the body.
++        # Used to skip the linear scan in _get_last_index_before_table().
++        self._has_tables = False
+ 
+     @property
+     def body(self) -> list[tuple[Key | None, Item]]:
+@@ -138,6 +141,18 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+         return
+ 
+     def _get_last_index_before_table(self) -> int:
++        if not getattr(self, "_has_tables", True):
++            # Fast path: without any table, this is the index after the last
++            # significant item, which can be found by scanning backwards.
++            for i in range(len(self._body) - 1, -1, -1):
++                v = self._body[i][1]
++                if isinstance(v, Null):
++                    continue
++                if isinstance(v, Whitespace) and not v.is_fixed():
++                    continue
++                return i + 1
++            return 0
++
+         last_index = -1
+         for i, (k, v) in enumerate(self._body):
+             if isinstance(v, Null):
+@@ -146,7 +161,7 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+             if isinstance(v, Whitespace) and not v.is_fixed():
+                 continue
+ 
+-            if isinstance(v, (Table, AoT)) and k is not None and not k.is_dotted():
++            if _is_table_or_aot(v) and k is not None and not k.is_dotted():
+                 break
+             last_index = i
+         return last_index + 1
+@@ -281,6 +296,16 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+                         # table is only valid if it does not redefine existing
+                         # subtrees via dotted keys and does not change prior types.
+                         assert isinstance(current, Table)
++                        if self._parsed and isinstance(current_idx, tuple):
++                            # The table may already have been defined explicitly
++                            # before being extended by an out-of-order sub-table.
++                            for i in current_idx:
++                                defined = self._body[i][1]
++                                if (
++                                    isinstance(defined, Table)
++                                    and not defined.is_super_table()
++                                ):
++                                    raise KeyAlreadyPresent(key)
+                         self._validate_table_candidate(current, item)
+                 elif not item.is_super_table():
+                     raise KeyAlreadyPresent(key)
+@@ -364,12 +389,17 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+             self._map[key] = len(self._body)
+ 
+         self._body.append((key, item))
++        self._note_item(item)
+         if item.is_table() and key is not None:
+             self._table_keys.append(key)
+ 
+         if key is not None:
+             dict.__setitem__(self, key.key, item.value)
+ 
++    def _note_item(self, item: Item) -> None:
++        if _is_table_or_aot(item):
++            self._has_tables = True
++
+     def _remove_at(self, idx: int) -> None:
+         key = self._body[idx][0]
+         assert key is not None
+@@ -449,6 +479,7 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+ 
+         self._map[other_key] = idx + 1
+         self._body.insert(idx + 1, (other_key, item))
++        self._note_item(item)
+ 
+         if key is not None:
+             dict.__setitem__(self, other_key.key, item.value)
+@@ -496,6 +527,7 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+         else:
+             self._map[key] = idx
+         self._body.insert(idx, (key, item))
++        self._note_item(item)
+ 
+         dict.__setitem__(self, key.key, item.value)
+ 
+@@ -504,6 +536,10 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+     def item(self, key: Key | str) -> Item | OutOfOrderTableProxy:
+         """Get an item for the given key."""
+         if not isinstance(key, Key):
++            if not isinstance(key, str):
++                # Like a dict, a lookup with a key of another type is a miss
++                # (so that ``in`` and ``get()`` work) rather than a TypeError.
++                raise NonExistentKey(key)
+             key = SingleKey(key)
+ 
+         idx = self._map.get(key)
+@@ -756,6 +792,9 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+             if (
+                 isinstance(value, (AoT, Table)) != isinstance(v, (AoT, Table))
+                 or new_key != k.key
++                # A dotted key (``a.b = 1``) must not be kept when the
++                # value is replaced, or a new table would render as dotted.
++                or k.is_dotted()
+             ):
+                 new_key = SingleKey(new_key)
+             else:  # Inherit the sep of the old key
+@@ -766,9 +805,18 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+         if new_key != k:
+             dict.__delitem__(self, k.key)
+ 
+-        if isinstance(value, (AoT, Table)) != isinstance(v, (AoT, Table)):
++        # A table defined by a dotted key (``a.b = 1``) is rendered among the
++        # plain values, so it does not count as a table here.
++        old_is_table = isinstance(v, (AoT, Table)) and not k.is_dotted()
++        if isinstance(value, (AoT, Table)) != old_is_table:
+             # new tables should appear after all non-table values
+             self.remove(k)
++            if not isinstance(value, (AoT, Table)):
++                # A plain value must come before the first table, not just
++                # before the next one, or it would end up inside a table.
++                idx = -1
++                self.append(new_key, value)
++                return
+             for i in range(idx, len(self._body)):
+                 if isinstance(self._body[i][1], (AoT, Table)):
+                     self._insert_at(i, new_key, value)
+@@ -785,6 +833,8 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+                 value.trivia.comment = value.trivia.comment or v.trivia.comment
+                 value.trivia.trail = v.trivia.trail
+             self._body[idx] = (new_key, value)
++            self._note_item(value)
++            dict.__setitem__(self, new_key.key, value.value)
+ 
+         if hasattr(value, "invalidate_display_name"):
+             value.invalidate_display_name()
+@@ -841,6 +891,7 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+         self._body = state[1]
+         self._parsed = state[2]
+         self._table_keys = state[3]
++        self._has_tables = any(_is_table_or_aot(item) for _, item in self._body)
+ 
+         for key, item in self._body:
+             if key is not None:
+@@ -856,6 +907,8 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+ 
+         c._body += self.body
+         c._map.update(self._map)
++        c._table_keys += self._table_keys
++        c._has_tables = getattr(self, "_has_tables", True)
+ 
+         return c
+ 
+@@ -1007,6 +1060,24 @@ class OutOfOrderTableProxy(_CustomDict):  # type: ignore[type-arg]
+         return self[key]
+ 
+ 
++_TABLE_OR_AOT_TYPES: dict[type, bool] = {}
++
++
++def _is_table_or_aot(it: Any) -> bool:
++    """Fast equivalent of ``isinstance(it, (Table, AoT))``.
++
++    ``Table`` derives from an ABC, which makes ``isinstance`` checks against it
++    comparatively slow. Since this check runs over every element of a container
++    body on each append, the result is cached per type.
++    """
++    t = type(it)
++    try:
++        return _TABLE_OR_AOT_TYPES[t]
++    except KeyError:
++        result = _TABLE_OR_AOT_TYPES[t] = issubclass(t, (Table, AoT))
++        return result
++
++
+ def ends_with_whitespace(it: Any) -> bool:
+     """Returns ``True`` if the given item ``it`` is a ``Table`` or ``AoT`` object
+     ending with a ``Whitespace``.
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 70156e4..4a9e4fb 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -45,6 +45,7 @@ if TYPE_CHECKING:
+ 
+ 
+ ItemT = TypeVar("ItemT", bound="Item")
++_LONE_CR = re.compile(r"\r(?!\n)")
+ CUSTOM_ENCODERS: list[Encoder] = []
+ AT = TypeVar("AT", bound="AbstractTable")
+ 
+@@ -502,6 +503,7 @@ class Item:
+         """Attach a comment to this item"""
+         if not comment.strip().startswith("#"):
+             comment = "# " + comment
++        comment = _prefix_comment_lines(comment)
+ 
+         self._trivia.comment_ws = " "
+         self._trivia.comment = comment
+@@ -548,6 +550,19 @@ class Item:
+         raise TypeError(f"{type(self).__name__} does not support item deletion")
+ 
+ 
++def _prefix_comment_lines(comment: str) -> str:
++    """Make sure every line of a (possibly multi-line) comment starts with
++    ``#``, so that the text following a newline is not parsed as TOML."""
++    lines = comment.replace("\r\n", "\n").replace("\r", "\n").split("\n")
++    if len(lines) == 1:
++        return comment
++
++    return "\n".join(
++        [lines[0]]
++        + [line if line.lstrip().startswith("#") else "# " + line for line in lines[1:]]
++    )
++
++
+ class Whitespace(Item):
+     """
+     A whitespace literal.
+@@ -946,7 +961,16 @@ class Float(Item, _CustomFloat):
+             return result  # type: ignore[return-value]
+         return self._new(result)
+ 
+-    def __round__(self, ndigits: int = 0) -> Float:  # type: ignore[override]
++    @overload  # type: ignore[override]
++    def __round__(self, ndigits: None = None) -> int: ...
++
++    @overload
++    def __round__(self, ndigits: int) -> Float: ...
++
++    def __round__(self, ndigits: int | None = None) -> int | Float:
++        if ndigits is None:
++            # Like float, round() without ndigits returns a plain int.
++            return float.__round__(self)
+         return self._new(float.__round__(self, ndigits))
+ 
+     def __rpow__(self, other: object, mod: None = None) -> Float:
+@@ -1018,6 +1042,9 @@ class Bool(Item):
+     __nonzero__ = __bool__
+ 
+     def __eq__(self, other: object) -> bool:
++        if isinstance(other, Bool):
++            return other._value == self._value
++
+         if not isinstance(other, bool):
+             return NotImplemented
+ 
+@@ -1579,6 +1606,21 @@ class Array(Item, _CustomList):  # type: ignore[type-arg]
+         self._index_map.clear()
+         self._value.clear()
+ 
++    def sort(self, *, key: Any = None, reverse: bool = False) -> None:
++        """Sort the array in place, keeping the rendered output in sync."""
++        list.sort(self, key=key, reverse=reverse)
++        for i, v in enumerate(list.__iter__(self)):
++            self._value[self._index_map[i]].value = v
++
++    def __imul__(self, n: int) -> Array:  # type: ignore[override,misc]
++        values = list(list.__iter__(self))
++        if n <= 0:
++            self.clear()
++        else:
++            for _ in range(n - 1):
++                self.extend(values)
++        return self
++
+     def __len__(self) -> int:
+         return list.__len__(self)
+ 
+@@ -1589,10 +1631,11 @@ class Array(Item, _CustomList):  # type: ignore[type-arg]
+         return list.__getitem__(self, key)
+ 
+     def __setitem__(self, key: int | slice, value: Any) -> None:  # type: ignore[override]
+-        it = item(value, _parent=self)
+-        list.__setitem__(self, key, it)
+         if isinstance(key, slice):
++            # Raise before mutating anything so the array stays consistent.
+             raise ValueError("slice assignment is not supported")
++        it = item(value, _parent=self)
++        list.__setitem__(self, key, it)
+         if key < 0:
+             key += len(self)
+         self._value[self._index_map[key]].value = it
+@@ -1643,16 +1686,19 @@ class Array(Item, _CustomList):  # type: ignore[type-arg]
+             indent = Whitespace(default_indent)
+         new_item = _ArrayItemGroup(value=it, indent=indent, comma=comma)
+         self._value.insert(idx, new_item)
+-        self._reindex()
++        if pos >= length and not isinstance(it, (Comment, Whitespace)):
++            # Appending: only pure whitespace may follow the new group, so the
++            # existing index map stays valid. Avoid an O(n) reindex.
++            self._index_map[length] = idx
++        else:
++            self._reindex()
+ 
+     def __delitem__(self, key: int | slice) -> None:  # type: ignore[override]
+         length = len(self)
+         list.__delitem__(self, key)
+ 
+         if isinstance(key, slice):
+-            indices_to_remove = list(
+-                range(key.start or 0, key.stop or length, key.step or 1)
+-            )
++            indices_to_remove = list(range(*key.indices(length)))
+         else:
+             indices_to_remove = [length + key if key < 0 else key]
+         for i in sorted(indices_to_remove, reverse=True):
+@@ -2160,7 +2206,24 @@ class String(str, Item):  # type: ignore[misc]
+ 
+     def __add__(self, other: str) -> String:
+         result = super().__add__(other)
+-        original = self._original + getattr(other, "_original", other)
++        if result is NotImplemented:
++            return result  # type: ignore[no-any-return]
++
++        if isinstance(other, String) and other._t is self._t:
++            other_original = other._original
++        else:
++            # A plain str (or a string of another type) holds the raw value,
++            # which must be escaped according to this string's type.
++            other_original = String.from_raw(str(other), self._t)._original
++
++        original = self._original + other_original
++        if (
++            self._t.is_multiline()
++            and self._original.endswith(self._t.unit)
++            and other_original.startswith(self._t.unit)
++        ):
++            # The concatenation could form an unescaped closing delimiter.
++            original = String.from_raw(result, self._t)._original
+ 
+         return self._new(result, original)
+ 
+@@ -2177,11 +2240,17 @@ class String(str, Item):  # type: ignore[misc]
+         value = decode(value)
+ 
+         invalid = type_.invalid_sequences
+-        if any(c in value for c in invalid):
++        if any(c in value for c in invalid) or (
++            # A carriage return is only allowed as part of a CRLF newline.
++            type_ == StringType.MLL and _LONE_CR.search(value)
++        ):
+             raise InvalidStringError(value, invalid, type_.value)
+ 
+         escaped = type_.escaped_sequences
+         string_value = escape_string(value, escaped) if escape and escaped else value
++        if escape and type_ == StringType.MLB:
++            # A carriage return is only allowed as part of a CRLF newline.
++            string_value = _LONE_CR.sub(r"\\r", string_value)
+ 
+         return cls(type_, decode(value), string_value, Trivia())
+ 
+@@ -2237,7 +2306,14 @@ class AoT(Item, _CustomList):  # type: ignore[type-arg]
+         return self._body[key]
+ 
+     def __setitem__(self, key: slice | int, value: Any) -> None:  # type: ignore[override]
+-        self._body[key] = item(value, _parent=self)
++        if isinstance(key, slice):
++            values = [item(v, _parent=self) for v in value]
++            self._body[key] = values
++            list.__setitem__(self, key, values)
++            return
++        it = item(value, _parent=self)
++        self._body[key] = it
++        list.__setitem__(self, key, it)
+ 
+     def __delitem__(self, key: slice | int) -> None:  # type: ignore[override]
+         del self._body[key]
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 00079e6..29d4304 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -56,6 +56,7 @@ CTRL_J = 0x0A  # Line feed
+ CTRL_M = 0x0D  # Carriage return
+ CTRL_CHAR_LIMIT = 0x1F
+ CHR_DEL = 0x7F
++_FLOAT_RE = re.compile(r"^[0-9]+(\.[0-9]+)?(e[+-]?[0-9]+)?$")
+ 
+ 
+ class Parser:
+@@ -729,6 +730,10 @@ class Parser:
+         try:
+             return Integer(int(sign + clean, base), trivia, sign + raw)
+         except ValueError:
++            # Python's float() is more lenient than TOML (e.g. "infinity",
++            # "Inf"), so only hand it values with a valid TOML float syntax.
++            if raw not in {"inf", "nan"} and not _FLOAT_RE.match(clean):
++                return None
+             try:
+                 return Float(float(sign + clean), trivia, sign + raw)
+             except ValueError:
+@@ -1165,13 +1170,17 @@ class Parser:
+             else:
+                 extracted = self.extract()
+ 
+-                if extracted[0].lower() == "d" and extracted[1].strip("01234567"):
++                if extracted.strip(string.hexdigits):
++                    # int() would also accept signs, underscores and spaces
+                     return None, None
+ 
+-                try:
+-                    value = chr(int(extracted, 16))
+-                except (ValueError, OverflowError):
+-                    value = None
++                codepoint = int(extracted, 16)
++                if 0xD800 <= codepoint <= 0xDFFF or codepoint > 0x10FFFF:
++                    # Surrogates and out of range values are not Unicode
++                    # scalar values
++                    return None, None
++
++                value = chr(codepoint)
+ 
+             return value, extracted
+ 

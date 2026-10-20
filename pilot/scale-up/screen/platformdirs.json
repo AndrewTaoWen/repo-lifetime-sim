@@ -1,0 +1,15 @@
+{
+ "repo": "tox-dev/platformdirs",
+ "snapshot": "46ab1f2d5e0c594a676cea14f29763cbd3d2929e",
+ "snapshot_date": "2026-06-01",
+ "head": "57029042a19fb7a280b1e017a211476069749954",
+ "head_date": "2026-10-19",
+ "packages": [
+  "src"
+ ],
+ "tests": "tests",
+ "future_on_future": "2266 passed, 125 skipped, 2 warnings in 6.47s",
+ "future_on_snapshot": "d_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 1027, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/platformdirs/src/platformdirs/__init__.py\", line 17, in <module>\n    from .version import __version__\nModuleNotFoundError: No module named 'platformdirs.version'\n",
+ "n_future_pass": 2266,
+ "future_tests_failing_on_snapshot": []
+}

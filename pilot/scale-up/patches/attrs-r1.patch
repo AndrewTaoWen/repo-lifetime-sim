@@ -1,0 +1,735 @@
+diff --git a/src/attr/_cmp.py b/src/attr/_cmp.py
+index 09bab49..6aa10c7 100644
+--- a/src/attr/_cmp.py
++++ b/src/attr/_cmp.py
+@@ -150,6 +150,11 @@ def _is_comparable_to(self, other):
+     """
+     Check whether `other` is comparable to `self`.
+     """
++    # Only instances that wrap a value can be compared; anything else (for
++    # example a plain int) is not comparable and gets NotImplemented.
++    if not hasattr(other, "value"):
++        return False
++
+     return all(func(self, other) for func in self._requirements)
+ 
+ 
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 1adb500..ea6f51c 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -4,7 +4,7 @@
+ import copy
+ 
+ from ._compat import get_generic_base
+-from ._make import _OBJ_SETATTR, NOTHING, fields
++from ._make import _HASH_CACHE_FIELD, _OBJ_SETATTR, NOTHING, fields
+ from .exceptions import AttrsAttributeNotFoundError
+ 
+ 
+@@ -185,19 +185,25 @@ def _asdict_anything(
+         else:
+             cf = list
+ 
+-        rv = cf(
+-            [
+-                _asdict_anything(
+-                    i,
+-                    is_key=False,
+-                    filter=filter,
+-                    dict_factory=dict_factory,
+-                    retain_collection_types=retain_collection_types,
+-                    value_serializer=value_serializer,
+-                )
+-                for i in val
+-            ]
+-        )
++        items = [
++            _asdict_anything(
++                i,
++                is_key=False,
++                filter=filter,
++                dict_factory=dict_factory,
++                retain_collection_types=retain_collection_types,
++                value_serializer=value_serializer,
++            )
++            for i in val
++        ]
++        try:
++            rv = cf(items)
++        except TypeError:
++            if not issubclass(cf, tuple):
++                raise
++            # Workaround for TypeError: cf.__new__() missing 1 required
++            # positional argument (which appears, for a namedtuple)
++            rv = cf(*items)
+     elif issubclass(val_type, dict):
+         df = dict_factory
+         rv = df(
+@@ -419,6 +425,12 @@ def assoc(inst, **changes):
+             msg = f"{k} is not an attrs attribute on {new.__class__}."
+             raise AttrsAttributeNotFoundError(msg)
+         _OBJ_SETATTR(new, k, v)
++
++    # The copy may carry over a cached hash code of *inst* (cache_hash=True)
++    # which is wrong for the changed copy, so reset it.
++    if changes and getattr(new, _HASH_CACHE_FIELD, None) is not None:
++        _OBJ_SETATTR(new, _HASH_CACHE_FIELD, None)
++
+     return new
+ 
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 793bfd8..9f90d7f 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -187,11 +187,13 @@ def attrib(
+     if isinstance(on_setattr, (list, tuple)):
+         on_setattr = setters.pipe(*on_setattr)
+ 
+-    if validator and isinstance(validator, (list, tuple)):
+-        validator = and_(*validator)
++    if isinstance(validator, (list, tuple)):
++        # An empty list means "no validator".
++        validator = and_(*validator) if validator else None
+ 
+-    if converter and isinstance(converter, (list, tuple)):
+-        converter = pipe(*converter)
++    if isinstance(converter, (list, tuple)):
++        # An empty list means "no converter".
++        converter = pipe(*converter) if converter else None
+ 
+     return _CountingAttr(
+         default=default,
+@@ -305,7 +307,15 @@ def _is_class_var(annot):
+     if annot.startswith(("'", '"')) and annot.endswith(("'", '"')):
+         annot = annot[1:-1]
+ 
+-    return annot.startswith(_CLASSVAR_PREFIXES)
++    for prefix in _CLASSVAR_PREFIXES:
++        if annot.startswith(prefix):
++            # Make sure we don't match names that merely *start* with
++            # "ClassVar", like "ClassVarConfig".
++            rest = annot[len(prefix) :]
++            if not rest or rest.startswith("["):
++                return True
++
++    return False
+ 
+ 
+ def _has_own_attribute(cls, attrib_name):
+@@ -556,6 +566,19 @@ def _make_cached_property_getattr(cached_properties, original_getattr, cls):
+     )["__getattr__"]
+ 
+ 
++def _mangle_slot_name(cls, name):
++    """
++    Return the attribute name under which a slot called *name* that has been
++    declared in *cls* is stored (private names are mangled by Python).
++    """
++    if name.startswith("__") and not name.endswith("__"):
++        stripped = cls.__name__.lstrip("_")
++        if stripped:
++            return f"_{stripped}{name}"
++
++    return name
++
++
+ def _frozen_setattrs(self, name, value):
+     """
+     Attached to frozen classes as __setattr__.
+@@ -780,9 +803,20 @@ class _ClassBuilder:
+         Evaluate any registered snippets in one go.
+         """
+         script = "\n".join([snippet[0] for snippet in self._script_snippets])
+-        globs = {}
++        # Start with the module's globals (needed to resolve string
++        # annotations of __init__) and let every snippet's own globals take
++        # precedence over them, so that user-defined module globals can't
++        # shadow names used by the generated methods.
++        module_globs = _module_globals_for(self._cls)
++        globs = dict(module_globs)
+         for _, snippet_globs, _ in self._script_snippets:
+-            globs.update(snippet_globs)
++            globs.update(
++                {
++                    k: v
++                    for k, v in snippet_globs.items()
++                    if k not in module_globs or v is not module_globs[k]
++                }
++            )
+ 
+         locs = _linecache_and_compile(
+             script,
+@@ -892,12 +926,15 @@ class _ClassBuilder:
+         for base_cls in self._cls.__mro__[1:-1]:
+             if base_cls.__dict__.get("__weakref__", None) is not None:
+                 weakref_inherited = True
+-            existing_slots.update(
+-                {
+-                    name: getattr(base_cls, name)
+-                    for name in getattr(base_cls, "__slots__", [])
+-                }
+-            )
++            base_slots = getattr(base_cls, "__slots__", ())
++            if isinstance(base_slots, str):
++                # A single slot may be given as a plain string.
++                base_slots = (base_slots,)
++            for name in base_slots:
++                name = _mangle_slot_name(base_cls, name)  # noqa: PLW2901
++                descriptor = getattr(base_cls, name, _SENTINEL)
++                if descriptor is not _SENTINEL:
++                    existing_slots[name] = descriptor
+ 
+         base_names = set(self._base_names)
+ 
+@@ -1031,7 +1068,16 @@ class _ClassBuilder:
+             """
+             Automatically created by attrs.
+             """
+-            return {name: getattr(self, name) for name in state_attr_names}
++            state = {}
++            for name in state_attr_names:
++                # Attributes that have not been set (yet) -- for example
++                # ``init=False`` fields without a default -- are skipped
++                # instead of making pickling / copying blow up.
++                value = getattr(self, name, _SENTINEL)
++                if value is not _SENTINEL:
++                    state[name] = value
++
++            return state
+ 
+         hash_caching_enabled = self._cache_hash
+ 
+@@ -1958,6 +2004,10 @@ def fields_dict(cls):
+ 
+     .. versionadded:: 18.1.0
+     """
++    if get_generic_base(cls) is not None:
++        # Specialized generic (A[str]) -- handled by fields().
++        return {a.name: a for a in fields(cls)}
++
+     if not isinstance(cls, type):
+         msg = "Passed object must be a class."
+         raise TypeError(msg)
+@@ -2049,9 +2099,11 @@ def _make_init_script(
+         has_cls_on_setattr,
+         "__attrs_init__" if attrs_init else "__init__",
+     )
+-    if cls.__module__ in sys.modules:
+-        # This makes typing.get_type_hints(CLS.__init__) resolve string types.
+-        globs.update(sys.modules[cls.__module__].__dict__)
++    # This makes typing.get_type_hints(CLS.__init__) resolve string types.
++    # The module's globals go in *first* so that they can never shadow the
++    # names the generated script relies on (for example a module-level
++    # ``_config``).
++    globs = {**_module_globals_for(cls), **globs}
+ 
+     globs.update({"NOTHING": NOTHING, "attr_dict": attr_dict})
+ 
+@@ -2063,6 +2115,17 @@ def _make_init_script(
+     return script, globs, annotations
+ 
+ 
++def _module_globals_for(cls) -> dict:
++    """
++    Return the globals of the module *cls* was defined in, or an empty dict.
++    """
++    mod = sys.modules.get(getattr(cls, "__module__", None))
++    if mod is None:
++        return {}
++
++    return getattr(mod, "__dict__", {})
++
++
+ def _setattr(attr_name: str, value_var: str, has_on_setattr: bool) -> str:
+     """
+     Use the cached object.setattr to set *attr_name* to *value_var*.
+@@ -3156,7 +3219,11 @@ class Converter:
+             self.__call__ = self.converter
+ 
+         rt = ex.get_return_type()
+-        if rt is not None:
++        # If the converter is used as-is (takes_self and takes_field), it
++        # already carries its own return annotation and it may not even be a
++        # function (e.g. a functools.partial or a callable object), so we
++        # must not touch it.
++        if rt is not None and self.__call__ is not self.converter:
+             self.__call__.__annotations__["return"] = rt
+ 
+     @staticmethod
+@@ -3274,7 +3341,9 @@ def make_class(
+     name = unicodedata.normalize("NFKC", name)
+ 
+     if isinstance(attrs, dict):
+-        cls_dict = attrs
++        # Copy, so we don't mutate the caller's dict when popping out the
++        # special methods below.
++        cls_dict = dict(attrs)
+     elif isinstance(attrs, (list, tuple)):
+         cls_dict = {a: attrib() for a in attrs}
+     else:
+diff --git a/src/attr/_next_gen.py b/src/attr/_next_gen.py
+index 4ccd0da..eae15ad 100644
+--- a/src/attr/_next_gen.py
++++ b/src/attr/_next_gen.py
+@@ -362,7 +362,7 @@ def define(
+ 
+     """
+ 
+-    def do_it(cls, auto_attribs):
++    def do_it(cls, auto_attribs, on_setattr):
+         return attrs(
+             maybe_cls=cls,
+             these=these,
+@@ -389,13 +389,18 @@ def define(
+             force_kw_only=force_kw_only,
+         )
+ 
++    on_setattr_arg = on_setattr
++
+     def wrap(cls):
+         """
+         Making this a wrapper ensures this code runs during class creation.
+ 
+         We also ensure that frozen-ness of classes is inherited.
+         """
+-        nonlocal frozen, on_setattr
++        # Don't use nonlocal here: the decorator returned by ``define(...)``
++        # can be applied to several classes and the effective on_setattr
++        # depends on each class's bases, so it must not leak between them.
++        on_setattr = on_setattr_arg
+ 
+         had_on_setattr = on_setattr not in (None, setters.NO_OP)
+ 
+@@ -415,12 +420,12 @@ def define(
+                 break
+ 
+         if auto_attribs is not None:
+-            return do_it(cls, auto_attribs)
++            return do_it(cls, auto_attribs, on_setattr)
+ 
+         try:
+-            return do_it(cls, True)
++            return do_it(cls, True, on_setattr)
+         except UnannotatedAttributeError:
+-            return do_it(cls, False)
++            return do_it(cls, False, on_setattr)
+ 
+     # maybe_cls's type depends on the usage of the decorator.  It's a class
+     # if it's used as `@attrs` but `None` if used as `@attrs()`.
+diff --git a/src/attr/validators.py b/src/attr/validators.py
+index 0b1a294..5425ecb 100644
+--- a/src/attr/validators.py
++++ b/src/attr/validators.py
+@@ -285,7 +285,10 @@ def in_(options):
+        tuple to keep the validator hashable.
+     """
+     repr_options = options
+-    if isinstance(options, (list, dict, set)):
++    if isinstance(options, (dict, set)):
++        # Keep O(1) membership tests while making the options hashable.
++        options = frozenset(options)
++    elif isinstance(options, list):
+         options = tuple(options)
+ 
+     return _InValidator(options, repr_options)
+diff --git a/tests/test_hardening.py b/tests/test_hardening.py
+new file mode 100644
+index 0000000..d9f4fa2
+--- /dev/null
++++ b/tests/test_hardening.py
+@@ -0,0 +1,393 @@
++# SPDX-License-Identifier: MIT
++
++"""
++Regression tests for assorted robustness fixes.
++"""
++
++import collections
++import copy
++import functools
++import pickle
++import sys
++import types
++import typing
++
++import pytest
++
++import attr
++import attrs
++
++from attr._make import _is_class_var
++from attrs import Converter, cmp_using, define, field, validators
++
++
++class TestDefineReuse:
++    def test_reused_decorator_with_frozen_base(self):
++        """
++        A decorator returned by define() can be applied to several classes,
++        one of them inheriting from a frozen class, without the frozen-ness
++        leaking into the on_setattr of the other classes (or raising).
++        """
++        d = define()
++
++        @attrs.frozen
++        class FrozenBase:
++            x: int = 0
++
++        @d
++        class A:
++            y: int = field(default=0, validator=validators.instance_of(int))
++
++        @d
++        class B(FrozenBase):
++            z: int = 0
++
++        @d
++        class C:
++            y: int = field(default=0, validator=validators.instance_of(int))
++
++        with pytest.raises(attrs.exceptions.FrozenInstanceError):
++            B().z = 1
++
++        c = C()
++        with pytest.raises(TypeError):
++            c.y = "nope"
++
++        a = A()
++        with pytest.raises(TypeError):
++            a.y = "nope"
++
++
++def test_module_globals_dont_shadow_generated_names():
++    """
++    Module-level globals named like the internals used by generated methods
++    (e.g. ``_config`` or ``_compat``) don't break the generated methods.
++    """
++    mod = types.ModuleType("attrs_test_shadow_mod")
++    sys.modules[mod.__name__] = mod
++    try:
++        src = """
++import attrs
++
++_config = {"debug": True}
++_compat = None
++NOTHING = "not attrs' NOTHING"
++
++def x_repr(v):
++    return "module's x_repr"
++
++@attrs.define
++class C:
++    x: int = attrs.field(
++        validator=attrs.validators.instance_of(int), repr=lambda v: "custom"
++    )
++    y: list = attrs.field(factory=list)
++"""
++        exec(compile(src, "<shadow>", "exec"), mod.__dict__)  # noqa: S102
++
++        C = mod.C
++
++        assert "C(x=custom, y=[])" == repr(C(1))
++
++        with pytest.raises(TypeError):
++            C("1")
++
++        assert {"return": type(None), "x": int, "y": list} == typing.get_type_hints(
++            C.__init__
++        )
++    finally:
++        del sys.modules[mod.__name__]
++
++
++class TestSlots:
++    def test_base_with_string_slots(self):
++        """
++        A non-attrs base class may declare __slots__ as a single string.
++        """
++
++        class Base:
++            __slots__ = "abc"
++
++        @define
++        class C(Base):
++            x: int
++
++        c = C(1)
++        c.abc = 2
++
++        assert 1 == c.x
++        assert 2 == c.abc
++
++    def test_base_with_private_slots(self):
++        """
++        A non-attrs base class may declare private (mangled) slots.
++        """
++
++        class Base:
++            __slots__ = ("__priv",)
++
++            def set_priv(self, v):
++                self.__priv = v
++
++            def get_priv(self):
++                return self.__priv
++
++        @define
++        class C(Base):
++            x: int
++
++        c = C(1)
++        c.set_priv(42)
++
++        assert 42 == c.get_priv()
++
++    def test_pickle_and_copy_unset_attribute(self):
++        """
++        Slotted instances with attributes that have not been set can be copied
++        and pickled.
++        """
++
++        c = UnsetSlotted(1)
++
++        for c2 in (copy.copy(c), pickle.loads(pickle.dumps(c))):
++            assert 1 == c2.x
++            assert not hasattr(c2, "y")
++
++        c.y = 2
++
++        assert 2 == copy.copy(c).y
++
++
++@define
++class UnsetSlotted:
++    x: int
++    y: int = field(init=False)
++
++
++@attr.s(frozen=True, cache_hash=True)
++class CachedHashDict:
++    x = attr.ib()
++
++
++def test_assoc_resets_cached_hash():
++    """
++    assoc() doesn't carry the cached hash over to the changed copy.
++    """
++    i = CachedHashDict(1)
++    hash(i)
++
++    i2 = attr.assoc(i, x=2)
++
++    assert hash(CachedHashDict(2)) == hash(i2)
++    assert hash(CachedHashDict(1)) == hash(i)
++
++
++class TestConverterNonFunctions:
++    def test_partial(self):
++        """
++        Converters taking self and field can be functools.partial objects
++        with return annotations.
++        """
++
++        def conv(val, inst, fld, factor) -> int:
++            return int(val) * factor
++
++        c = Converter(
++            functools.partial(conv, factor=2),
++            takes_self=True,
++            takes_field=True,
++        )
++
++        @define
++        class C:
++            x: int = field(converter=c)
++
++        assert 4 == C("2").x
++
++    def test_callable_object(self):
++        """
++        Converters taking self and field can be callable objects with
++        annotated __call__, and their class annotations aren't touched.
++        """
++
++        class Conv:
++            factor: int = 3
++
++            def __call__(self, val, inst, fld) -> int:
++                return int(val) * self.factor
++
++        Converter(Conv(), takes_self=True, takes_field=True)
++
++        assert {"factor": int} == Conv.__annotations__
++
++
++def test_make_class_does_not_mutate_dict():
++    """
++    make_class() doesn't remove special methods from the dict it's passed.
++    """
++    called = []
++
++    def post_init(self):
++        called.append(self)
++
++    d = {"x": attr.ib(), "__attrs_post_init__": post_init}
++
++    C1 = attr.make_class("C1", d)
++    C2 = attr.make_class("C2", d)
++
++    assert ["x", "__attrs_post_init__"] == list(d)
++
++    C1(1)
++    C2(2)
++
++    assert 2 == len(called)
++
++
++NT = collections.namedtuple("NT", "a b")
++
++
++@pytest.mark.parametrize("value", [[NT(1, 2)], {"k": NT(1, 2)}, ((NT(1, 2),),)])
++def test_asdict_nested_namedtuple_retain(value):
++    """
++    Namedtuples nested within collections are supported with
++    retain_collection_types=True.
++    """
++
++    @define
++    class C:
++        x: object
++
++    assert {"x": value} == attr.asdict(C(value), retain_collection_types=True)
++    assert {"x": value} == attrs.asdict(C(value))
++
++
++class TestEmptyLists:
++    def test_empty_validator_list(self):
++        """
++        An empty list of validators means no validator.
++        """
++
++        @define
++        class C:
++            x: int = field(validator=[])
++
++        assert attrs.fields(C).x.validator is None
++
++        attrs.validate(C(1))
++
++    def test_empty_converter_list(self):
++        """
++        An empty list of converters means no converter.
++        """
++
++        @define
++        class C:
++            x: int = field(converter=[])
++
++        assert attrs.fields(C).x.converter is None
++
++        c = C(1)
++        c.x = 2
++
++        assert 2 == c.x
++
++
++def test_cmp_using_compared_with_other_types():
++    """
++    Comparing a cmp_using class to something unrelated doesn't crash.
++    """
++    C = cmp_using(eq=lambda a, b: a == b, lt=lambda a, b: a < b)
++
++    assert C(1) != 1
++    assert not (C(1) == 1)
++    assert C(1) == C(1)
++
++    with pytest.raises(TypeError):
++        C(1) < 1  # noqa: B015
++
++    D = cmp_using(eq=lambda a, b: a == b, require_same_type=False)
++
++    assert D(1) != 1
++
++
++class TestIsClassVar:
++    @pytest.mark.parametrize(
++        "annot",
++        [
++            "ClassVarConfig",
++            "ClassVariable",
++            "t.ClassVariable[int]",
++            "typing.ClassVarX",
++        ],
++    )
++    def test_names_starting_with_classvar(self, annot):
++        """
++        Names that merely start with "ClassVar" are not ClassVars.
++        """
++        assert not _is_class_var(annot)
++
++    @pytest.mark.parametrize(
++        "annot",
++        [
++            "ClassVar",
++            "ClassVar[int]",
++            "'ClassVar[int]'",
++            "typing.ClassVar[int]",
++            typing.ClassVar[int],
++            typing.ClassVar,
++        ],
++    )
++    def test_classvars(self, annot):
++        """
++        Actual ClassVars are still detected.
++        """
++        assert _is_class_var(annot)
++
++    def test_field_with_classvar_prefixed_type(self):
++        """
++        A string-annotated field whose type name starts with "ClassVar" is a
++        field.
++        """
++
++        @define
++        class C:
++            cfg: "ClassVarConfig"  # noqa: F821
++            n: "ClassVar[int]" = 0
++
++        assert ("cfg",) == tuple(a.name for a in attrs.fields(C))
++
++
++def test_fields_dict_generic():
++    """
++    fields_dict() works with specialized generics, like fields().
++    """
++    T = typing.TypeVar("T")
++
++    @define
++    class G(typing.Generic[T]):
++        x: T
++
++    assert attrs.fields_dict(G) == attrs.fields_dict(G[int])
++    assert ["x"] == list(attrs.fields_dict(G[int]))
++
++
++def test_in_set_options():
++    """
++    in_() with set or dict options keeps working and stays hashable.
++    """
++    v = validators.in_({1, 2, 3})
++
++    @define
++    class C:
++        x: int = field(validator=v)
++
++    C(1)
++
++    with pytest.raises(ValueError, match=r"must be in \{1, 2, 3\}"):
++        C(4)
++
++    with pytest.raises(ValueError):
++        C([1])
++
++    hash(v)
++    hash(validators.in_({"a": 1}))

@@ -1,0 +1,561 @@
+diff --git a/src/marshmallow/class_registry.py b/src/marshmallow/class_registry.py
+index 6c02f9c..98e3277 100644
+--- a/src/marshmallow/class_registry.py
++++ b/src/marshmallow/class_registry.py
+@@ -54,11 +54,17 @@ def register(classname: str, cls: SchemaType) -> None:
+     # If the class is already registered; need to check if the entries are
+     # in the same module as cls to avoid having multiple instances of the same
+     # class in the registry
+-    if classname in _registry and not any(
+-        each.__module__ == module for each in _registry[classname]
+-    ):
+-        _registry[classname].append(cls)
+-    elif classname not in _registry:
++    if classname in _registry:
++        classes = _registry[classname]
++        for idx, each in enumerate(classes):
++            if each.__module__ == module:
++                # Re-definition in the same module: replace the stale class so
++                # that lookups by classname and by full path agree
++                classes[idx] = cls
++                break
++        else:
++            classes.append(cls)
++    else:
+         _registry[classname] = [cls]
+ 
+     # Also register the full path
+diff --git a/src/marshmallow/experimental/context.py b/src/marshmallow/experimental/context.py
+index ccb1711..42cca6c 100644
+--- a/src/marshmallow/experimental/context.py
++++ b/src/marshmallow/experimental/context.py
+@@ -53,13 +53,18 @@ class Context(contextlib.AbstractContextManager, typing.Generic[_ContextT]):
+     def __init__(self, context: _ContextT) -> None:
+         self.context = context
+         self.token: contextvars.Token | None = None
++        # Stack of tokens so that the same instance can be entered re-entrantly
++        self._tokens: list[contextvars.Token] = []
+ 
+     def __enter__(self) -> Context[_ContextT]:
+         self.token = _CURRENT_CONTEXT.set(self.context)
++        self._tokens.append(self.token)
+         return self
+ 
+     def __exit__(self, *args, **kwargs) -> None:
+-        _CURRENT_CONTEXT.reset(typing.cast("contextvars.Token", self.token))
++        token = self._tokens.pop()
++        self.token = self._tokens[-1] if self._tokens else None
++        _CURRENT_CONTEXT.reset(token)
+ 
+     @classmethod
+     def get(cls, default: _DefaultT | EllipsisType = ...) -> _ContextT | _DefaultT:
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index e6c7366..7eae033 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -383,8 +383,12 @@ class Field(typing.Generic[_InternalT]):
+             return _miss() if callable(_miss) else _miss
+ 
+         # Apply pre_load functions
+-        for func in self.pre_load:
+-            value = func(value)
++        if self.pre_load:
++            for func in self.pre_load:
++                value = func(value)
++            # A pre_load function may have converted the value to None
++            if value is None and not self.allow_none:
++                raise self.make_error("null")
+ 
+         if self.allow_none and value is None:
+             return None
+@@ -1290,6 +1294,10 @@ class _TemporalField(Field[_D], metaclass=abc.ABCMeta):
+     def _deserialize(self, value, attr, data, **kwargs) -> _D:
+         internal_type: type[_D] = getattr(dt, self.OBJ_TYPE)
+         if isinstance(value, internal_type):
++            # `datetime` is a subclass of `date`, but is not a valid date:
++            # returning it as-is would leak a datetime out of a Date field.
++            if internal_type is dt.date and isinstance(value, dt.datetime):
++                raise self.make_error("invalid", input=value, obj_type=self.OBJ_TYPE)
+             return value
+         data_format = self.format or self.DEFAULT_FORMAT
+         func = self.DESERIALIZATION_FUNCS.get(data_format)
+@@ -1581,7 +1589,8 @@ class TimeDelta(Field[dt.timedelta]):
+ 
+         try:
+             return dt.timedelta(**kwargs)
+-        except OverflowError as error:
++        except (OverflowError, ValueError) as error:
++            # ValueError is raised for NaN
+             raise self.make_error("invalid") from error
+ 
+ 
+@@ -1721,7 +1730,7 @@ class Mapping(Field[_MappingT], metaclass=abc.ABCMeta):
+                         result[keys[key]] = deser_val
+ 
+         if errors:
+-            raise ValidationError(errors, valid_data=result)
++            raise ValidationError(dict(errors), valid_data=result)
+ 
+         return result
+ 
+@@ -2096,6 +2105,8 @@ class Function(Field):
+         self.deserialize_func = deserialize and utils.callable_or_raise(deserialize)
+ 
+     def _serialize(self, value, attr, obj, **kwargs):
++        if self.serialize_func is None:
++            return missing_
+         return self.serialize_func(obj)
+ 
+     def _deserialize(self, value, attr, data, **kwargs):
+@@ -2127,6 +2138,12 @@ class Constant(Field[_ContantT]):
+         if kwargs.get("allow_none") is None and constant is None:
+             self.allow_none = True
+ 
++    def deserialize(self, value, attr=None, data=None, **kwargs):
++        if value is missing_:
++            # Don't treat a callable constant as a default factory
++            return self.constant
++        return super().deserialize(value, attr, data, **kwargs)
++
+     def _validate_missing(self, value):
+         # Omit check for value is missing_
+         # Below is just a paranoid check
+diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py
+index 24efa90..a2762b4 100644
+--- a/src/marshmallow/schema.py
++++ b/src/marshmallow/schema.py
+@@ -61,6 +61,32 @@ def _get_fields(attrs) -> list[tuple[str, Field]]:
+     return ret
+ 
+ 
++def _get_deserialized_value(data: typing.Any, key: str) -> typing.Any:
++    """Get a value stored by `set_value` in deserialized data, or `missing`."""
++    if key in data:
++        return data[key]
++    if "." not in key:
++        return missing
++    head, rest = key.split(".", 1)
++    target = data.get(head, missing)
++    if not isinstance(target, Mapping):
++        return missing
++    return _get_deserialized_value(target, rest)
++
++
++def _pop_deserialized_value(data: typing.Any, key: str) -> None:
++    """Remove a value stored by `set_value` from deserialized data."""
++    if key in data:
++        data.pop(key, None)
++        return
++    if "." not in key:
++        return
++    head, rest = key.split(".", 1)
++    target = data.get(head, missing)
++    if isinstance(target, dict):
++        _pop_deserialized_value(target, rest)
++
++
+ # This function allows Schemas to inherit from non-Schema classes and ensures
+ #   inheritance according to the MRO
+ def _get_fields_by_mro(klass: SchemaMeta):
+@@ -693,7 +719,9 @@ class Schema(metaclass=SchemaMeta):
+                     field_obj.data_key if field_obj.data_key is not None else field_name
+                     for field_name, field_obj in self.load_fields.items()
+                 }
+-                for key in set(data) - fields:
++                # Iterate over the input (rather than a set difference) so
++                # that the output and error ordering is deterministic.
++                for key in [key for key in data if key not in fields]:
+                     value = data[key]
+                     if unknown == INCLUDE:
+                         ret_d[key] = value
+@@ -970,6 +998,12 @@ class Schema(metaclass=SchemaMeta):
+         for parent, nested_names in nested_fields:
+             nested_options[parent].append(nested_names)
+         # Apply the nested field options.
++        invalid_fields = {
++            key for key in nested_options if key not in self.declared_fields
++        }
++        if invalid_fields:
++            message = f"Invalid fields for {self}: {invalid_fields}."
++            raise ValueError(message)
+         for key, options in iter(nested_options.items()):
+             new_options = self.set_class(options)
+             original_options = getattr(self.declared_fields[key], option_name, ())
+@@ -1141,13 +1175,13 @@ class Schema(metaclass=SchemaMeta):
+                 )
+                 do_validate = functools.partial(validator, data_key=data_key)
+ 
++                # Deserialized values are stored under the field's attribute
++                # (which may be a dot-delimited path, see `set_value`)
++                attr_key = field_obj.attribute or field_name
+                 if many:
+                     for idx, item in enumerate(data):
+-                        try:
+-                            value = item[field_obj.attribute or field_name]
+-                        except KeyError:
+-                            pass
+-                        else:
++                        value = _get_deserialized_value(item, attr_key)
++                        if value is not missing:
+                             validated_value = self._call_and_store(
+                                 getter_func=do_validate,
+                                 data=value,
+@@ -1156,13 +1190,10 @@ class Schema(metaclass=SchemaMeta):
+                                 index=(idx if self.opts.index_errors else None),
+                             )
+                             if validated_value is missing:
+-                                item.pop(field_name, None)
++                                _pop_deserialized_value(item, attr_key)
+                 else:
+-                    try:
+-                        value = data[field_obj.attribute or field_name]
+-                    except KeyError:
+-                        pass
+-                    else:
++                    value = _get_deserialized_value(data, attr_key)
++                    if value is not missing:
+                         validated_value = self._call_and_store(
+                             getter_func=do_validate,
+                             data=value,
+@@ -1170,7 +1201,7 @@ class Schema(metaclass=SchemaMeta):
+                             error_store=error_store,
+                         )
+                         if validated_value is missing:
+-                            data.pop(field_name, None)
++                            _pop_deserialized_value(data, attr_key)
+ 
+     def _invoke_schema_validators(
+         self,
+@@ -1193,9 +1224,16 @@ class Schema(metaclass=SchemaMeta):
+             pass_original = validator_kwargs.get("pass_original", False)
+ 
+             if many and not pass_collection:
+-                for idx, (item, orig) in enumerate(
+-                    zip(data, original_data, strict=True)
+-                ):
++                # The deserialized data may not line up with the original data,
++                # e.g. if a ``pre_load(pass_collection=True)`` hook changed the
++                # number of items or if the input was not a collection.
++                originals = (
++                    original_data
++                    if is_sequence_but_not_string(original_data)
++                    else ()
++                )
++                for idx, item in enumerate(data):
++                    orig = originals[idx] if idx < len(originals) else None
+                     self._run_validator(
+                         validator,
+                         item,
+diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py
+index 3463a47..7269df4 100644
+--- a/src/marshmallow/validate.py
++++ b/src/marshmallow/validate.py
+@@ -187,6 +187,8 @@ class URL(Validator):
+ 
+     _regex = RegexMemoizer()
+ 
++    _SCHEME_REGEX = re.compile(r"[a-z0-9.+-]*\Z")
++
+     default_message = "Not a valid URL."
+     default_schemes = {"http", "https", "ftp", "ftps"}
+ 
+@@ -223,9 +225,14 @@ class URL(Validator):
+         # Check first if the scheme is valid
+         scheme = None
+         if "://" in value:
+-            scheme = value.split("://", maxsplit=1)[0].lower()
+-            if scheme not in self.schemes:
+-                raise ValidationError(message)
++            candidate = value.split("://", maxsplit=1)[0].lower()
++            # Only treat the prefix as a scheme if it looks like one; otherwise
++            # "://" appears later on, e.g. in the query string of a relative URL
++            # such as "/login?next=https://example.com".
++            if self._SCHEME_REGEX.match(candidate):
++                scheme = candidate
++                if scheme not in self.schemes:
++                    raise ValidationError(message)
+ 
+         regex = self._regex(
+             relative=self.relative, absolute=self.absolute, require_tld=self.require_tld
+@@ -566,6 +573,10 @@ class NoneOf(Validator):
+     default_message = "Invalid input."
+ 
+     def __init__(self, iterable: typing.Iterable, *, error: str | None = None):
++        if isinstance(iterable, typing.Iterator):
++            # Materialize one-shot iterators (e.g. generators) so they can be
++            # used for both the error message and membership checks.
++            iterable = list(iterable)
+         self.iterable = iterable
+         self.values_text = ", ".join(str(each) for each in self.iterable)
+         self.error: str = error or self.default_message
+@@ -604,6 +615,12 @@ class OneOf(Validator):
+         *,
+         error: str | None = None,
+     ):
++        # Materialize one-shot iterators (e.g. generators) so they can be
++        # used for both the error message and membership checks.
++        if isinstance(choices, typing.Iterator):
++            choices = list(choices)
++        if isinstance(labels, typing.Iterator):
++            labels = list(labels)
+         self.choices = choices
+         self.choices_text = ", ".join(str(choice) for choice in self.choices)
+         self.labels = labels if labels is not None else []
+@@ -679,7 +696,11 @@ class ContainsOnly(OneOf):
+     def __call__(self, value: typing.Sequence[_T]) -> typing.Sequence[_T]:
+         # We can't use set.issubset because does not handle unhashable types
+         for val in value:
+-            if val not in self.choices:
++            try:
++                is_valid = val in self.choices
++            except TypeError:  # e.g. unhashable value and set of choices
++                is_valid = False
++            if not is_valid:
+                 raise ValidationError(self._format_error(value))
+         return value
+ 
+@@ -703,6 +724,10 @@ class ContainsNoneOf(NoneOf):
+ 
+     def __call__(self, value: typing.Sequence[_T]) -> typing.Sequence[_T]:
+         for val in value:
+-            if val in self.iterable:
++            try:
++                is_invalid = val in self.iterable
++            except TypeError:  # e.g. unhashable value and set of values
++                is_invalid = False
++            if is_invalid:
+                 raise ValidationError(self._format_error(value))
+         return value
+diff --git a/tests/test_regressions.py b/tests/test_regressions.py
+new file mode 100644
+index 0000000..a8ae5c6
+--- /dev/null
++++ b/tests/test_regressions.py
+@@ -0,0 +1,227 @@
++"""Regression tests for latent bugs (edge cases in fields, schemas and validators)."""
++
++import datetime as dt
++
++import pytest
++
++from marshmallow import (
++    INCLUDE,
++    RAISE,
++    Schema,
++    class_registry,
++    fields,
++    pre_load,
++    validate,
++    validates,
++    validates_schema,
++)
++from marshmallow.exceptions import ValidationError
++from marshmallow.experimental.context import Context
++
++
++class TestSchemaValidatorsWithMismatchedOriginalData:
++    def test_pre_load_pass_collection_changes_length(self):
++        seen = []
++
++        class MySchema(Schema):
++            a = fields.Int()
++
++            @pre_load(pass_collection=True)
++            def drop_zeros(self, data, many, **kwargs):
++                return [d for d in data if d.get("a") != 0] if many else data
++
++            @validates_schema(pass_original=True)
++            def check(self, data, original_data, **kwargs):
++                seen.append(data)
++
++        result = MySchema(many=True).load([{"a": 0}, {"a": 1}])
++        assert result == [{"a": 1}]
++        assert seen == [{"a": 1}]
++
++    def test_many_with_non_collection_input_and_no_skip(self):
++        class MySchema(Schema):
++            a = fields.Int()
++
++            @validates_schema(skip_on_field_errors=False)
++            def check(self, data, **kwargs):
++                pass
++
++        with pytest.raises(ValidationError) as excinfo:
++            MySchema(many=True).load({"a": 1, "b": 2})
++        assert excinfo.value.messages == {"_schema": ["Invalid input type."]}
++
++
++class TestFieldValidatorWithAttribute:
++    def test_invalid_value_removed_from_valid_data(self):
++        class MySchema(Schema):
++            x = fields.Int(attribute="y")
++
++            @validates("x")
++            def validate_x(self, value, **kwargs):
++                if value < 0:
++                    raise ValidationError("negative")
++
++        with pytest.raises(ValidationError) as excinfo:
++            MySchema(many=True).load([{"x": -1}, {"x": 1}])
++        assert excinfo.value.messages == {0: {"x": ["negative"]}}
++        assert excinfo.value.valid_data == [{}, {"y": 1}]
++
++        with pytest.raises(ValidationError) as excinfo:
++            MySchema().load({"x": -1})
++        assert excinfo.value.valid_data == {}
++
++    def test_dotted_attribute_is_validated(self):
++        class MySchema(Schema):
++            x = fields.Int(attribute="y.z")
++
++            @validates("x")
++            def validate_x(self, value, **kwargs):
++                if value < 0:
++                    raise ValidationError("negative")
++
++        assert MySchema().load({"x": 1}) == {"y": {"z": 1}}
++        with pytest.raises(ValidationError) as excinfo:
++            MySchema().load({"x": -1})
++        assert excinfo.value.messages == {"x": ["negative"]}
++        assert excinfo.value.valid_data == {"y": {}}
++
++
++class TestNestedOptionsOnUnknownField:
++    class MySchema(Schema):
++        a = fields.Int()
++
++    def test_only(self):
++        with pytest.raises(ValueError, match="Invalid fields"):
++            self.MySchema(only=("zz.a",))
++
++    def test_exclude(self):
++        with pytest.raises(ValueError, match="Invalid fields"):
++            self.MySchema(exclude=("zz.a",))
++
++
++def test_unknown_include_preserves_input_order():
++    class MySchema(Schema):
++        a = fields.Int()
++
++    data = {"z": 1, "y": 2, "a": 3, "x": 4, "w": 5}
++    result = MySchema(unknown=INCLUDE).load(data)
++    assert list(result) == ["a", "z", "y", "x", "w"]
++
++    with pytest.raises(ValidationError) as excinfo:
++        MySchema(unknown=RAISE).load(data)
++    assert list(excinfo.value.messages) == ["z", "y", "x", "w"]
++
++
++def test_timedelta_nan_is_invalid():
++    with pytest.raises(ValidationError, match="Not a valid period of time."):
++        fields.TimeDelta().deserialize("nan")
++    with pytest.raises(ValidationError, match="Not a valid period of time."):
++        fields.TimeDelta().deserialize(float("nan"))
++
++
++def test_date_field_rejects_datetime():
++    with pytest.raises(ValidationError, match="Not a valid date."):
++        fields.Date().deserialize(dt.datetime(2020, 1, 1, 5))
++    assert fields.Date().deserialize(dt.date(2020, 1, 1)) == dt.date(2020, 1, 1)
++
++
++def test_function_without_serialize_is_skipped_on_dump():
++    schema = Schema.from_dict({"f": fields.Function(), "a": fields.Int()})()
++    assert schema.dump({"a": 1}) == {"a": 1}
++
++
++def test_constant_callable_not_called_on_load():
++    schema = Schema.from_dict({"c": fields.Constant(len)})()
++    assert schema.load({}) == {"c": len}
++    assert schema.load({"c": 1}) == {"c": len}
++    assert schema.dump({}) == {"c": len}
++
++
++class TestPreLoadReturningNone:
++    def test_not_allowed(self):
++        field = fields.Int(pre_load=lambda v: None if v == "" else v)
++        with pytest.raises(ValidationError, match="Field may not be null."):
++            field.deserialize("")
++
++    def test_allowed(self):
++        field = fields.Int(pre_load=lambda v: None if v == "" else v, allow_none=True)
++        assert field.deserialize("") is None
++
++
++def test_dict_errors_are_plain_dict():
++    with pytest.raises(ValidationError) as excinfo:
++        fields.Dict(keys=fields.Str()).deserialize({1: 2})
++    assert type(excinfo.value.messages) is dict
++    assert excinfo.value.messages == {1: {"key": ["Not a valid string."]}}
++
++
++def test_registry_redefinition_in_same_module_updates_classname_lookup():
++    first = type("MyRedefinedSchema", (Schema,), {"__module__": "redefmod"})
++    second = type("MyRedefinedSchema", (Schema,), {"__module__": "redefmod"})
++    assert first is not second
++    assert class_registry.get_class("MyRedefinedSchema") is second
++    assert class_registry.get_class("redefmod.MyRedefinedSchema") is second
++
++
++class TestContextReentrancy:
++    def test_same_instance_nested(self):
++        ctx = Context({"a": 1})
++        with ctx:
++            with ctx:
++                assert Context.get() == {"a": 1}
++            assert Context.get() == {"a": 1}
++        assert Context.get(None) is None
++
++    def test_same_instance_reused_sequentially(self):
++        ctx = Context({"a": 1})
++        with ctx:
++            pass
++        with ctx:
++            assert Context.get() == {"a": 1}
++        assert Context.get(None) is None
++
++
++class TestURLRelativeWithSchemeInQuery:
++    def test_relative_url_with_url_in_query(self):
++        validator = validate.URL(relative=True)
++        value = "/login?next=https://example.com"
++        assert validator(value) == value
++
++    def test_absolute_url_still_rejects_bad_scheme(self):
++        with pytest.raises(ValidationError):
++            validate.URL()("javascript://example.com")
++        with pytest.raises(ValidationError):
++            validate.URL(relative=True)("javascript://example.com")
++
++
++class TestValidatorsWithGenerators:
++    def test_one_of(self):
++        validator = validate.OneOf(x for x in "abc")
++        assert validator("a") == "a"
++        assert validator("c") == "c"
++        with pytest.raises(ValidationError, match="Must be one of: a, b, c."):
++            validator("d")
++
++    def test_one_of_labels(self):
++        validator = validate.OneOf("ab", labels=(x for x in ("A", "B")))
++        assert validator.labels_text == "A, B"
++        assert list(validator.options()) == [("a", "A"), ("b", "B")]
++
++    def test_none_of(self):
++        validator = validate.NoneOf(x for x in "abc")
++        with pytest.raises(ValidationError):
++            validator("a")
++        assert validator("d") == "d"
++
++    def test_contains_only(self):
++        validator = validate.ContainsOnly(x for x in "abc")
++        assert validator(["a", "b"]) == ["a", "b"]
++
++
++class TestContainsValidatorsWithUnhashableValues:
++    def test_contains_only(self):
++        with pytest.raises(ValidationError):
++            validate.ContainsOnly({"a"})([{"x": 1}])
++
++    def test_contains_none_of(self):
++        assert validate.ContainsNoneOf({"a"})([{"x": 1}]) == [{"x": 1}]

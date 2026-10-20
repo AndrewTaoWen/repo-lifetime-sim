@@ -1,0 +1,17 @@
+{
+ "repo": "hukkin/tomli",
+ "snapshot": "5a77b12a7a9f052ce5a20c335d2825658f6aea52",
+ "snapshot_date": "2026-04-14",
+ "head": "43a86ade8b795c6ef9b4ec53372a607cd1ed426f",
+ "head_date": "2026-10-07",
+ "packages": [
+  "src"
+ ],
+ "tests": "tests",
+ "future_on_future": "17 passed, 1 skipped, 744 subtests passed in 0.33s",
+ "future_on_snapshot": "1 failed, 16 passed, 1 skipped, 744 subtests passed in 0.28s",
+ "n_future_pass": 17,
+ "future_tests_failing_on_snapshot": [
+  "tests.test_misc.TestMiscellaneous::test_inline_array_recursion_limit"
+ ]
+}

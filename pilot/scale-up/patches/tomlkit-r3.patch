@@ -1,0 +1,544 @@
+diff --git a/tests/test_regressions.py b/tests/test_regressions.py
+new file mode 100644
+index 0000000..c30b8e6
+--- /dev/null
++++ b/tests/test_regressions.py
+@@ -0,0 +1,213 @@
++from __future__ import annotations
++
++import time
++
++import pytest
++
++import tomlkit
++
++from tomlkit import api
++from tomlkit.exceptions import InvalidStringError
++from tomlkit.exceptions import ParseError
++from tomlkit.items import Float
++from tomlkit.items import Integer
++
++
++def test_integer_pow_with_negative_exponent_returns_float() -> None:
++    i = tomlkit.item(2)
++    assert i**-1 == 0.5
++    assert isinstance(i**-1, float)
++    assert 2 ** tomlkit.item(-1) == 0.5
++    assert isinstance(i**2, Integer)
++    assert (i**2).as_string() == "4"
++
++
++def test_integer_pow_with_float_exponent() -> None:
++    assert tomlkit.item(4) ** 0.5 == 2.0
++
++
++def test_round_float_item_without_ndigits_returns_int() -> None:
++    f = tomlkit.item(2.6)
++    r = round(f)
++    assert r == 3
++    assert type(r) is int
++    r1 = round(tomlkit.item(2.567), 1)
++    assert isinstance(r1, Float)
++    assert r1 == 2.6
++
++
++def test_item_int_and_float_subclasses_render_as_numbers() -> None:
++    class MyInt(int):
++        def __str__(self) -> str:
++            return "MyInt!"
++
++    class MyFloat(float):
++        def __str__(self) -> str:
++            return "MyFloat!"
++
++    assert tomlkit.dumps({"a": MyInt(3), "b": MyFloat(1.5)}) == "a = 3\nb = 1.5\n"
++
++
++@pytest.mark.parametrize(
++    "index, expected",
++    [
++        (slice(-2, None), [1, 2]),
++        (slice(None, None, -1), []),
++        (slice(1, 100), [1]),
++        (slice(None, None, 2), [2, 4]),
++        (slice(-3, -1), [1, 4]),
++    ],
++)
++def test_array_delete_slices(index: slice, expected: list[int]) -> None:
++    a = api.array("[1, 2, 3, 4]")
++    del a[index]
++    assert a == expected
++    assert tomlkit.parse(f"a = {a.as_string()}")["a"] == expected
++
++
++def test_array_slice_assignment_does_not_modify_array() -> None:
++    a = api.array("[1, 2, 3]")
++    with pytest.raises(ValueError):
++        a[0:1] = [9]
++    assert a == [1, 2, 3]
++    assert a.as_string() == "[1, 2, 3]"
++
++
++def test_array_sort_and_imul_keep_rendering_in_sync() -> None:
++    a = api.array("[3, 1, 2]")
++    a.sort()
++    assert a == [1, 2, 3]
++    assert a.as_string() == "[1, 2, 3]"
++    a.sort(reverse=True)
++    assert a.as_string() == "[3, 2, 1]"
++
++    b = api.array("[1, 2]")
++    b *= 2
++    assert b == [1, 2, 1, 2]
++    assert tomlkit.parse(f"b = {b.as_string()}")["b"] == [1, 2, 1, 2]
++    b *= 0
++    assert b == []
++    assert b.as_string() == "[]"
++
++
++def test_array_append_after_line_comment_does_not_swallow_value() -> None:
++    a = api.array()
++    a.add_line(1, 2, comment="c")
++    a.add_line(indent="")
++    a.append(3)
++    assert tomlkit.parse(f"k = {a.as_string()}")["k"] == [1, 2, 3]
++
++
++def test_aot_setitem_updates_list_storage() -> None:
++    doc = tomlkit.parse("[[a]]\nx = 1\n[[a]]\nx = 2\n")
++    aot = doc["a"]
++    aot[0] = {"x": 5}
++    assert aot == [{"x": 5}, {"x": 2}]
++    assert list(aot) == [{"x": 5}, {"x": 2}]
++    assert aot[0].is_aot_element()
++    assert tomlkit.parse(doc.as_string()) == {"a": [{"x": 5}, {"x": 2}]}
++
++
++def test_aot_insert_at_front_separates_tables() -> None:
++    doc = tomlkit.document()
++    doc["a"] = api.aot()
++    doc["a"].append({"x": 1})
++    doc["a"].insert(0, {"x": 0})
++    assert doc.as_string() == "[[a]]\nx = 0\n\n[[a]]\nx = 1\n"
++
++
++def test_string_concatenation_escapes_added_part() -> None:
++    s = tomlkit.item("a") + '"b\\'
++    assert s == 'a"b\\'
++    doc = tomlkit.document()
++    doc["k"] = s
++    assert tomlkit.parse(doc.as_string())["k"] == 'a"b\\'
++
++
++def test_string_concatenation_multiline_triple_quote_boundary() -> None:
++    s = api.string('a""', multiline=True) + '"b'
++    doc = tomlkit.document()
++    doc["k"] = s
++    assert tomlkit.parse(doc.as_string())["k"] == 'a"""b'
++
++
++def test_string_concatenation_literal_invalid() -> None:
++    with pytest.raises(InvalidStringError):
++        api.string("a", literal=True) + "'"
++
++
++def test_multiline_string_with_lone_carriage_return() -> None:
++    doc = tomlkit.document()
++    doc["k"] = api.string("a\rb\r\nc", multiline=True)
++    assert tomlkit.parse(doc.as_string())["k"] == "a\rb\r\nc"
++    with pytest.raises(InvalidStringError):
++        api.string("a\rb", multiline=True, literal=True)
++
++
++def test_escape_string_is_linear() -> None:
++    s = "a\\" * 200_000
++    start = time.perf_counter()
++    rendered = tomlkit.item(s).as_string()
++    assert time.perf_counter() - start < 1.0
++    assert rendered == '"' + "a\\\\" * 200_000 + '"'
++    small = 'a\\"\n' * 10
++    assert tomlkit.parse(f"k = {tomlkit.item(small).as_string()}")["k"] == small
++
++
++@pytest.mark.parametrize(
++    "content",
++    [
++        "a\tb = 1",
++        "[a\tb]\n",
++        "[[a]x\n",
++        "a = +infinity",
++        "a = -Infinity",
++        "a = +Inf",
++        "a = NaN",
++        "a = 1٣",
++        'a = "\\U0000D800"',
++        'a = "\\U00110000"',
++        'a = "\\u00_4"',
++        'a = "\\u+041"',
++    ],
++)
++def test_invalid_documents_are_rejected(content: str) -> None:
++    with pytest.raises(ParseError):
++        tomlkit.parse(content)
++
++
++@pytest.mark.parametrize(
++    "content, expected",
++    [
++        ("a = +inf", float("inf")),
++        ("a = -inf", float("-inf")),
++        ("a = 1E5", 1e5),
++        ("a = 1e-5", 1e-5),
++        ("a = 1_000.5_5", 1000.55),
++        ("a = 0xdead_beef", 0xDEADBEEF),
++        ("a = 0o17", 15),
++        ("a = 0b101", 5),
++        ("a = -0", 0),
++        ('a = "\\U0001F600"', "\U0001f600"),
++        ('a = "\\uE000"', ""),
++    ],
++)
++def test_valid_values_still_parse(content: str, expected: object) -> None:
++    assert tomlkit.parse(content)["a"] == expected
++
++
++def test_copy_of_document_keeps_table_bookkeeping() -> None:
++    doc = tomlkit.parse("[a.b]\nx = 1\n")
++    c = doc.copy()
++    t = api.table(True)
++    t.append("c", {"y": 2})
++    c.append("a", t)
++    assert c == {"a": {"b": {"x": 1}, "c": {"y": 2}}}
++    assert doc == {"a": {"b": {"x": 1}}}
++
++
++def test_replace_with_new_key_and_type_change() -> None:
++    doc = tomlkit.parse("x = 1\n[a]\ny = 2\n")
++    doc._replace("x", "z", {"q": 1})
++    assert doc == {"z": {"q": 1}, "a": {"y": 2}}
++    assert tomlkit.parse(doc.as_string()) == {"z": {"q": 1}, "a": {"y": 2}}
+diff --git a/tomlkit/_utils.py b/tomlkit/_utils.py
+index 3c20574..6c2c8dc 100644
+--- a/tomlkit/_utils.py
++++ b/tomlkit/_utils.py
+@@ -143,7 +143,7 @@ def escape_string(s: str, escape_sequences: Collection[str] = _basic_escapes) ->
+     while i < len(s):
+         for seq in found_sequences:
+             seq_len = len(seq)
+-            if s[i:].startswith(seq):
++            if s.startswith(seq, i):
+                 start = flush(seq_len)
+                 res.append(_compact_escapes.get(seq) or _unicode_escape(seq))
+                 i += seq_len - 1  # fast-forward escape sequence
+diff --git a/tomlkit/container.py b/tomlkit/container.py
+index 4387471..17fbc76 100644
+--- a/tomlkit/container.py
++++ b/tomlkit/container.py
+@@ -761,11 +761,6 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+             else:  # Inherit the sep of the old key
+                 new_key = k
+ 
+-        del self._map[k]
+-        self._map[new_key] = idx
+-        if new_key != k:
+-            dict.__delitem__(self, k.key)
+-
+         if isinstance(value, (AoT, Table)) != isinstance(v, (AoT, Table)):
+             # new tables should appear after all non-table values
+             self.remove(k)
+@@ -778,6 +773,11 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+                 idx = -1
+                 self.append(new_key, value)
+         else:
++            del self._map[k]
++            self._map[new_key] = idx
++            if new_key != k:
++                dict.__delitem__(self, k.key)
++
+             # Copying trivia
+             if not isinstance(value, (Whitespace, AoT)):
+                 value.trivia.indent = v.trivia.indent
+@@ -856,6 +856,7 @@ class Container(_CustomDict):  # type: ignore[type-arg]
+ 
+         c._body += self.body
+         c._map.update(self._map)
++        c._table_keys += self._table_keys
+ 
+         return c
+ 
+diff --git a/tomlkit/items.py b/tomlkit/items.py
+index 70156e4..390cae3 100644
+--- a/tomlkit/items.py
++++ b/tomlkit/items.py
+@@ -133,9 +133,9 @@ def item(value: Any, _parent: Item | None = None, _sort_keys: bool = False) -> I
+     if isinstance(value, bool):
+         return Bool(value, Trivia())
+     elif isinstance(value, int):
+-        return Integer(value, Trivia(), str(value))
++        return Integer(value, Trivia(), int.__repr__(value))
+     elif isinstance(value, float):
+-        return Float(value, Trivia(), str(value))
++        return Float(value, Trivia(), float.__repr__(value))
+     elif isinstance(value, dict):
+         table_constructor = (
+             InlineTable if isinstance(_parent, (Array, InlineTable)) else Table
+@@ -724,6 +724,9 @@ class Integer(Item, _CustomInt):
+         result = (
+             int.__pow__(self, other) if mod is None else int.__pow__(self, other, mod)
+         )
++        if result is NotImplemented or not isinstance(result, int):
++            # e.g. a float exponent, or a negative int exponent (float result)
++            return result  # type: ignore[no-any-return]
+         return self._new(result)
+ 
+     def __radd__(self, other: object) -> Integer:
+@@ -775,6 +778,8 @@ class Integer(Item, _CustomInt):
+         result = (
+             int.__rpow__(self, other) if mod is None else int.__rpow__(self, other, mod)
+         )
++        if result is NotImplemented or not isinstance(result, int):
++            return result  # type: ignore[no-any-return]
+         return self._new(result)
+ 
+     def __rrshift__(self, other: object) -> Integer:
+@@ -946,7 +951,10 @@ class Float(Item, _CustomFloat):
+             return result  # type: ignore[return-value]
+         return self._new(result)
+ 
+-    def __round__(self, ndigits: int = 0) -> Float:  # type: ignore[override]
++    def __round__(self, ndigits: int | None = None) -> Float:  # type: ignore[override]
++        if ndigits is None:
++            # round(x) must return an int, like for builtin floats
++            return float.__round__(self)  # type: ignore[return-value]
+         return self._new(float.__round__(self, ndigits))
+ 
+     def __rpow__(self, other: object, mod: None = None) -> Float:
+@@ -1573,6 +1581,21 @@ class Array(Item, _CustomList):  # type: ignore[type-arg]
+             self._value.extend(self._group_values(new_values))
+         self._reindex()
+ 
++    def sort(self, *, key: Any = None, reverse: bool = False) -> None:
++        """Sort the array in place, keeping the rendered output in sync."""
++        values = sorted(list.__iter__(self), key=key, reverse=reverse)
++        for i, v in enumerate(values):
++            self[i] = v
++
++    def __imul__(self, n: int) -> Array:  # type: ignore[override,misc]
++        values = list(list.__iter__(self))
++        if n <= 0:
++            self.clear()
++        else:
++            for _ in range(n - 1):
++                self.extend(values)
++        return self
++
+     def clear(self) -> None:
+         """Clear the array."""
+         list.clear(self)
+@@ -1589,10 +1612,10 @@ class Array(Item, _CustomList):  # type: ignore[type-arg]
+         return list.__getitem__(self, key)
+ 
+     def __setitem__(self, key: int | slice, value: Any) -> None:  # type: ignore[override]
+-        it = item(value, _parent=self)
+-        list.__setitem__(self, key, it)
+         if isinstance(key, slice):
+             raise ValueError("slice assignment is not supported")
++        it = item(value, _parent=self)
++        list.__setitem__(self, key, it)
+         if key < 0:
+             key += len(self)
+         self._value[self._index_map[key]].value = it
+@@ -1641,6 +1664,16 @@ class Array(Item, _CustomList):  # type: ignore[type-arg]
+         if indent is None and (idx > 0 or "\n" in default_indent):
+             # apply default indent if it isn't the first item or the array is multiline.
+             indent = Whitespace(default_indent)
++        if (
++            idx > 0
++            and self._value[idx - 1].comment is not None
++            and (indent is None or "\n" not in indent.s)
++        ):
++            # The previous group ends with a comment: the new value must start on
++            # a new line, otherwise it would become part of the comment.
++            indent = Whitespace(
++                default_indent if "\n" in default_indent else "\n    "
++            )
+         new_item = _ArrayItemGroup(value=it, indent=indent, comma=comma)
+         self._value.insert(idx, new_item)
+         self._reindex()
+@@ -1650,9 +1683,7 @@ class Array(Item, _CustomList):  # type: ignore[type-arg]
+         list.__delitem__(self, key)
+ 
+         if isinstance(key, slice):
+-            indices_to_remove = list(
+-                range(key.start or 0, key.stop or length, key.step or 1)
+-            )
++            indices_to_remove = list(range(*key.indices(length)))
+         else:
+             indices_to_remove = [length + key if key < 0 else key]
+         for i in sorted(indices_to_remove, reverse=True):
+@@ -2160,7 +2191,19 @@ class String(str, Item):  # type: ignore[misc]
+ 
+     def __add__(self, other: str) -> String:
+         result = super().__add__(other)
+-        original = self._original + getattr(other, "_original", other)
++        if not isinstance(other, str):
++            return result  # type: ignore[return-value]
++        if not self._original:
++            return self._new(result, String._render(str(result), self._t))
++
++
++        original = self._original + String._render(str(other), self._t)
++        if (self._t.is_literal() and any(c in result for c in self._t.invalid_sequences)) or (
++            self._t == StringType.MLB and '"""' in original
++        ):
++            # The concatenation created a sequence that can't be represented as
++            # is, re-render the whole value.
++            original = String._render(str(result), self._t)
+ 
+         return self._new(result, original)
+ 
+@@ -2175,15 +2218,34 @@ class String(str, Item):  # type: ignore[misc]
+         cls, value: str, type_: StringType = StringType.SLB, escape: bool = True
+     ) -> String:
+         value = decode(value)
++        string_value = cls._render(value, type_, escape)
++
++        return cls(type_, decode(value), string_value, Trivia())
+ 
++    @staticmethod
++    def _render(
++        value: str,
++        type_: StringType,
++        escape: bool = True,
++    ) -> str:
++        """Return the TOML representation (without delimiters) of ``value``."""
+         invalid = type_.invalid_sequences
+         if any(c in value for c in invalid):
+             raise InvalidStringError(value, invalid, type_.value)
+ 
++        if type_ == StringType.MLL and re.search(r"\r(?!\n)", value):
++            # A lone carriage return can't appear in a multiline literal string
++            raise InvalidStringError(value, {"\r"}, type_.value)
++
+         escaped = type_.escaped_sequences
+         string_value = escape_string(value, escaped) if escape and escaped else value
+ 
+-        return cls(type_, decode(value), string_value, Trivia())
++        if type_.is_multiline():
++            if escape and type_.is_basic():
++                # A lone carriage return is not a valid newline, escape it.
++                string_value = re.sub(r"\r(?!\n)", r"\\r", string_value)
++
++        return string_value
+ 
+ 
+ class AoT(Item, _CustomList):  # type: ignore[type-arg]
+@@ -2237,7 +2299,22 @@ class AoT(Item, _CustomList):  # type: ignore[type-arg]
+         return self._body[key]
+ 
+     def __setitem__(self, key: slice | int, value: Any) -> None:  # type: ignore[override]
+-        self._body[key] = item(value, _parent=self)
++        if isinstance(key, slice):
++            values = [self._to_table(v) for v in value]
++            self._body[key] = values
++            list.__setitem__(self, key, values)
++            return
++
++        table = self._to_table(value)
++        self._body[key] = table
++        list.__setitem__(self, key, table)
++
++    def _to_table(self, value: Any) -> Table:
++        value = item(value, _parent=self)
++        if not isinstance(value, Table):
++            raise ValueError(f"Unsupported value type for AoT: {type(value)}")
++        value._is_aot_element = True
++        return value
+ 
+     def __delitem__(self, key: slice | int) -> None:  # type: ignore[override]
+         del self._body[key]
+@@ -2264,7 +2341,7 @@ class AoT(Item, _CustomList):  # type: ignore[type-arg]
+             else:
+                 value.trivia.indent = m.group(1) + indent + m.group(2)
+         prev_table = self._body[index - 1] if 0 < index and length else None
+-        next_table = self._body[index + 1] if index < length - 1 else None
++        next_table = self._body[index] if index < length else None
+         if not self._parsed:
+             if prev_table and "\n" not in value.trivia.indent:
+                 value.trivia.indent = "\n" + value.trivia.indent
+diff --git a/tomlkit/parser.py b/tomlkit/parser.py
+index 00079e6..43a475e 100644
+--- a/tomlkit/parser.py
++++ b/tomlkit/parser.py
+@@ -426,7 +426,7 @@ class Parser:
+             # Empty key
+             raise self.parse_error(EmptyKeyError)
+ 
+-        if " " in key_s:
++        if " " in key_s or "\t" in key_s:
+             # Bare key with spaces in it
+             raise self.parse_error(ParseError, f'Invalid key "{key_s}"')
+ 
+@@ -721,9 +721,16 @@ class Parser:
+         if "_" in clean:
+             return None
+ 
+-        if clean.endswith(".") or (
+-            not clean.startswith("0x") and clean.split("e", 1)[0].endswith(".")
+-        ):
++        # Only accept ASCII TOML number syntax: int() and float() are much more
++        # lenient (unicode digits, "infinity", any letter case for inf/nan...).
++        if base != 10:
++            if not re.fullmatch(f"0[box]{digits}+", clean):
++                return None
++        elif clean in {"inf", "nan"}:
++            if raw != clean:
++                # inf and nan are case sensitive
++                return None
++        elif not re.fullmatch(r"[0-9]+(\.[0-9]+)?(e[+\-]?[0-9]+)?", clean):
+             return None
+ 
+         try:
+@@ -953,7 +960,10 @@ class Parser:
+         key.sep = ""
+         full_key = key
+         name_parts = tuple(key)
+-        if any(" " in part.key.strip() and part.is_bare() for part in name_parts):
++        if any(
++            (" " in part.key.strip() or "\t" in part.key.strip()) and part.is_bare()
++            for part in name_parts
++        ):
+             raise self.parse_error(
+                 ParseError, f'Invalid table name "{full_key.as_string()}"'
+             )
+@@ -973,7 +983,8 @@ class Parser:
+ 
+         self.inc()  # Skip closing bracket
+         if is_aot:
+-            # TODO: Verify close bracket
++            if self._current != "]":
++                raise self.parse_error(UnexpectedCharError, self._current)
+             self.inc()
+ 
+         cws, comment, trail = self._parse_comment_trail()
+@@ -1165,13 +1176,15 @@ class Parser:
+             else:
+                 extracted = self.extract()
+ 
+-                if extracted[0].lower() == "d" and extracted[1].strip("01234567"):
++                if extracted.strip("0123456789abcdefABCDEF"):
+                     return None, None
+ 
+-                try:
+-                    value = chr(int(extracted, 16))
+-                except (ValueError, OverflowError):
+-                    value = None
++                code = int(extracted, 16)
++                if 0xD800 <= code <= 0xDFFF or code > 0x10FFFF:
++                    # Surrogates and out-of-range code points are not valid
++                    # unicode scalar values.
++                    return None, None
++                value = chr(code)
+ 
+             return value, extracted
+ 

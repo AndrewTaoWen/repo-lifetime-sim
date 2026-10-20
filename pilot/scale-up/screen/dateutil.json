@@ -1,0 +1,15 @@
+{
+ "repo": "dateutil/dateutil",
+ "snapshot": "48bd1af97e71baf8e96fce5b663d589caac8f147",
+ "snapshot_date": "2026-05-19",
+ "head": "2642afacc33fb839c404b75b230fff58b79793f2",
+ "head_date": "2026-09-26",
+ "packages": [
+  "src"
+ ],
+ "tests": "tests",
+ "future_on_future": "} - is this a typo?  You can register \"\nINTERNALERROR>         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nINTERNALERROR>     ...<3 lines>...\nINTERNALERROR>         2,\nINTERNALERROR>         ^^\nINTERNALERROR>     )\nINTERNALERROR>     ^\nINTERNALERROR> pytest.PytestUnknownMarkWarning: Unknown pytest.mark.no_cover - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html\n\nno tests ran in 1.24s\n",
+ "future_on_snapshot": "} - is this a typo?  You can register \"\nINTERNALERROR>         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nINTERNALERROR>     ...<3 lines>...\nINTERNALERROR>         2,\nINTERNALERROR>         ^^\nINTERNALERROR>     )\nINTERNALERROR>     ^\nINTERNALERROR> pytest.PytestUnknownMarkWarning: Unknown pytest.mark.no_cover - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html\n\nno tests ran in 0.36s\n",
+ "n_future_pass": 0,
+ "future_tests_failing_on_snapshot": []
+}

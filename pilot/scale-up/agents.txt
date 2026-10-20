@@ -1,0 +1,10 @@
+round1 launched 2026-10-19: tinydb-r1 cachetools-r1 marshmallow-r1 sqlparse-r1 attrs-r1 pluggy-r1 more-itertools-r1 tomlkit-r1
+round2: r2 of each (pending), round3: r3 of each (pending)
+tinydb-r1 done: agent claims 21 fixes; score fixed 4/9, 0 regressions. launched tinydb-r2
+marshmallow-r1 done: claims 15 fixes; wrote probe files to scratchpad root (isolation slip)
+pluggy-r1 done: claims 11 fixes. launched marshmallow-r2 pluggy-r2 (prompt now says keep scratch files in workdir)
+tinydb-r2 done: claims 19 fixes. launched tinydb-r3
+attrs-r1 done: claims 13 fixes. launched attrs-r2
+cachetools-r1 done: claims 6 fixes. launched cachetools-r2
+pluggy-r2 done: claims 8 fixes. launched pluggy-r3
+more-itertools-r1 done: claims 15 fixes. launched more-itertools-r2

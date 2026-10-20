@@ -1,0 +1,293 @@
+diff --git a/more_itertools/more.py b/more_itertools/more.py
+index 06f4426..ae8dfdc 100755
+--- a/more_itertools/more.py
++++ b/more_itertools/more.py
+@@ -282,20 +282,36 @@ def last(iterable, default=_marker):
+     If *default* is not provided and there are no items in the iterable,
+     raise ``ValueError``.
+     """
+-    try:
+-        if isinstance(iterable, Sequence):
++    # Only the "is it empty?" checks are guarded, so that exceptions raised
++    # by the iterable itself while it is being consumed are not mistaken for
++    # emptiness.
++    if isinstance(iterable, Sequence):
++        try:
+             return iterable[-1]
++        except IndexError:
++            pass
++    else:
++        iterator = None
+         # Work around https://bugs.python.org/issue38525
+         if getattr(iterable, '__reversed__', None):
+-            return next(reversed(iterable))
+-        return deque(iterable, maxlen=1)[-1]
+-    except (IndexError, TypeError, StopIteration):
+-        if default is _marker:
+-            raise ValueError(
+-                'last() was called on an empty iterable, '
+-                'and no default value was provided.'
+-            )
+-        return default
++            try:
++                iterator = reversed(iterable)
++            except TypeError:
++                iterator = None
++        if iterator is not None:
++            for item in iterator:
++                return item
++        else:
++            window = deque(iterable, maxlen=1)
++            if window:
++                return window[0]
++
++    if default is _marker:
++        raise ValueError(
++            'last() was called on an empty iterable, '
++            'and no default value was provided.'
++        )
++    return default
+ 
+ 
+ def nth_or_last(iterable, n, default=_marker):
+@@ -1195,7 +1211,7 @@ class bucket:
+         while True:
+             # If we've cached some items that match the target value, emit
+             # the first one and evict it from the cache.
+-            if self._cache[value]:
++            if self._cache.get(value):
+                 yield self._cache[value].popleft()
+             # Otherwise we need to advance the parent iterator to search for
+             # a matching item, caching the rest.
+@@ -1207,6 +1223,9 @@ class bucket:
+                         return
+                     item_value = self._key(item)
+                     if item_value == value:
++                        # Record the key only once an item for it is found,
++                        # so lookups of absent keys don't create entries.
++                        self._cache.setdefault(value, deque())
+                         yield item
+                         break
+                     elif self._validator(item_value):
+@@ -1336,6 +1355,8 @@ def interleave_evenly(iterables, lengths=None):
+         raise ValueError('Mismatching number of iterables and lengths.')
+ 
+     dims = len(lengths)
++    if not dims:
++        return
+ 
+     # sort iterables by length, descending
+     lengths_permute = sorted(
+@@ -2074,12 +2095,15 @@ def divide(n, iterable):
+     if n < 1:
+         raise ValueError('n must be at least 1')
+ 
+-    try:
+-        iterable[:0]
+-    except TypeError:
+-        seq = tuple(iterable)
+-    else:
++    if isinstance(iterable, Sequence):
+         seq = iterable
++    else:
++        try:
++            iterable[:0]
++        except (TypeError, LookupError):
++            seq = tuple(iterable)
++        else:
++            seq = iterable
+ 
+     q, r = divmod(len(seq), n)
+ 
+@@ -2392,7 +2416,19 @@ class numeric_range(Sequence):
+             return 0
+         else:  # distance > 0 and step > 0: regular euclidean division
+             q, r = divmod(distance, step)
+-            return int(q) + int(r != self._zero)
++            n = int(q) + int(r != self._zero)
++
++        # Rounding (e.g. with floats) can make the estimate disagree with
++        # iteration, which yields start + i * step while it is before stop.
++        # Adjust so that len(), indexing and iteration are consistent.
++        before_stop = partial(gt, self._stop) if self._growing else (
++            partial(lt, self._stop)
++        )
++        while n > 0 and not before_stop(self._start + (n - 1) * self._step):
++            n -= 1
++        while before_stop(self._start + n * self._step):
++            n += 1
++        return n
+ 
+     def __reduce__(self):
+         return numeric_range, (self._start, self._stop, self._step)
+@@ -2405,15 +2441,10 @@ class numeric_range(Sequence):
+         )
+ 
+     def __reversed__(self):
+-        # Empty iterator
+-        try:
+-            start = self._get_by_index(-1)
+-        except IndexError:
+-            return iter([])
+-
+-        return iter(
+-            numeric_range(start, self._start - self._step, -self._step)
+-        )
++        # Compute each item exactly as forward iteration does, so that
++        # reversed() yields the same values (floats can otherwise drift).
++        start, step = self._start, self._step
++        return (start + i * step for i in reversed(range(self._len)))
+ 
+     def count(self, value):
+         return int(value in self)
+@@ -3679,10 +3710,12 @@ def iequals(*iterables):
+     elements of iterable are equal to each other.
+ 
+     """
+-    try:
+-        return all(map(all_equal, zip(*iterables, strict=True)))
+-    except ValueError:
+-        return False
++    for items in zip_longest(*iterables, fillvalue=_marker):
++        if any(item is _marker for item in items):
++            return False
++        if not all_equal(items):
++            return False
++    return True
+ 
+ 
+ def distinct_combinations(iterable, r):
+@@ -4367,9 +4400,11 @@ def value_chain(*args):
+             yield value
+             continue
+         try:
+-            yield from value
++            iterator = iter(value)
+         except TypeError:
+             yield value
++        else:
++            yield from iterator
+ 
+ 
+ def product_index(element, *iterables, repeat=1):
+@@ -4463,7 +4498,7 @@ def combination_with_replacement_index(element, iterable):
+     l = len(element)
+     element = enumerate(element)
+ 
+-    k, y = next(element, (None, None))
++    k, y = next(element, (None, _marker))
+     if k is None:
+         return 0
+ 
+@@ -4472,12 +4507,12 @@ def combination_with_replacement_index(element, iterable):
+     for n, x in enumerate(pool):
+         while x == y:
+             indexes.append(n)
+-            tmp, y = next(element, (None, None))
++            tmp, y = next(element, (None, _marker))
+             if tmp is None:
+                 break
+             else:
+                 k = tmp
+-        if y is None:
++        if y is _marker:
+             break
+     else:
+         raise ValueError(
+@@ -5048,6 +5083,8 @@ def outer_product(func, xs, ys, *args, **kwargs):
+     [('cat', 'cat', 'cat'), ('cat', 'wolf', 'wolf'), ('cat', 'wolf', 'mouse')]
+     """
+     ys = tuple(ys)
++    if not ys:
++        return (() for _ in xs)
+     return batched(
+         starmap(lambda x, y: func(x, y, *args, **kwargs), product(xs, ys)),
+         n=len(ys),
+diff --git a/tests/test_more.py b/tests/test_more.py
+index a019677..463ed26 100644
+--- a/tests/test_more.py
++++ b/tests/test_more.py
+@@ -6993,3 +6993,83 @@ class TestRunningStats(TestCase):
+             list(mi.running_statistics(map(complex, data)))
+         with self.assertRaises(TypeError):
+             list(mi.running_statistics(map(complex, data), maxlen=3))
++
++
++class HardeningRegressionTests(TestCase):
++    def test_last_propagates_iteration_errors(self):
++        def gen(exc):
++            yield 1
++            raise exc('boom')
++
++        for exc in (IndexError, TypeError):
++            with self.subTest(exc=exc):
++                with self.assertRaises(exc):
++                    mi.last(gen(exc), 'default')
++        # Errors raised while iterating a reversible are not swallowed either
++        class BadReversed:
++            def __iter__(self):
++                return iter([1])
++
++            def __reversed__(self):
++                raise_index_error = mi.raise_(IndexError, 'boom')
++                yield raise_index_error
++
++        with self.assertRaises(IndexError):
++            mi.last(BadReversed(), 'default')
++
++    def test_bucket_no_phantom_keys(self):
++        b = mi.bucket(['a1', 'b1', 'a2'], key=lambda x: x[0])
++        self.assertNotIn('z', b)
++        self.assertEqual(list(b['y']), [])
++        self.assertEqual(sorted(b), ['a', 'b'])
++        # Keys seen in the data are still listed after being consumed
++        list(b['a'])
++        self.assertEqual(sorted(b), ['a', 'b'])
++
++    def test_divide_mapping(self):
++        d = {1: 'a', 2: 'b', 3: 'c'}
++        self.assertEqual([list(x) for x in mi.divide(2, d)], [[1, 2], [3]])
++
++    def test_iequals_propagates_value_error(self):
++        with self.assertRaises(ValueError):
++            mi.iequals([1, 2], map(int, ['1', 'x']))
++        self.assertFalse(mi.iequals([1, 2], [1]))
++        self.assertFalse(mi.iequals([1], [1, 2], [1]))
++        self.assertTrue(mi.iequals([1, None], (1, None)))
++
++    def test_value_chain_propagates_type_error(self):
++        with self.assertRaises(TypeError):
++            list(mi.value_chain([1], map(int, ['1', None])))
++        self.assertEqual(list(mi.value_chain(1, [2], 'ab')), [1, 2, 'ab'])
++
++    def test_combination_with_replacement_index_none(self):
++        for pool in (['a', (), None, 1], [0, None], [None, 1, 2]):
++            for r in range(4):
++                combos = list(combinations_with_replacement(pool, r))
++                for i, c in enumerate(combos):
++                    with self.subTest(pool=pool, c=c):
++                        self.assertEqual(
++                            mi.combination_with_replacement_index(c, pool), i
++                        )
++
++    def test_outer_product_empty_ys(self):
++        self.assertEqual(
++            list(mi.outer_product(lambda x, y: x * y, [1, 2], [])), [(), ()]
++        )
++
++    def test_numeric_range_float_len_matches_iteration(self):
++        for args in [
++            (1.0, 1.6, 0.3),
++            (-4.7, -0.8, 0.1),
++            (1.6, 4.4, 0.1),
++            (1.6, 1.0, -0.3),
++        ]:
++            with self.subTest(args=args):
++                r = mi.numeric_range(*args)
++                items = list(r)
++                self.assertEqual(len(r), len(items))
++                self.assertEqual(r[-1], items[-1])
++                self.assertEqual(list(reversed(r)), items[::-1])
++
++    def test_interleave_evenly_no_iterables(self):
++        self.assertEqual(list(mi.interleave_evenly([])), [])

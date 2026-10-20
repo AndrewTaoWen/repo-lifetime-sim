@@ -1,0 +1,15 @@
+{
+ "repo": "mahmoud/boltons",
+ "snapshot": "207651ee6055aabd0d9cdeac2e00140cdc208d44",
+ "snapshot_date": "2026-03-06",
+ "head": "4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d",
+ "head_date": "2026-09-23",
+ "packages": [
+  "boltons"
+ ],
+ "tests": "tests",
+ "future_on_future": "525 passed, 12 subtests passed in 3.02s",
+ "future_on_snapshot": ".................FFFFFF.........F..F...........F.............FF.FF...... [ 13%]\n.....................F....F.........F..F..FFF.....F................... [ 27%]\n.............................................................. [ 39%]\n....F...............................F............F",
+ "n_future_pass": 525,
+ "future_tests_failing_on_snapshot": []
+}

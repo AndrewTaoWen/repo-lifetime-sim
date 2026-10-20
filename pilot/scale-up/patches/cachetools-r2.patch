@@ -1,0 +1,327 @@
+diff --git a/src/cachetools/__init__.py b/src/cachetools/__init__.py
+index 1b299c5..60a46cd 100644
+--- a/src/cachetools/__init__.py
++++ b/src/cachetools/__init__.py
+@@ -78,7 +78,11 @@ class Cache(collections.abc.MutableMapping):
+         if size > maxsize:
+             raise ValueError("value too large")
+         if key not in self.__data or self.__size[key] < size:
+-            while self.__currsize + size > maxsize:
++            # only account for the item's old size while it is still
++            # cached, so updating an item does not evict more than needed
++            while self.__currsize + size > maxsize + (
++                self.__size[key] if key in self.__data else 0
++            ):
+                 self.popitem()
+         if key in self.__data:
+             diffsize = size - self.__size[key]
+@@ -258,6 +262,38 @@ class LFUCache(Cache):
+         root.prev = root.next = root
+         self.__links.clear()
+ 
++    def __getstate__(self):
++        # store use counts instead of the doubly linked list of links,
++        # which would be pickled/copied recursively
++        state = self.__dict__.copy()
++        state["_LFUCache__root"] = None
++        state["_LFUCache__links"] = {
++            key: link.count for key, link in self.__links.items()
++        }
++        return state
++
++    def __setstate__(self, state):
++        counts = state["_LFUCache__links"]
++        self.__dict__.update(state)
++        self.__root = root = LFUCache._Link(0)  # sentinel
++        root.prev = root.next = root
++        self.__links = links = {}
++        # support pickles created by previous versions storing links
++        counts = {
++            key: (c.count if isinstance(c, LFUCache._Link) else c)
++            for key, c in counts.items()
++        }
++        link = root
++        for key in sorted(counts, key=counts.__getitem__):
++            count = counts[key]
++            if link.count != count:
++                link = LFUCache._Link(count)
++                link.prev = prev = root.prev
++                link.next = root
++                prev.next = root.prev = link
++            link.keys.add(key)
++            links[key] = link
++
+     def __touch(self, key):
+         """Increment use count"""
+         link = self.__links[key]
+@@ -629,7 +665,14 @@ class TLRUCache(_TimedCache):
+         with self.timer as time:
+             expires = self.__ttu(key, value, time)
+             if not (time < expires):
+-                return  # skip expired items
++                # skip expired items, but do not keep a stale value
++                # previously stored under the same key
++                if key in self.__items:
++                    try:
++                        self.__delitem__(key)
++                    except KeyError:
++                        pass  # already expired
++                return
+             self.expire(time)
+             cache_setitem(self, key, value)
+         # removing an existing item would break the heap structure, so
+diff --git a/src/cachetools/_cachedmethod.py b/src/cachetools/_cachedmethod.py
+index cf62cc9..3217940 100644
+--- a/src/cachetools/_cachedmethod.py
++++ b/src/cachetools/_cachedmethod.py
+@@ -40,12 +40,23 @@ class _WrapperBase:
+         self.__lock = lock if lock is not None else _none
+         self.__cond = cond if cond is not None else _none
+ 
++    _attrname = None  # set by descriptor when stored in instance __dict__
++
+     def __call__(self, *args, **kwargs):
+         raise NotImplementedError()  # pragma: no cover
+ 
+     def cache_clear(self):
+         raise NotImplementedError()  # pragma: no cover
+ 
++    def __reduce__(self):
++        # Wrappers are stored in the instance __dict__, so they get
++        # pickled (or deep-copied) along with their instance.  Since
++        # wrapper classes are local, and wrappers are bound to their
++        # instance, recreate them by attribute lookup instead.
++        if self._obj is None or self._attrname is None:
++            raise TypeError(f"cannot pickle {type(self).__name__!r} object")
++        return getattr, (self._obj, self._attrname)
++
+     @property
+     def cache(self):
+         return self.__cache(self._obj)
+@@ -80,7 +91,28 @@ class _DescriptorBase:
+             )
+ 
+     def __get__(self, obj, objtype=None):
++        name = self.__attrname
++        if obj is not None and name is not None:
++            try:
++                wrapper = obj.__dict__[name]
++            except (AttributeError, KeyError, TypeError):
++                pass
++            else:
++                if not isinstance(wrapper, self.Wrapper) or wrapper._obj is obj:  # type: ignore
++                    return wrapper
++                # A wrapper bound to another instance, e.g. copied
++                # along with the instance __dict__ by copy.copy();
++                # replace it with a wrapper bound to this instance.
++                wrapper = self.Wrapper(obj)  # type: ignore
++                wrapper._attrname = name
++                try:
++                    obj.__dict__[name] = wrapper
++                except TypeError:
++                    pass
++                return wrapper
+         wrapper = self.Wrapper(obj)  # type: ignore
++        if obj is not None:
++            wrapper._attrname = name
+         if obj is None:
+             # Return the wrapper itself without modification when accessed
+             # through the class to support class-level introspection, such
+@@ -119,6 +151,28 @@ class _DescriptorBase:
+             raise TypeError(msg) from None
+         return wrapper
+ 
++    # Implemented as a data descriptor, so __get__() is always called
++    # and can detect wrappers bound to a different instance; plain
++    # instance attribute assignment and deletion is still supported.
++
++    def __set__(self, obj, value):
++        name = self.__attrname
++        if name is None:
++            raise AttributeError("Cannot set @cachedmethod attribute without a name")
++        try:
++            obj.__dict__[name] = value
++        except AttributeError:
++            raise AttributeError(
++                f"{type(obj).__name__!r} object attribute {name!r} is read-only"
++            ) from None
++
++    def __delete__(self, obj):
++        name = self.__attrname
++        try:
++            del obj.__dict__[name]
++        except (AttributeError, KeyError):
++            raise AttributeError(name) from None
++
+ 
+ class _DeprecatedDescriptorBase(_DescriptorBase):
+     """Descriptor base class supporting deprecated @classmethod use."""
+diff --git a/tests/__init__.py b/tests/__init__.py
+index 5856e71..a3b31ff 100644
+--- a/tests/__init__.py
++++ b/tests/__init__.py
+@@ -237,6 +237,17 @@ class CacheTestMixin(_TestCaseProtocol):
+         self.assertEqual(1, cache.currsize)
+         self.assertEqual((1, 1), cache.popitem())
+ 
++    def test_update_getsizeof_no_overeviction(self):
++        cache = self.Cache(maxsize=10, getsizeof=lambda x: x)
++        cache[1] = 3
++        cache[2] = 6
++        # growing an item must only evict if the new total exceeds maxsize
++        cache[2] = 7
++        self.assertEqual(2, len(cache))
++        self.assertEqual(3, cache[1])
++        self.assertEqual(7, cache[2])
++        self.assertEqual(10, cache.currsize)
++
+     def _test_getsizeof(self, cache):
+         self.assertEqual(0, cache.currsize)
+         self.assertEqual(3, cache.maxsize)
+diff --git a/tests/test_cachedmethod.py b/tests/test_cachedmethod.py
+index 745364b..ba1968a 100644
+--- a/tests/test_cachedmethod.py
++++ b/tests/test_cachedmethod.py
+@@ -1,3 +1,5 @@
++import copy
++import pickle
+ import unittest
+ import unittest.mock
+ import warnings
+@@ -684,6 +686,68 @@ class NoneMethodTest(unittest.TestCase):
+             wrapper.cache_info()
+ 
+ 
++class Picklable:
++    def __init__(self, n):
++        self.n = n
++        self.cache = {}
++
++    @cachedmethod(lambda self: self.cache, info=True)
++    def get_info(self, x):
++        return self.n + x
++
++    @cachedmethod(lambda self: self.cache, key=keys.hashkey)
++    def get(self, x):
++        return self.n * x
++
++
++class CopyPickleTest(unittest.TestCase):
++    def test_copy(self):
++        obj = Picklable(1)
++        self.assertEqual(obj.get_info(1), 2)
++        self.assertEqual(obj.get(2), 2)
++        other = copy.copy(obj)
++        other.n = 10
++        other.cache = {}
++        # the copy's methods must be bound to the copy, not the original
++        self.assertEqual(other.get_info(1), 11)
++        self.assertEqual(other.get(2), 20)
++        self.assertIs(other.get._obj, other)
++        self.assertIs(obj.get._obj, obj)
++        self.assertEqual(obj.get_info.cache_info().misses, 1)
++        self.assertEqual(other.get_info.cache_info().misses, 1)
++
++    def test_deepcopy(self):
++        obj = Picklable(1)
++        self.assertEqual(obj.get_info(1), 2)
++        other = copy.deepcopy(obj)
++        other.n = 10
++        other.cache.clear()
++        self.assertEqual(other.get_info(1), 11)
++        self.assertEqual(obj.get_info(1), 2)
++
++    def test_pickle(self):
++        obj = Picklable(1)
++        self.assertEqual(obj.get_info(1), 2)
++        self.assertEqual(obj.get(2), 2)
++        other = pickle.loads(pickle.dumps(obj))
++        self.assertEqual(len(other.cache), 2)
++        other.n = 10
++        other.cache.clear()
++        self.assertEqual(other.get_info(1), 11)
++        self.assertIs(other.get_info._obj, other)
++
++    def test_setattr_delattr(self):
++        obj = Picklable(1)
++        self.assertEqual(obj.get(2), 2)
++        obj.get = 42
++        self.assertEqual(obj.get, 42)
++        del obj.get
++        self.assertEqual(obj.get(3), 3)
++        with unittest.mock.patch.object(obj, "get", return_value=0):
++            self.assertEqual(obj.get(3), 0)
++        self.assertEqual(obj.get(3), 3)
++
++
+ class AutospecTest(unittest.TestCase):
+     def test_autospec_no_warnings(self):
+ 
+diff --git a/tests/test_lfu.py b/tests/test_lfu.py
+index 1e7929a..a34dd1a 100644
+--- a/tests/test_lfu.py
++++ b/tests/test_lfu.py
+@@ -1,3 +1,5 @@
++import copy
++import pickle
+ import unittest
+ 
+ from cachetools import LFUCache
+@@ -88,3 +90,32 @@ class LFUCacheTest(unittest.TestCase, CacheTestMixin):
+         self.assertIn(3, cache)
+         self.assertIn(5, cache)
+         self.assertNotIn(4, cache)
++
++    def test_lfu_pickle_copy(self):
++        def make():
++            cache = LFUCache(maxsize=5000)
++            # many distinct use counts used to cause RecursionError
++            for i in range(2000):
++                cache[i] = i
++                for _ in range(i % 1500):
++                    cache[i]
++            return cache
++
++        for clone in (
++            pickle.loads(pickle.dumps(make())),
++            pickle.loads(pickle.dumps(make(), 1)),
++            copy.deepcopy(make()),
++        ):
++            cache = make()
++            self.assertEqual(set(cache), set(clone))
++            self.assertEqual(cache.currsize, clone.currsize)
++            # eviction order is preserved
++            clone[1] = cache[1] = 1
++            clone[-1] = cache[-1] = -1
++            for _ in range(len(cache)):
++                ck, cv = cache.popitem()
++                kk, kv = clone.popitem()
++                self.assertEqual(ck, cv)
++                self.assertEqual(kk, kv)
++                self.assertEqual(ck % 1500 if ck >= 0 else -1, kk % 1500 if kk >= 0 else -1)
++            self.assertEqual(0, len(clone))
+diff --git a/tests/test_tlru.py b/tests/test_tlru.py
+index b1263d7..c370356 100644
+--- a/tests/test_tlru.py
++++ b/tests/test_tlru.py
+@@ -214,6 +214,20 @@ class TLRUCacheTest(unittest.TestCase, CacheTestMixin):
+         self.assertEqual(cache[1], None)
+         self.assertEqual(1, len(cache))
+ 
++    def test_ttu_expired_update(self):
++        cache = TLRUCache[int, int, int](
++            maxsize=2, ttu=lambda k, v, t: t + v, timer=Timer()
++        )
++        cache[1] = 1
++        cache[2] = 1
++        # updating with an already expired value must not keep the old one
++        cache[1] = 0
++        self.assertNotIn(1, cache)
++        self.assertIsNone(cache.get(1))
++        self.assertEqual(1, len(cache))
++        self.assertEqual(1, cache.currsize)
++        self.assertEqual([2], list(cache))
++
+     def test_ttu_atomic(self):
+         cache = TLRUCache[int, int, int](
+             maxsize=1, ttu=lambda k, v, t: t + 2, timer=Timer(auto=True)

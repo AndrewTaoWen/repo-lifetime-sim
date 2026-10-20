@@ -1,0 +1,15 @@
+{
+ "repo": "python-humanize/humanize",
+ "snapshot": "d333afdc5e05941c67c552c9f153eec4d48e64b4",
+ "snapshot_date": "2026-06-02",
+ "head": "785e5dcc0d0308ad0dff3f6cc0faa7085ad0375b",
+ "head_date": "2026-10-06",
+ "packages": [
+  "src"
+ ],
+ "tests": "tests",
+ "future_on_future": "744 passed, 112 skipped in 6.16s",
+ "future_on_snapshot": "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/test_time.py:11: in <module>\n    import humanize\nsrc/humanize/__init__.py:26: in <module>\n    from ._version import __version__\nE   ModuleNotFoundError: No module named 'humanize._version'\n=========================== short test summary info ============================\nERROR tests/test_benchmarks.py\nERROR tests/test_filesize.py\nERROR tests/test_i18n.py\nERROR tests/test_lists.py\nERROR tests/test_number.py\nERROR tests/test_time.py\n6 errors in 0.28s\n",
+ "n_future_pass": 744,
+ "future_tests_failing_on_snapshot": []
+}

@@ -1,0 +1,15 @@
+{
+ "repo": "jd/tenacity",
+ "snapshot": "e5179bdab9939a748dc3e88ff21309e12e5361e0",
+ "snapshot_date": "2026-05-22",
+ "head": "32ac68f0941319c0d2f4fb927f96e4ee29bb46c6",
+ "head_date": "2026-10-12",
+ "packages": [
+  "tenacity"
+ ],
+ "tests": "tests",
+ "future_on_future": "179 passed, 1 skipped, 1 error, 15 subtests passed in 2.48s",
+ "future_on_snapshot": "4 passed, 4 errors in 0.17s",
+ "n_future_pass": 179,
+ "future_tests_failing_on_snapshot": []
+}

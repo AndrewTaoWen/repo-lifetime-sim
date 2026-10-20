@@ -1,0 +1,279 @@
+diff --git a/src/attr/_funcs.py b/src/attr/_funcs.py
+index 1adb500..ac34764 100644
+--- a/src/attr/_funcs.py
++++ b/src/attr/_funcs.py
+@@ -185,19 +185,25 @@ def _asdict_anything(
+         else:
+             cf = list
+ 
+-        rv = cf(
+-            [
+-                _asdict_anything(
+-                    i,
+-                    is_key=False,
+-                    filter=filter,
+-                    dict_factory=dict_factory,
+-                    retain_collection_types=retain_collection_types,
+-                    value_serializer=value_serializer,
+-                )
+-                for i in val
+-            ]
+-        )
++        items = [
++            _asdict_anything(
++                i,
++                is_key=False,
++                filter=filter,
++                dict_factory=dict_factory,
++                retain_collection_types=retain_collection_types,
++                value_serializer=value_serializer,
++            )
++            for i in val
++        ]
++        try:
++            rv = cf(items)
++        except TypeError:
++            if not issubclass(cf, tuple):
++                raise
++            # Workaround for namedtuples, whose __new__ takes the fields as
++            # positional arguments.
++            rv = cf(*items)
+     elif issubclass(val_type, dict):
+         df = dict_factory
+         rv = df(
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 793bfd8..99b6369 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -3153,7 +3153,12 @@ class Converter:
+                 value, field
+             )
+         else:
+-            self.__call__ = self.converter
++            # Wrap the converter so that we don't mutate (or fail on) the
++            # __annotations__ of user-provided callables like partials or
++            # callable instances.
++            self.__call__ = lambda value, instance, field: self.converter(
++                value, instance, field
++            )
+ 
+         rt = ex.get_return_type()
+         if rt is not None:
+@@ -3336,7 +3341,9 @@ class _AndValidator:
+     Compose many validators to a single one.
+     """
+ 
+-    _validators = attrib()
++    # Validators may be passed as a list (e.g. by validators.optional()), so
++    # compare and hash them as a tuple to stay hashable.
++    _validators = attrib(eq=tuple)
+ 
+     def __call__(self, inst, attr, value):
+         for v in self._validators:
+diff --git a/src/attr/_next_gen.py b/src/attr/_next_gen.py
+index 4ccd0da..ae650d1 100644
+--- a/src/attr/_next_gen.py
++++ b/src/attr/_next_gen.py
+@@ -362,7 +362,7 @@ def define(
+ 
+     """
+ 
+-    def do_it(cls, auto_attribs):
++    def do_it(cls, auto_attribs, on_setattr):
+         return attrs(
+             maybe_cls=cls,
+             these=these,
+@@ -395,13 +395,16 @@ def define(
+ 
+         We also ensure that frozen-ness of classes is inherited.
+         """
+-        nonlocal frozen, on_setattr
++        # Don't rebind the closure variables: the decorator returned by
++        # ``define(...)`` may be applied to several classes and each must
++        # start from the arguments the user passed.
++        cls_on_setattr = on_setattr
+ 
+-        had_on_setattr = on_setattr not in (None, setters.NO_OP)
++        had_on_setattr = cls_on_setattr not in (None, setters.NO_OP)
+ 
+         # By default, mutable classes convert & validate on setattr.
+-        if frozen is False and on_setattr is None:
+-            on_setattr = _DEFAULT_ON_SETATTR
++        if frozen is False and cls_on_setattr is None:
++            cls_on_setattr = _DEFAULT_ON_SETATTR
+ 
+         # However, if we subclass a frozen class, we inherit the immutability
+         # and disable on_setattr.
+@@ -411,16 +414,16 @@ def define(
+                     msg = "Frozen classes can't use on_setattr (frozen-ness was inherited)."
+                     raise ValueError(msg)
+ 
+-                on_setattr = setters.NO_OP
++                cls_on_setattr = setters.NO_OP
+                 break
+ 
+         if auto_attribs is not None:
+-            return do_it(cls, auto_attribs)
++            return do_it(cls, auto_attribs, cls_on_setattr)
+ 
+         try:
+-            return do_it(cls, True)
++            return do_it(cls, True, cls_on_setattr)
+         except UnannotatedAttributeError:
+-            return do_it(cls, False)
++            return do_it(cls, False, cls_on_setattr)
+ 
+     # maybe_cls's type depends on the usage of the decorator.  It's a class
+     # if it's used as `@attrs` but `None` if used as `@attrs()`.
+diff --git a/tests/test_converters.py b/tests/test_converters.py
+index 5726ae2..8c24a23 100644
+--- a/tests/test_converters.py
++++ b/tests/test_converters.py
+@@ -4,6 +4,7 @@
+ Tests for `attr.converters`.
+ """
+ 
++import functools
+ import pickle
+ 
+ import pytest
+@@ -364,3 +365,39 @@ class TestToBool:
+         assert not to_bool("f")
+         assert not to_bool("no")
+         assert not to_bool("off")
++
++
++class TestConverterNonFunctionCallables:
++    def test_partial_with_self_and_field(self):
++        """
++        Converters taking self and field that are partials with a return
++        annotation don't crash and don't get their annotations mutated.
++        """
++
++        def f(x, inst, field, scale) -> int:
++            return int(x) * scale
++
++        c = Converter(
++            functools.partial(f, scale=2), takes_self=True, takes_field=True
++        )
++
++        assert 4 == c("2", None, None)
++        assert int is c.__call__.__annotations__["return"]
++
++    def test_callable_instance_with_self_and_field(self):
++        """
++        Callable instances with a return annotation work as converters taking
++        self and field.
++        """
++
++        class Conv:
++            def __call__(self, x, inst, field) -> int:
++                return int(x)
++
++        @attr.define
++        class C:
++            x: int = attr.field(
++                converter=Converter(Conv(), takes_self=True, takes_field=True)
++            )
++
++        assert 3 == C("3").x
+diff --git a/tests/test_funcs.py b/tests/test_funcs.py
+index b254e98..374efff 100644
+--- a/tests/test_funcs.py
++++ b/tests/test_funcs.py
+@@ -844,3 +844,22 @@ class TestEvolve:
+             inst: int
+ 
+         assert C(42) == evolve(C(23), inst=42)
++
++
++def test_asdict_namedtuple_in_list_retain_collection_types():
++    """
++    Namedtuples nested in collections are rebuilt correctly when retaining
++    collection types instead of crashing.
++    """
++
++    class NT(NamedTuple):
++        a: int
++        b: int
++
++    @attr.s
++    class C:
++        x = attr.ib()
++
++    assert {"x": [NT(1, 2)]} == asdict(
++        C([NT(1, 2)]), retain_collection_types=True
++    )
+diff --git a/tests/test_next_gen.py b/tests/test_next_gen.py
+index 7241cfa..a6753c0 100644
+--- a/tests/test_next_gen.py
++++ b/tests/test_next_gen.py
+@@ -581,3 +581,42 @@ def test_inspect_not_attrs_class():
+     """
+     with pytest.raises(attrs.exceptions.NotAnAttrsClassError):
+         attrs.inspect(object)
++
++
++class TestDefineDecoratorReuse:
++    def test_reused_decorator_does_not_leak_on_setattr(self):
++        """
++        A decorator returned by define() can be applied to several classes;
++        subclassing a frozen class with it must not affect later classes and
++        vice versa.
++        """
++
++        @attrs.frozen
++        class FrozenBase:
++            y: int = 0
++
++        d = attrs.define()
++
++        @d
++        class A:
++            x: int = attrs.field(validator=attrs.validators.instance_of(int))
++
++        @d
++        class B(FrozenBase):
++            z: int = 1
++
++        assert 1 == B().z
++
++        d2 = attrs.define()
++
++        @d2
++        class B2(FrozenBase):
++            z: int = 1
++
++        @d2
++        class C:
++            x: int = attrs.field(validator=attrs.validators.instance_of(int))
++
++        c = C(1)
++        with pytest.raises(TypeError):
++            c.x = "nope"
+diff --git a/tests/test_validators.py b/tests/test_validators.py
+index 8caa642..e557708 100644
+--- a/tests/test_validators.py
++++ b/tests/test_validators.py
+@@ -1397,3 +1397,21 @@ class TestOr:
+             "<or validator wrapping (<instance_of validator for type "
+             "<class 'int'>>, <instance_of validator for type <class 'str'>>)>"
+         ) == repr(v)
++
++
++def test_optional_list_is_hashable():
++    """
++    optional() with a list of validators produces a hashable validator, so
++    that Attributes using it remain hashable (e.g. for filters).
++    """
++    val = optional([instance_of(int), instance_of(object)])
++
++    hash(val)
++
++    @attr.s
++    class C:
++        a = attr.ib(default=None, validator=val)
++
++    assert {} == attr.asdict(C(), filter=attr.filters.exclude(attr.fields(C).a))
++    with pytest.raises(TypeError):
++        C("1")

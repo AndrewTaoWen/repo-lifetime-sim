@@ -1,0 +1,15 @@
+{
+ "repo": "pypa/packaging",
+ "snapshot": "5c163f5382fb6cba408b7c42efb8a03ffa041f4b",
+ "snapshot_date": "2026-06-01",
+ "head": "7464e38990e0e140206051d8ebadd1c2f83239e6",
+ "head_date": "2026-10-19",
+ "packages": [
+  "src"
+ ],
+ "tests": "tests",
+ "future_on_future": "62920 passed in 273.97s (0:04:33)",
+ "future_on_snapshot": "ImportError while loading conftest '/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/packaging/tests/conftest.py'.\ntests/conftest.py:6: in <module>\n    from packaging.markers import _cached_default_environment\nE   ImportError: cannot import name '_cached_default_environment' from 'packaging.markers' (/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/packaging/src/packaging/markers.py)\n",
+ "n_future_pass": 62920,
+ "future_tests_failing_on_snapshot": []
+}

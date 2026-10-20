@@ -1,0 +1,24 @@
+{
+ "repo": "marshmallow-code/marshmallow",
+ "snapshot": "b12919269c17b504993869fa0e6d914bad792d52",
+ "snapshot_date": "2026-06-01",
+ "head": "b762ea2d59ca52fe5df76b90de14bed7e5ec5607",
+ "head_date": "2026-10-19",
+ "packages": [
+  "src"
+ ],
+ "tests": "tests",
+ "future_on_future": "1192 passed in 2.50s",
+ "future_on_snapshot": "8 failed, 1184 passed in 1.78s",
+ "n_future_pass": 1192,
+ "future_tests_failing_on_snapshot": [
+  "tests.test_deserialization.TestFieldDeserialization::test_enum_by_value_allow_none_default",
+  "tests.test_deserialization.TestFieldDeserialization::test_invalid_timedelta_field_deserialization[nan]",
+  "tests.test_fields.TestPluckFiekd::test_pluck_empty_data_key[False]",
+  "tests.test_fields.TestPluckFiekd::test_pluck_empty_data_key[True]",
+  "tests.test_validate::test_url_absolute_valid[http://example.org#fragment]",
+  "tests.test_validate::test_url_absolute_valid[http://user@example.com#fragment]",
+  "tests.test_validate::test_url_relative_only_valid[#frag]",
+  "tests.test_validate::test_url_relative_valid[#frag]"
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "repo": "pallets/markupsafe",
+ "snapshot": "b2e4d9c7687be25695fffbe93a37622302b24fb1",
+ "snapshot_date": "2025-09-27",
+ "head": "4e111271b1494995708a9e878a10829b5e10c7ba",
+ "head_date": "2026-10-02",
+ "packages": [
+  "src"
+ ],
+ "tests": "tests",
+ "future_on_future": "79 passed, 1 skipped in 0.21s",
+ "future_on_snapshot": "39 passed, 41 skipped in 0.14s",
+ "n_future_pass": 79,
+ "future_tests_failing_on_snapshot": []
+}

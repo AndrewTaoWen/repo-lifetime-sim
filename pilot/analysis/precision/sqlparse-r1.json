@@ -1,0 +1,225 @@
+{
+ "run": "sqlparse-r1",
+ "fixes": [
+  {
+   "fix": "CLI --in-place/-o truncates file when options invalid or formatting fails",
+   "where": "sqlparse/cli.py:_process_file",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Output file was opened (truncated) before validation/formatting, so an error destroyed the user's input file (data loss).",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "CLI reports decode errors instead of traceback",
+   "where": "sqlparse/cli.py:_process_file",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "A non-UTF-8 input file crashed the CLI with an uncaught UnicodeDecodeError instead of the usual [ERROR] message and continuing.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "CLI --comma_first/--compact parse 'False' as True",
+   "where": "sqlparse/cli.py:create_parser/_str2bool",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "type=bool turns any non-empty string including 'False' into True, so the documented option could not be turned off.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Function.get_window AttributeError without OVER",
+   "where": "sqlparse/sql.py:Function.get_window",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "token_next_by returns a truthy (None, None) tuple, so get_window() on a plain function raised AttributeError instead of returning None.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Function.get_parameters inconsistent: generator vs list, drops single Operation/Case/wildcard/NULL",
+   "where": "sqlparse/sql.py:Function.get_parameters",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "f(a, b+c) returned 'b + c' but f(b+c) returned [] and count(*) returned [], i.e. wrong results depending on parameter count.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "TypedLiteral not grouped into IdentifierList",
+   "where": "sqlparse/engine/grouping.py:group_identifier_list",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "\"select date '2020-01-01', x\" was not grouped as an IdentifierList, so the select list was mis-parsed.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Window functions / 'x DESC' report bogus alias",
+   "where": "sqlparse/sql.py:NameAliasMixin._get_alias",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "get_alias() returned the function name / column itself for 'foo(x) over (...)' and 'col desc', a wrong result.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Function grouping skipped for lowercase 'as' in CTAS",
+   "where": "sqlparse/engine/grouping.py:group_functions",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Case-sensitive 'AS' check skipped function grouping for 'create table t as select count(x)'.",
+   "upstream": "matched-test",
+   "upstream_commit": "111b35c Fix function grouping skipped for lowercase 'as' in CREATE TABLE AS SELECT",
+   "compatible_with_upstream": true
+  },
+  {
+   "fix": "truncate_strings breaks literals with escaped quotes",
+   "where": "sqlparse/filters/tokens.py:TruncateStringFilter",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Literals starting with '' were mis-detected and cuts in the middle of '' / \\' escapes produced unterminated, invalid SQL.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Token types lose identity on copy/deepcopy/pickle",
+   "where": "sqlparse/tokens.py:_TokenType",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Copied/pickled statements got new tuple instances so identity-based checks (ttype is T.Keyword.DML, get_type()) silently failed.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "remove_quotes IndexError on empty string",
+   "where": "sqlparse/utils.py:remove_quotes",
+   "test_fails_on_snapshot": true,
+   "verdict": "debatable",
+   "why": "Internal helper crash on '' with no demonstrated user-facing path; harmless hardening.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "parsestream accepts binary / non-TextIOBase file objects",
+   "where": "sqlparse/lexer.py:Lexer.get_tokens",
+   "test_fails_on_snapshot": true,
+   "verdict": "debatable",
+   "why": "Binary streams and codecs readers weren't supported before; reasonable but closer to a feature extension than a bug.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Long operator chains exceed MAX_GROUPING_DEPTH (nested Operations)",
+   "where": "sqlparse/engine/grouping.py:group_operator",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "A valid 'a || b || ...' with a few hundred terms raised SQLParseError because each operator nested one more level; fix flattens chains (changes tree shape).",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Quadratic runtime when extending groups (wide identifier lists)",
+   "where": "sqlparse/sql.py:TokenList.group_tokens",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "grp.value = str(start) re-flattened the growing group on every extend, O(n^2) for thousands of columns.",
+   "upstream": "same-bug-upstream",
+   "upstream_commit": "939b129 set group value from child tokens to avoid quadratic grouping",
+   "compatible_with_upstream": true
+  },
+  {
+   "fix": "Incomplete 'x AS' / ':=' before punctuation swallows closing parenthesis",
+   "where": "sqlparse/engine/grouping.py:group_as/group_assignment",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Grouping 'as )' moved the ')' out of the Parenthesis, producing a malformed tree that crashed reindent.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Aligned reindent crash on CASE without END",
+   "where": "sqlparse/filters/aligned_indent.py:_process_case",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "reindent_aligned raised on a CASE whose END token is missing (None appended to cases).",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Statement splitting wrong at END REPEAT",
+   "where": "sqlparse/keywords.py:SQL_REGEX",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "MySQL 'end repeat;' inside a procedure was treated as END of the block, splitting the procedure incorrectly.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "strip_semicolon ignores semicolon followed by trailing comment",
+   "where": "sqlparse/filters/others.py:StripTrailingSemicolonFilter",
+   "test_fails_on_snapshot": true,
+   "verdict": "debatable",
+   "why": "Whether a ';' before a trailing comment should be stripped is a policy choice; previous behaviour only stripped a final ';'.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "identifier_case changes backtick/bracket quoted identifiers",
+   "where": "sqlparse/filters/tokens.py:IdentifierCaseFilter",
+   "test_fails_on_snapshot": true,
+   "verdict": "debatable",
+   "why": "Double-quoted names were already excluded so extending to `x`/[x] is consistent, but quoted-identifier case sensitivity is dialect-dependent.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "Python/PHP output doesn't escape backslashes (PHP also '$')",
+   "where": "sqlparse/filters/output.py:OutputPythonFilter/OutputPHPFilter._process",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "A backslash before a quote could break out of the generated string literal (security advisory GHSA-3496-9g83-7v6x).",
+   "upstream": "matched-test",
+   "upstream_commit": "53ff44b Escape backslashes in output formatters.",
+   "compatible_with_upstream": true
+  },
+  {
+   "fix": "Python/PHP output loses reindent line breaks nested in groups",
+   "where": "sqlparse/filters/output.py:OutputFilter.process",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Output filter only iterated top-level tokens, so newlines inserted by reindent inside groups were not converted into string-continuation lines.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "reindent_aligned validation message shows wrong value",
+   "where": "sqlparse/formatter.py:validate_options",
+   "test_fails_on_snapshot": true,
+   "verdict": "not-a-bug",
+   "why": "Error message interpolated the reindent value instead of reindent_aligned; the error is still raised, purely cosmetic.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  }
+ ]
+}

@@ -1,0 +1,145 @@
+{
+ "run": "more-itertools-r1",
+ "fixes": [
+  {
+   "fix": "last()/nth_or_last() no longer swallow TypeError/IndexError raised while iterating (treated as empty iterable)",
+   "where": "more_itertools/more.py:last",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Errors raised by a generator mid-iteration (e.g. map(int, [...None])) were silently turned into the default value, hiding real failures.",
+   "upstream": "same-bug-upstream",
+   "upstream_commit": "319b243 Reversed is more general than seq[-1]",
+   "compatible_with_upstream": false
+  },
+  {
+   "fix": "bucket lookups (`in`, s[key]) no longer register phantom keys that then appear when iterating",
+   "where": "more_itertools/more.py:bucket._get_values",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Asking for a missing key made it appear in list(bucket), a wrong result.",
+   "upstream": "matched-test",
+   "upstream_commit": "2b8d5cd Issue 1284: don't let a bucket lookup invent a key (+288d6da)",
+   "compatible_with_upstream": true
+  },
+  {
+   "fix": "interleave_evenly([]) returns empty instead of crashing",
+   "where": "more_itertools/more.py:interleave_evenly",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Raised IndexError on an empty list of iterables.",
+   "upstream": "matched-test",
+   "upstream_commit": "f51a53b fix: handle empty interleave_evenly input",
+   "compatible_with_upstream": true
+  },
+  {
+   "fix": "sort_together with empty iterables returns one empty tuple per input",
+   "where": "more_itertools/more.py:sort_together",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Returned [] so `a, b = sort_together([a, b])` crashed on empty input, violating the one-tuple-per-iterable contract.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "divide() accepts mappings (slice lookup raises KeyError on 3.12+)",
+   "where": "more_itertools/more.py:divide",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "divide(n, dict) crashed with KeyError because slices are hashable in 3.12+.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "numeric_range __len__ adjusted so len() matches iteration/indexing for floats",
+   "where": "more_itertools/more.py:numeric_range.__len__",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "len() disagreed with the number of produced items for float ranges.",
+   "upstream": "matched-test",
+   "upstream_commit": "dc2664b Issue 1247: Keep numeric_range consistent with the items it produces",
+   "compatible_with_upstream": true
+  },
+  {
+   "fix": "numeric_range __reversed__ yields the exact same values as forward iteration",
+   "where": "more_itertools/more.py:numeric_range.__reversed__",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Reversed float ranges produced different values/lengths than forward iteration.",
+   "upstream": "matched-test",
+   "upstream_commit": "752799b Preserve numeric_range values during reverse iteration (+feaddee)",
+   "compatible_with_upstream": true
+  },
+  {
+   "fix": "time_limited stops pulling from the source once timed out",
+   "where": "more_itertools/more.py:time_limited.__next__",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Each next() after timeout consumed and discarded an item from the underlying iterator (data loss).",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "weighted sample with population smaller than k returns the whole population",
+   "where": "more_itertools/more.py:_sample_weighted",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "sample([], 3, weights=[]) crashed with IndexError while the unweighted path returns [].",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "value_chain propagates TypeError raised during iteration instead of yielding the iterable as a scalar",
+   "where": "more_itertools/more.py:value_chain",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "A TypeError mid-iteration was masked and the object yielded as a value after partial output.",
+   "upstream": "matched-test",
+   "upstream_commit": "7847d43 Don't mask TypeError raised while iterating in value_chain",
+   "compatible_with_upstream": true
+  },
+  {
+   "fix": "combination_with_replacement_index handles None elements in the pool",
+   "where": "more_itertools/more.py:combination_with_replacement_index",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "None was used as an exhaustion sentinel so pools containing None gave wrong indexes/errors.",
+   "upstream": "matched-test",
+   "upstream_commit": "1b74b56 Fix/simplify combination_with_replacement_index",
+   "compatible_with_upstream": true
+  },
+  {
+   "fix": "outer_product with empty ys yields an empty tuple per x instead of crashing",
+   "where": "more_itertools/more.py:outer_product",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Raised ValueError (batched n=0) for an empty ys.",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "windowed running_mean recomputes the sum when an inf/NaN leaves the window",
+   "where": "more_itertools/recipes.py:_windowed_running_mean",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "One inf in the stream made every later windowed mean NaN forever (inf - inf).",
+   "upstream": "none",
+   "upstream_commit": "",
+   "compatible_with_upstream": null
+  },
+  {
+   "fix": "running_mean/min/max validate maxlen via the index protocol (reject floats)",
+   "where": "more_itertools/recipes.py:running_mean/running_min/running_max",
+   "test_fails_on_snapshot": true,
+   "verdict": "real-bug",
+   "why": "Non-integer maxlen was silently accepted and produced wrong windows.",
+   "upstream": "matched-test",
+   "upstream_commit": "670b715 Validate running window sizes through the index protocol",
+   "compatible_with_upstream": true
+  }
+ ]
+}

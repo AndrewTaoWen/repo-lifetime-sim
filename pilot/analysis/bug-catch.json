@@ -1,0 +1,930 @@
+[
+ {
+  "repo": "attrs",
+  "bug": "test:test_is_class_var[annot4]",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "attrs",
+  "bug": "f53fc54",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "cachetools",
+  "bug": "d5c7eea",
+  "kind": "validation",
+  "tests": 7,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "cachetools",
+  "bug": "39b31bc",
+  "kind": "state-consistency",
+  "tests": 6,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "cachetools",
+  "bug": "dd181c5",
+  "kind": "validation",
+  "tests": 7,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "cachetools",
+  "bug": "41e4b16",
+  "kind": "object-model",
+  "tests": 6,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "cachetools",
+  "bug": "aa73a19",
+  "kind": "object-model",
+  "tests": 2,
+  "runs": 4,
+  "hits": 2
+ },
+ {
+  "repo": "cachetools",
+  "bug": "95e6add",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 2
+ },
+ {
+  "repo": "cachetools",
+  "bug": "bcf9e81",
+  "kind": "degenerate-input",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "cachetools",
+  "bug": "c0fdf6a",
+  "kind": "state-consistency",
+  "tests": 1,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "marshmallow",
+  "bug": "test:test_invalid_timedelta_field_deserialization[nan]",
+  "kind": "validation",
+  "tests": 1,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "marshmallow",
+  "bug": "5761bea",
+  "kind": "falsy-sentinel",
+  "tests": 2,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "marshmallow",
+  "bug": "test:test_url_absolute_valid[http://example.org#fragment]",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "marshmallow",
+  "bug": "test:test_url_absolute_valid[http://user@example.com#fragment]",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "marshmallow",
+  "bug": "test:test_url_relative_only_valid[#frag]",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "marshmallow",
+  "bug": "test:test_url_relative_valid[#frag]",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "67fcf64",
+  "kind": "falsy-sentinel",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "2b8d5cd",
+  "kind": "state-consistency",
+  "tests": 4,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "069b110",
+  "kind": "validation",
+  "tests": 2,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "87d1257",
+  "kind": "validation",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "f89d7a3",
+  "kind": "degenerate-input",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "f51a53b",
+  "kind": "degenerate-input",
+  "tests": 1,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "dc2664b",
+  "kind": "domain-semantics",
+  "tests": 2,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "test:test_eq",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "752799b",
+  "kind": "domain-semantics",
+  "tests": 2,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "def2dab",
+  "kind": "falsy-sentinel",
+  "tests": 4,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "6b1907d",
+  "kind": "degenerate-input",
+  "tests": 2,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "3eb4053",
+  "kind": "degenerate-input",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "ce676d2",
+  "kind": "degenerate-input",
+  "tests": 2,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "test:test_empty_iterable",
+  "kind": "degenerate-input",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "d992be0",
+  "kind": "domain-semantics",
+  "tests": 2,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "7847d43",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "e426d25",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "more-itertools",
+  "bug": "1fd388b",
+  "kind": "validation",
+  "tests": 3,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "pluggy",
+  "bug": "0f2614d",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 2
+ },
+ {
+  "repo": "pluggy",
+  "bug": "6abdcf6",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "pluggy",
+  "bug": "1b23f2e",
+  "kind": "repr-robustness",
+  "tests": 8,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "pluggy",
+  "bug": "aa6e1f4",
+  "kind": "object-model",
+  "tests": 3,
+  "runs": 4,
+  "hits": 3
+ },
+ {
+  "repo": "pluggy",
+  "bug": "c1c39fe",
+  "kind": "object-model",
+  "tests": 6,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "pluggy",
+  "bug": "09676ee",
+  "kind": "object-model",
+  "tests": 2,
+  "runs": 4,
+  "hits": 3
+ },
+ {
+  "repo": "pluggy",
+  "bug": "629246a",
+  "kind": "state-consistency",
+  "tests": 2,
+  "runs": 4,
+  "hits": 2
+ },
+ {
+  "repo": "pluggy",
+  "bug": "3d5417a",
+  "kind": "state-consistency",
+  "tests": 1,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "pluggy",
+  "bug": "44474dd",
+  "kind": "falsy-sentinel",
+  "tests": 1,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "pluggy",
+  "bug": "ccae6b9",
+  "kind": "validation",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "pluggy",
+  "bug": "0022c46",
+  "kind": "repr-robustness",
+  "tests": 3,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "pluggy",
+  "bug": "2143bb6",
+  "kind": "repr-robustness",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "pluggy",
+  "bug": "d57da14",
+  "kind": "repr-robustness",
+  "tests": 3,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "pluggy",
+  "bug": "742393e",
+  "kind": "repr-robustness",
+  "tests": 4,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "sqlparse",
+  "bug": "f80af6a",
+  "kind": "performance",
+  "tests": 2,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "sqlparse",
+  "bug": "53ff44b",
+  "kind": "output-fidelity",
+  "tests": 2,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "sqlparse",
+  "bug": "111b35c",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 3
+ },
+ {
+  "repo": "sqlparse",
+  "bug": "f66d12c",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "sqlparse",
+  "bug": "a194d31",
+  "kind": "domain-semantics",
+  "tests": 2,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tinydb",
+  "bug": "18d73a1",
+  "kind": "state-consistency",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tinydb",
+  "bug": "test:test_all",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tinydb",
+  "bug": "test:test_any",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tinydb",
+  "bug": "770486f",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tinydb",
+  "bug": "e83efcd",
+  "kind": "state-consistency",
+  "tests": 1,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "tinydb",
+  "bug": "717616b",
+  "kind": "state-consistency",
+  "tests": 1,
+  "runs": 4,
+  "hits": 3
+ },
+ {
+  "repo": "tinydb",
+  "bug": "bd034d0",
+  "kind": "state-consistency",
+  "tests": 2,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "tinydb",
+  "bug": "19066e0",
+  "kind": "falsy-sentinel",
+  "tests": 1,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "5b2b1ff",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "8cd44f5",
+  "kind": "output-fidelity",
+  "tests": 5,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "test:test_create_string[kwargs13-\\nMy\\nString\\n-\"\"\"\\n\\nMy\\nString\\n\"\"\"]",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "test:test_create_string[kwargs18-My\\rString-\"\"\"My\\\\rString\"\"\"]",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 3
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "test:test_create_string_with_invalid_characters[kwargs8-My\\rString]",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 3
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "test:test_create_string_with_invalid_characters[kwargs9-My\\r\\nMy\\rString]",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 3
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "afa41a5",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "f466807",
+  "kind": "output-fidelity",
+  "tests": 15,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "a963fe1",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "90365ea",
+  "kind": "validation",
+  "tests": 5,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "483f240",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "a076a6a",
+  "kind": "output-fidelity",
+  "tests": 2,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "281ca00",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "11e22ae",
+  "kind": "validation",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "f8ce14b",
+  "kind": "output-fidelity",
+  "tests": 2,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "1e70531",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "21a4942",
+  "kind": "validation",
+  "tests": 2,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "88aa4b1",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "4b38bec",
+  "kind": "state-consistency",
+  "tests": 6,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "8c30fc1",
+  "kind": "state-consistency",
+  "tests": 1,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "18e7f98",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "40dd59c",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "5687396",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "94e62fb",
+  "kind": "object-model",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "86f4562",
+  "kind": "performance",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "76d4714",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "61941de",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "ce8f8ee",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "89cdcc7",
+  "kind": "domain-semantics",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "d548e18",
+  "kind": "parser-strictness",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "7ab7469",
+  "kind": "parser-strictness",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "446d6fa",
+  "kind": "parser-strictness",
+  "tests": 31,
+  "runs": 4,
+  "hits": 3
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "9c12677",
+  "kind": "parser-strictness",
+  "tests": 4,
+  "runs": 4,
+  "hits": 2
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "8571bcd",
+  "kind": "parser-strictness",
+  "tests": 6,
+  "runs": 4,
+  "hits": 3
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "b48c094",
+  "kind": "parser-strictness",
+  "tests": 1,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "b1399c3",
+  "kind": "parser-strictness",
+  "tests": 3,
+  "runs": 4,
+  "hits": 4
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "a1c5bd2",
+  "kind": "parser-strictness",
+  "tests": 3,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "7c978a5",
+  "kind": "parser-strictness",
+  "tests": 4,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "c07c0c1",
+  "kind": "parser-strictness",
+  "tests": 2,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "43668dd",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "6b5f079",
+  "kind": "output-fidelity",
+  "tests": 17,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "25ae63a",
+  "kind": "state-consistency",
+  "tests": 2,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "d3c76f0",
+  "kind": "parser-strictness",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "67d3e86",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "ee4eedb",
+  "kind": "output-fidelity",
+  "tests": 4,
+  "runs": 4,
+  "hits": 1
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "f9b4b22",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 2
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "b282137",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "4906936",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "cc05afa",
+  "kind": "state-consistency",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "495a42e",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "e23a254",
+  "kind": "output-fidelity",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "de68fd0",
+  "kind": "parser-strictness",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "9ac3f98",
+  "kind": "performance",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "229ee86",
+  "kind": "parser-strictness",
+  "tests": 1,
+  "runs": 4,
+  "hits": 0
+ },
+ {
+  "repo": "tomlkit",
+  "bug": "01b0f45",
+  "kind": "output-fidelity",
+  "tests": 2,
+  "runs": 4,
+  "hits": 2
+ }
+]

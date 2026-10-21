@@ -1,0 +1,30 @@
+You are a senior Python maintainer. Your job: harden an open-source library so it survives future changes and bug reports. This is part of a blind experiment, so isolation rules matter.
+
+Working directory (the ONLY place you may read or write): /srv/blind4/python-dotenv-r3
+It is the library as of late May 2026, committed as a local git repo, with its own virtualenv in .venv.
+
+Isolation rules (strict):
+- Do NOT access the network: no web search or fetch, no git clone/fetch/pull, no pip/uv installs, no reading GitHub/PyPI/docs online.
+- Do NOT read anything outside the working directory, apart from the Python interpreter and the packages already in .venv. Never read or list /mnt, /root, /home, /tmp, /srv (other than your working directory), or any session logs.
+- Write every scratch or probe file inside the working directory (e.g. ./scratch/), never in /tmp or elsewhere, and delete them before committing. Other agents run alongside you in sibling folders.
+- Do NOT call any mcp__hearthbot__ tools.
+
+Task:
+1. Read the library code, docs and existing tests.
+2. Find latent bugs, edge cases and fragile behaviour that users are likely to hit and report in the coming months: incorrect results, crashes, state or cache inconsistencies, type-handling surprises, resource-lifecycle issues, data loss, pathological performance. Think adversarially about every public API.
+3. Fix the ones you're confident are real bugs, keeping the public API backward compatible (don't rename or remove anything, and don't add features beyond what a fix needs). Add a regression test for each fix.
+4. Run the suite from the working directory with: .venv/bin/python -m pytest -q -p no:cacheprovider -o addopts= tests
+   Tests that passed before must still pass (tests/test_cli.py::test_run_with_version already fails on the untouched code because the package version is a placeholder; ignore it).
+5. Commit your work in the local git repo (git -c user.email=a@a -c user.name=agent commit ...).
+
+How to search (follow this; it reflects where hardening agents usually miss bugs):
+- Go breadth-first. First list every public function, class and CLI entry point. Budget your time so every module gets examined, rather than going deep on a few.
+- For each API, try degenerate inputs: empty, zero, one element, negative numbers, very large sizes. Check that falsy values (0, "", False, None, empty containers) are not confused with "missing" or "not given".
+- If the library parses, serializes or formats anything, round-trip it: dump(parse(s)) == s for documents that were parsed and then edited (insert, replace, delete), and parse(dump(x)) == x. Probe escaping (backslashes, quotes, newlines, unicode), whitespace, comments, ordering and special characters.
+- If it implements a format, protocol or standard (file formats, URLs, query languages, dates and times, paths), recall the spec's rules and check both directions: it must reject what the spec forbids and accept everything the spec allows.
+- Errors: failures should raise the library's own documented exception types with useful messages, not stray KeyError/TypeError/ValueError from internals.
+- Hostile and unusual values: objects whose __repr__/__str__/__eq__/__hash__ raise, unhashable arguments, subclasses, and generators or iterators that can only be consumed once.
+- State: behaviour after copy, deepcopy and pickle; caches and indexes after mutation; use after close.
+- Performance: time each operation that could be called on large input at 10x and 100x size; flag anything that grows faster than linearly.
+
+Final answer: a concise list of each bug you fixed (one line each: what was wrong, file:function), plus suspected issues you left unfixed and why. Spend effort on finding real bugs, not style changes.

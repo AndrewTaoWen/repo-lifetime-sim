@@ -1,0 +1,367 @@
+diff --git a/src/dotenv/__init__.py b/src/dotenv/__init__.py
+index dde24a0..4074c01 100644
+--- a/src/dotenv/__init__.py
++++ b/src/dotenv/__init__.py
+@@ -30,8 +30,8 @@ def get_cli_string(
+         command.append(action)
+         if key:
+             command.append(key)
+-            if value:
+-                if " " in value:
++            if value is not None:
++                if " " in value or not value:
+                     command.append(f'"{value}"')
+                 else:
+                     command.append(value)
+diff --git a/src/dotenv/cli.py b/src/dotenv/cli.py
+index 79613e2..f1b0cff 100644
+--- a/src/dotenv/cli.py
++++ b/src/dotenv/cli.py
+@@ -73,7 +73,7 @@ def stream_file(path: os.PathLike) -> Iterator[IO[str]]:
+     """
+ 
+     try:
+-        with open(path) as stream:
++        with open(path, encoding="utf-8") as stream:
+             yield stream
+     except OSError as exc:
+         print(f"Error opening env file: {exc}", file=sys.stderr)
+@@ -142,7 +142,7 @@ def get(ctx: click.Context, key: Any) -> None:
+         values = dotenv_values(stream=stream)
+ 
+     stored_value = values.get(key)
+-    if stored_value:
++    if stored_value is not None:
+         click.echo(stored_value)
+     else:
+         sys.exit(1)
+diff --git a/src/dotenv/main.py b/src/dotenv/main.py
+index 3c4608d..71246f2 100644
+--- a/src/dotenv/main.py
++++ b/src/dotenv/main.py
+@@ -5,8 +5,9 @@ import pathlib
+ import stat
+ import sys
+ import tempfile
+-from collections import OrderedDict
++from collections import ChainMap, OrderedDict
+ from contextlib import contextmanager
++from types import FrameType
+ from typing import IO, Dict, Iterable, Iterator, Mapping, Optional, Tuple, Union
+ 
+ from .parser import Binding, parse_stream
+@@ -160,13 +161,21 @@ def rewrite(
+         source = io.StringIO("")
+         original_mode = None
+ 
+-    with tempfile.NamedTemporaryFile(
+-        mode="w",
+-        encoding=encoding,
+-        delete=False,
+-        prefix=".tmp_",
+-        dir=os.path.dirname(os.path.abspath(path)),
+-    ) as dest:
++    try:
++        dest_file = tempfile.NamedTemporaryFile(
++            mode="w",
++            encoding=encoding,
++            delete=False,
++            prefix=".tmp_",
++            dir=os.path.dirname(os.path.abspath(path)),
++        )
++    except BaseException:
++        # Don't leak the source file handle if the temporary file can't be
++        # created (e.g. the directory isn't writable).
++        source.close()
++        raise
++
++    with dest_file as dest:
+         dest_path = pathlib.Path(dest.name)
+         error = None
+ 
+@@ -216,7 +225,9 @@ def set_key(
+     )
+ 
+     if quote:
+-        value_out = "'{}'".format(value_to_set.replace("'", "\\'"))
++        value_out = "'{}'".format(
++            value_to_set.replace("\\", "\\\\").replace("'", "\\'")
++        )
+     else:
+         value_out = value_to_set
+     if export:
+@@ -297,13 +308,13 @@ def resolve_variables(
+             result = None
+         else:
+             atoms = parse_variables(value)
+-            env: Dict[str, Optional[str]] = {}
++            # Use a ChainMap rather than copying `os.environ` and `new_values`
++            # for every value, which made this quadratic in the number of keys.
++            env: Mapping[str, Optional[str]]
+             if override:
+-                env.update(os.environ)  # type: ignore
+-                env.update(new_values)
++                env = ChainMap(new_values, os.environ)  # type: ignore
+             else:
+-                env.update(new_values)
+-                env.update(os.environ)  # type: ignore
++                env = ChainMap(os.environ, new_values)  # type: ignore
+             result = "".join(atom.resolve(env) for atom in atoms)
+ 
+         new_values[name] = result
+@@ -358,16 +369,22 @@ def find_dotenv(
+         path = os.getcwd()
+     else:
+         # will work for .py files
+-        frame = sys._getframe()
++        frame: Optional[FrameType] = sys._getframe()
+         current_file = __file__
+ 
+-        while frame.f_code.co_filename == current_file or not os.path.exists(
+-            frame.f_code.co_filename
++        while frame is not None and (
++            frame.f_code.co_filename == current_file
++            or not os.path.exists(frame.f_code.co_filename)
+         ):
+-            assert frame.f_back is not None
+             frame = frame.f_back
+-        frame_filename = frame.f_code.co_filename
+-        path = os.path.dirname(os.path.abspath(frame_filename))
++
++        if frame is None:
++            # No caller frame maps to an existing file (e.g. code running from
++            # a zipapp): fall back to the current working directory.
++            path = os.getcwd()
++        else:
++            frame_filename = frame.f_code.co_filename
++            path = os.path.dirname(os.path.abspath(frame_filename))
+ 
+     for dirname in _walk_to_root(path):
+         check_path = os.path.join(dirname, filename)
+diff --git a/src/dotenv/parser.py b/src/dotenv/parser.py
+index 6677360..79ee5a8 100644
+--- a/src/dotenv/parser.py
++++ b/src/dotenv/parser.py
+@@ -22,9 +22,14 @@ _export = make_regex(r"(?:export[^\S\r\n]+)?")
+ _single_quoted_key = make_regex(r"'([^']+)'")
+ _unquoted_key = make_regex(r"([^=\#\s]+)")
+ _equal_sign = make_regex(r"(=[^\S\r\n]*)")
+-_single_quoted_value = make_regex(r"'((?:\\'|[^'])*)'")
+-_double_quoted_value = make_regex(r'"((?:\\"|[^"])*)"')
++# An escaped backslash (`\\`) is consumed as a unit so that a value ending
++# with an escaped backslash (e.g. `"foo\\"`) is not mistaken for one whose
++# closing quote is escaped. A lone backslash is still accepted (and kept
++# literally) when it isn't followed by another backslash, e.g. `'C:\'`.
++_single_quoted_value = make_regex(r"'((?:\\\\|\\'|\\(?!\\)|[^'\\])*)'")
++_double_quoted_value = make_regex(r'"((?:\\\\|\\"|\\(?!\\)|[^"\\])*)"')
+ _unquoted_value = make_regex(r"([^\r\n]*)")
++_inline_comment = make_regex(r"\s#")
+ _comment = make_regex(r"(?:[^\S\r\n]*#[^\r\n]*)?")
+ _end_of_line = make_regex(r"[^\S\r\n]*(?:\r\n|\n|\r|$)")
+ _rest_of_line = make_regex(r"[^\r\n]*(?:\r|\n|\r\n)?")
+@@ -122,7 +127,12 @@ def parse_key(reader: Reader) -> Optional[str]:
+ 
+ def parse_unquoted_value(reader: Reader) -> str:
+     (part,) = reader.read_regex(_unquoted_value)
+-    return re.sub(r"\s+#.*", "", part).rstrip()
++    # Strip an inline comment (a `#` preceded by whitespace). Searching for the
++    # `#` first keeps this linear for values containing long runs of spaces.
++    comment = _inline_comment.search(part)
++    if comment is not None:
++        part = part[: comment.start()]
++    return part.rstrip()
+ 
+ 
+ def parse_value(reader: Reader) -> str:
+@@ -154,8 +164,13 @@ def parse_binding(reader: Reader) -> Binding:
+         key = parse_key(reader)
+         reader.read_regex(_whitespace)
+         if reader.peek(1) == "=":
+-            reader.read_regex(_equal_sign)
+-            value: Optional[str] = parse_value(reader)
++            (equal_sign,) = reader.read_regex(_equal_sign)
++            value: Optional[str]
++            if len(equal_sign) > 1 and reader.peek(1) == "#":
++                # `a= # comment`: the value is empty and the rest is a comment.
++                value = ""
++            else:
++                value = parse_value(reader)
+         else:
+             value = None
+         reader.read_regex(_comment)
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index d4e3ad4..7390f34 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -1,4 +1,5 @@
+ import os
++from unittest import mock
+ from pathlib import Path
+ from typing import Optional
+ 
+@@ -293,3 +294,29 @@ def test_run_with_dotenv_and_command_flags(dotenv_path, tmp_path):
+ 
+     check_process(result, exit_code=0)
+     assert result.stdout.strip().startswith("dotenv, version")
++
++
++def test_get_empty_value(cli, dotenv_path):
++    dotenv_path.write_text("a=\n")
++
++    result = cli.invoke(dotenv_cli, ["--file", dotenv_path, "get", "a"])
++
++    assert (result.exit_code, result.output) == (0, "\n")
++
++
++def test_list_and_get_read_utf8(cli, dotenv_path):
++    dotenv.set_key(dotenv_path, "a", "é€")
++    real_open = open
++    encodings = []
++
++    def tracking_open(*args, **kwargs):
++        encodings.append(kwargs.get("encoding"))
++        return real_open(*args, **kwargs)
++
++    with mock.patch("dotenv.cli.open", side_effect=tracking_open, create=True):
++        get = cli.invoke(dotenv_cli, ["--file", dotenv_path, "get", "a"])
++        lst = cli.invoke(dotenv_cli, ["--file", dotenv_path, "list"])
++
++    assert (get.exit_code, get.output) == (0, "é€\n")
++    assert (lst.exit_code, lst.output) == (0, "a=é€\n")
++    assert encodings == ["utf-8", "utf-8"]
+diff --git a/tests/test_main.py b/tests/test_main.py
+index 1c33c80..71e1d7f 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -708,3 +708,85 @@ def test_dotenv_values_file_stream(dotenv_path):
+         result = dotenv.dotenv_values(stream=f)
+ 
+     assert result == {"a": "b"}
++
++
++@pytest.mark.parametrize(
++    "value",
++    ["x\\\\y", "a\\", "C:\\dir\\", "it's", "a\\'b", 'a"b', "line1\nline2"],
++)
++@pytest.mark.parametrize("quote_mode", ["always", "auto"])
++def test_set_key_round_trips_backslashes_and_quotes(dotenv_path, value, quote_mode):
++    dotenv.set_key(dotenv_path, "a", value, quote_mode=quote_mode)
++    dotenv.set_key(dotenv_path, "b", "c", quote_mode=quote_mode)
++
++    assert dotenv.dotenv_values(dotenv_path, interpolate=False) == {
++        "a": value,
++        "b": "c",
++    }
++
++
++def test_rewrite_closes_source_when_tempfile_fails(dotenv_path):
++    dotenv_path.write_text("a=x\n")
++    real_open = open
++    opened_handles = []
++
++    def tracking_open(*args, **kwargs):
++        handle = real_open(*args, **kwargs)
++        opened_handles.append(handle)
++        return handle
++
++    with mock.patch(
++        "dotenv.main.tempfile.NamedTemporaryFile", side_effect=PermissionError
++    ):
++        with mock.patch("dotenv.main.open", side_effect=tracking_open):
++            with pytest.raises(PermissionError):
++                dotenv.set_key(dotenv_path, "a", "y")
++
++    assert opened_handles
++    assert all(handle.closed for handle in opened_handles)
++    assert dotenv_path.read_text() == "a=x\n"
++
++
++def test_dotenv_values_many_keys_does_not_copy_environ_per_key():
++    stream = io.StringIO("".join(f"K{i}=${{K{i - 1}}}\n" for i in range(2000)))
++
++    with mock.patch.dict(os.environ, {f"E{i}": "x" for i in range(5000)}):
++        result = dotenv.dotenv_values(stream=stream)
++
++    assert len(result) == 2000
++    assert result["K1999"] == ""
++
++
++@pytest.mark.parametrize("override", [True, False])
++def test_load_dotenv_interpolation_precedence(override):
++    stream = io.StringIO("a=file\nb=${a}\n")
++
++    with mock.patch.dict(os.environ, {"a": "env"}, clear=True):
++        dotenv.load_dotenv(stream=stream, override=override)
++        b = os.environ["b"]
++
++    assert b == ("file" if override else "env")
++
++
++def test_find_dotenv_from_zipapp_falls_back_to_cwd(tmp_path):
++    from zipfile import ZipFile
++
++    app = tmp_path / "app.zip"
++    with ZipFile(app, "w") as zf:
++        zf.writestr(
++            "__main__.py",
++            "from dotenv import find_dotenv\nprint(find_dotenv())\n",
++        )
++    workdir = tmp_path / "work"
++    workdir.mkdir()
++    (workdir / ".env").write_text("a=b\n")
++
++    out = subprocess.run(
++        [sys.executable, str(app)],
++        cwd=workdir,
++        capture_output=True,
++        text=True,
++        check=True,
++    ).stdout
++
++    assert out.strip() == str(workdir / ".env")
+diff --git a/tests/test_parser.py b/tests/test_parser.py
+index 4ec5a5a..9afaaa4 100644
+--- a/tests/test_parser.py
++++ b/tests/test_parser.py
+@@ -580,3 +580,29 @@ def test_parse_stream(test_input, expected):
+     result = parse_stream(io.StringIO(test_input))
+ 
+     assert list(result) == expected
++
++
++@pytest.mark.parametrize(
++    "test_input,expected",
++    [
++        ('a="foo\\\\"\nb="bar"\n', [("a", "foo\\"), ("b", "bar")]),
++        ("a='foo\\\\'\nb='bar'\n", [("a", "foo\\"), ("b", "bar")]),
++        ("a='C:\\'\nb=c\n", [("a", "C:\\"), ("b", "c")]),
++        ('a="x\\"y"\n', [("a", 'x"y')]),
++        ("a= # comment\nb=c\n", [("a", ""), ("b", "c")]),
++        ("a=\t#comment", [("a", "")]),
++        ("a=#not-a-comment", [("a", "#not-a-comment")]),
++    ],
++)
++def test_parse_stream_escaped_backslash_and_empty_comment(test_input, expected):
++    result = parse_stream(io.StringIO(test_input))
++
++    assert [(b.key, b.value) for b in result if b.key is not None] == expected
++
++
++def test_parse_stream_unquoted_value_with_many_spaces_is_fast():
++    value = "a" + " " * 200_000 + "b"
++
++    (binding,) = parse_stream(io.StringIO(f"x={value}"))
++
++    assert binding.value == value
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index 93b8bae..94ad2ab 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -17,3 +17,7 @@ def test_to_cli_string():
+         c(action="set", key="SECRET", value="a b", quote="always")
+         == 'dotenv -q always set SECRET "a b"'
+     )
++
++
++def test_to_cli_string_empty_value():
++    assert c(action="set", key="EMPTY", value="") == 'dotenv set EMPTY ""'

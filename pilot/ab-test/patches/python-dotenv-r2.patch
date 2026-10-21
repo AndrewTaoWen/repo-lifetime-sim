@@ -1,0 +1,336 @@
+diff --git a/src/dotenv/cli.py b/src/dotenv/cli.py
+index 79613e2..5e5e73f 100644
+--- a/src/dotenv/cli.py
++++ b/src/dotenv/cli.py
+@@ -39,7 +39,9 @@ def enumerate_env() -> Optional[str]:
+ @click.option(
+     "-f",
+     "--file",
+-    default=enumerate_env(),
++    # Callable so that the current working directory is resolved when the
++    # command runs, not when this module is imported.
++    default=enumerate_env,
+     type=click.Path(file_okay=True),
+     help="Location of the .env file, defaults to .env file in current working directory.",
+ )
+@@ -73,7 +75,8 @@ def stream_file(path: os.PathLike) -> Iterator[IO[str]]:
+     """
+ 
+     try:
+-        with open(path) as stream:
++        # Same encoding as the one used by `set_key` to write the file.
++        with open(path, encoding="utf-8") as stream:
+             yield stream
+     except OSError as exc:
+         print(f"Error opening env file: {exc}", file=sys.stderr)
+diff --git a/src/dotenv/main.py b/src/dotenv/main.py
+index 3c4608d..193cb90 100644
+--- a/src/dotenv/main.py
++++ b/src/dotenv/main.py
+@@ -5,8 +5,9 @@ import pathlib
+ import stat
+ import sys
+ import tempfile
+-from collections import OrderedDict
++from collections import ChainMap, OrderedDict
+ from contextlib import contextmanager
++from types import FrameType
+ from typing import IO, Dict, Iterable, Iterator, Mapping, Optional, Tuple, Union
+ 
+ from .parser import Binding, parse_stream
+@@ -145,7 +146,9 @@ def rewrite(
+         path = os.path.realpath(path)
+ 
+     try:
+-        source: IO[str] = open(path, encoding=encoding)
++        # `newline=""` keeps the original line endings intact (e.g. CRLF), so
++        # that rewriting a file doesn't silently convert all of them.
++        source: IO[str] = open(path, encoding=encoding, newline="")
+         try:
+             path_stat = os.lstat(path)
+             original_mode: Optional[int] = (
+@@ -163,6 +166,7 @@ def rewrite(
+     with tempfile.NamedTemporaryFile(
+         mode="w",
+         encoding=encoding,
++        newline="",
+         delete=False,
+         prefix=".tmp_",
+         dir=os.path.dirname(os.path.abspath(path)),
+@@ -216,31 +220,41 @@ def set_key(
+     )
+ 
+     if quote:
+-        value_out = "'{}'".format(value_to_set.replace("'", "\\'"))
++        # Backslashes must be escaped too: the parser decodes `\\` and `\'`
++        # inside single quotes, so an unescaped backslash would be lost or
++        # would swallow the escape of a following quote.
++        value_out = "'{}'".format(
++            value_to_set.replace("\\", "\\\\").replace("'", "\\'")
++        )
+     else:
+         value_out = value_to_set
+     if export:
+-        line_out = f"export {key_to_set}={value_out}\n"
++        line_out = f"export {key_to_set}={value_out}"
+     else:
+-        line_out = f"{key_to_set}={value_out}\n"
++        line_out = f"{key_to_set}={value_out}"
+ 
+     with rewrite(dotenv_path, encoding=encoding, follow_symlinks=follow_symlinks) as (
+         source,
+         dest,
+     ):
++        mappings = list(with_warn_for_invalid_lines(parse_stream(source)))
++        newline = _detect_newline(mapping.original.string for mapping in mappings)
+         replaced = False
+         missing_newline = False
+-        for mapping in with_warn_for_invalid_lines(parse_stream(source)):
++        for mapping in mappings:
+             if mapping.key == key_to_set:
+-                dest.write(line_out)
++                dest.write(line_out + newline)
+                 replaced = True
++                missing_newline = False
+             else:
+                 dest.write(mapping.original.string)
+-                missing_newline = not mapping.original.string.endswith("\n")
++                missing_newline = not mapping.original.string.endswith(
++                    ("\n", "\r")
++                )
+         if not replaced:
+             if missing_newline:
+-                dest.write("\n")
+-            dest.write(line_out)
++                dest.write(newline)
++            dest.write(line_out + newline)
+ 
+     return True, key_to_set, value_to_set
+ 
+@@ -267,15 +281,21 @@ def unset_key(
+         return None, key_to_unset
+ 
+     removed = False
+-    with rewrite(dotenv_path, encoding=encoding, follow_symlinks=follow_symlinks) as (
+-        source,
+-        dest,
+-    ):
+-        for mapping in with_warn_for_invalid_lines(parse_stream(source)):
+-            if mapping.key == key_to_unset:
+-                removed = True
+-            else:
+-                dest.write(mapping.original.string)
++    try:
++        with rewrite(
++            dotenv_path, encoding=encoding, follow_symlinks=follow_symlinks
++        ) as (source, dest):
++            for mapping in with_warn_for_invalid_lines(parse_stream(source)):
++                if mapping.key == key_to_unset:
++                    removed = True
++                else:
++                    dest.write(mapping.original.string)
++            if not removed:
++                # Abort the rewrite: leave the file (and a symlink at its path)
++                # untouched when there is nothing to remove.
++                raise _NothingToRewrite()
++    except _NothingToRewrite:
++        pass
+ 
+     if not removed:
+         logger.warning(
+@@ -286,6 +306,19 @@ def unset_key(
+     return removed, key_to_unset
+ 
+ 
++class _NothingToRewrite(Exception):
++    pass
++
++
++def _detect_newline(lines: Iterable[str]) -> str:
++    """Return the line terminator used in the given lines, `\\n` by default."""
++    for line in lines:
++        for terminator in ("\r\n", "\n", "\r"):
++            if line.endswith(terminator):
++                return terminator
++    return "\n"
++
++
+ def resolve_variables(
+     values: Iterable[Tuple[str, Optional[str]]],
+     override: bool,
+@@ -297,13 +330,13 @@ def resolve_variables(
+             result = None
+         else:
+             atoms = parse_variables(value)
+-            env: Dict[str, Optional[str]] = {}
++            # A ChainMap avoids copying the environment and all previously
++            # resolved values for every single value (quadratic run time).
++            env: Mapping[str, Optional[str]]
+             if override:
+-                env.update(os.environ)  # type: ignore
+-                env.update(new_values)
++                env = ChainMap(new_values, os.environ)  # type: ignore
+             else:
+-                env.update(new_values)
+-                env.update(os.environ)  # type: ignore
++                env = ChainMap(os.environ, new_values)  # type: ignore
+             result = "".join(atom.resolve(env) for atom in atoms)
+ 
+         new_values[name] = result
+@@ -358,16 +391,21 @@ def find_dotenv(
+         path = os.getcwd()
+     else:
+         # will work for .py files
+-        frame = sys._getframe()
++        frame: Optional[FrameType] = sys._getframe()
+         current_file = __file__
+ 
+-        while frame.f_code.co_filename == current_file or not os.path.exists(
+-            frame.f_code.co_filename
++        while frame is not None and (
++            frame.f_code.co_filename == current_file
++            or not os.path.exists(frame.f_code.co_filename)
+         ):
+-            assert frame.f_back is not None
+             frame = frame.f_back
+-        frame_filename = frame.f_code.co_filename
+-        path = os.path.dirname(os.path.abspath(frame_filename))
++
++        if frame is None:
++            # No caller frame comes from a file on disk (e.g. code run from a
++            # zipapp or piped through stdin): fall back to the current directory.
++            path = os.getcwd()
++        else:
++            path = os.path.dirname(os.path.abspath(frame.f_code.co_filename))
+ 
+     for dirname in _walk_to_root(path):
+         check_path = os.path.join(dirname, filename)
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index d4e3ad4..898f3e6 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -1,4 +1,6 @@
+ import os
++import subprocess
++import sys
+ from pathlib import Path
+ from typing import Optional
+ 
+@@ -293,3 +295,32 @@ def test_run_with_dotenv_and_command_flags(dotenv_path, tmp_path):
+ 
+     check_process(result, exit_code=0)
+     assert result.stdout.strip().startswith("dotenv, version")
++
++
++def test_get_reads_file_as_utf8(dotenv_path):
++    dotenv_path.write_bytes("a=\u00e9\u20ac\n".encode("utf-8"))
++    package_root = Path(dotenv.__file__).resolve().parent.parent
++    env = {
++        **os.environ,
++        "PYTHONPATH": str(package_root),
++        "PYTHONUTF8": "0",
++        "PYTHONIOENCODING": "utf-8",
++        "LC_ALL": "C",
++    }
++
++    result = subprocess.run(
++        [sys.executable, "-m", "dotenv", "--file", str(dotenv_path), "get", "a"],
++        capture_output=True,
++        env=env,
++    )
++
++    assert result.returncode == 0, result.stderr
++    assert result.stdout.decode("utf-8") == "\u00e9\u20ac\n"
++
++
++def test_default_file_follows_current_directory(cli):
++    Path(".env").write_text("A=x\n")
++
++    result = cli.invoke(dotenv_cli, ["get", "A"])
++
++    assert (result.exit_code, result.output) == (0, "x\n")
+diff --git a/tests/test_main.py b/tests/test_main.py
+index 1c33c80..85e3773 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -708,3 +708,80 @@ def test_dotenv_values_file_stream(dotenv_path):
+         result = dotenv.dotenv_values(stream=f)
+ 
+     assert result == {"a": "b"}
++
++
++@pytest.mark.parametrize(
++    "value",
++    ["a\\\\b", "a\\", "x\\'y", "C:\\path", "\\'", "end\\\\"],
++)
++@pytest.mark.parametrize("quote_mode", ["always", "auto"])
++def test_set_key_backslashes_round_trip(dotenv_path, value, quote_mode):
++    dotenv.set_key(dotenv_path, "a", value, quote_mode=quote_mode)
++
++    assert dotenv.dotenv_values(dotenv_path) == {"a": value}
++
++
++def test_set_key_preserves_crlf_line_endings(dotenv_path):
++    dotenv_path.write_bytes(b"a=b\r\nc=d\r\n")
++
++    dotenv.set_key(dotenv_path, "c", "e")
++    dotenv.set_key(dotenv_path, "f", "g")
++
++    assert dotenv_path.read_bytes() == b"a=b\r\nc='e'\r\nf='g'\r\n"
++
++
++def test_set_key_crlf_file_without_trailing_newline(dotenv_path):
++    dotenv_path.write_bytes(b"a=b\r\nc=d")
++
++    dotenv.set_key(dotenv_path, "f", "g")
++
++    assert dotenv_path.read_bytes() == b"a=b\r\nc=d\r\nf='g'\r\n"
++
++
++def test_unset_key_preserves_crlf_line_endings(dotenv_path):
++    dotenv_path.write_bytes(b"a=b\r\nc=d\r\ne=f\r\n")
++
++    dotenv.unset_key(dotenv_path, "c")
++
++    assert dotenv_path.read_bytes() == b"a=b\r\ne=f\r\n"
++
++
++def test_unset_key_missing_key_leaves_file_untouched(tmp_path):
++    target = tmp_path / "target.env"
++    target.write_text("a=b\n")
++    symlink = tmp_path / ".env"
++    symlink.symlink_to(target)
++    logger = logging.getLogger("dotenv.main")
++
++    with mock.patch.object(logger, "warning"):
++        result = dotenv.unset_key(symlink, "nx")
++
++    assert result == (None, "nx")
++    assert symlink.is_symlink()
++    assert target.read_text() == "a=b\n"
++    assert sorted(p.name for p in tmp_path.iterdir()) == [".env", "target.env"]
++
++
++def test_find_dotenv_without_any_file_frame(tmp_path):
++    (tmp_path / ".env").write_text("A=x\n")
++    code = "import dotenv; print(dotenv.find_dotenv())"
++
++    result = subprocess.run(
++        [sys.executable, "-"],
++        input=code,
++        cwd=tmp_path,
++        capture_output=True,
++        text=True,
++    )
++
++    assert result.returncode == 0, result.stderr
++    assert result.stdout.strip() == str(tmp_path / ".env")
++
++
++def test_dotenv_values_interpolation_many_keys_is_not_quadratic():
++    content = "".join(f"K{i}=${{K{i - 1}:-x}}\n" for i in range(20000))
++
++    result = dotenv.dotenv_values(stream=io.StringIO(content))
++
++    assert len(result) == 20000
++    assert result["K19999"] == "x"

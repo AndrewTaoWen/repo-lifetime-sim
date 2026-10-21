@@ -1,0 +1,779 @@
+diff --git a/src/werkzeug/datastructures/accept.py b/src/werkzeug/datastructures/accept.py
+index 8f09594..343c9ab 100644
+--- a/src/werkzeug/datastructures/accept.py
++++ b/src/werkzeug/datastructures/accept.py
+@@ -352,6 +352,10 @@ class LanguageAccept(Accept):
+         :param matches: A list of supported languages to find a match.
+         :param default: The value that is returned if none match.
+         """
++        # The matches are iterated multiple times, so an iterator or generator
++        # must be converted to a list first.
++        matches = list(matches)
++
+         # Look for an exact match first. If a client accepts "en-US",
+         # "en-US" is a valid match at this point.
+         result = super().best_match(matches)
+@@ -378,7 +382,7 @@ class LanguageAccept(Accept):
+         # Return a value from the original match list. Find the first
+         # original value that starts with the matched primary tag.
+         if result is not None:
+-            return next(item for item in matches if item.startswith(result))
++            return matches[fallback_matches.index(result)]
+ 
+         return default
+ 
+diff --git a/src/werkzeug/datastructures/cache_control.py b/src/werkzeug/datastructures/cache_control.py
+index c717939..a8bbb05 100644
+--- a/src/werkzeug/datastructures/cache_control.py
++++ b/src/werkzeug/datastructures/cache_control.py
+@@ -158,7 +158,8 @@ class _CacheControl(CallbackDict[str, str | None]):
+         if not value:
+             return cls()
+ 
+-        return cls(parse_dict_header(value))
++        # Directive names are case-insensitive, RFC 9111 section 5.2.
++        return cls({k.lower(): v for k, v in parse_dict_header(value).items()})
+ 
+     def to_header(self) -> str:
+         """Convert to a ``Cache-Control`` header value."""
+diff --git a/src/werkzeug/datastructures/headers.py b/src/werkzeug/datastructures/headers.py
+index 9f5b1c5..6593e32 100644
+--- a/src/werkzeug/datastructures/headers.py
++++ b/src/werkzeug/datastructures/headers.py
+@@ -421,14 +421,19 @@ class Headers:
+ 
+         .. versionadded:: 1.0
+         """
+-        if values:
+-            values_iter = iter(values)
+-            self.set(key, next(values_iter))
++        values_iter = iter(values)
++        first = next(values_iter, _missing)
+ 
+-            for value in values_iter:
+-                self.add(key, value)
+-        else:
++        if first is _missing:
++            # Empty iterable, including empty iterators and generators which
++            # are always truthy.
+             self.remove(key)
++            return
++
++        self.set(key, first)
++
++        for value in values_iter:
++            self.add(key, value)
+ 
+     def setdefault(self, key: str, default: t.Any) -> str:
+         """Return the first value for the key if it is in the headers,
+@@ -630,12 +635,17 @@ class EnvironHeaders(ImmutableHeadersMixin, Headers):  # type: ignore[misc]
+         if not isinstance(key, str):
+             raise BadRequestKeyError(key)
+ 
+-        key = key.upper().replace("-", "_")
++        env_key = key.upper().replace("-", "_")
+ 
+-        if key in {"CONTENT_TYPE", "CONTENT_LENGTH"}:
+-            return self.environ[key]  # type: ignore[no-any-return]
++        if env_key not in {"CONTENT_TYPE", "CONTENT_LENGTH"}:
++            env_key = f"HTTP_{env_key}"
+ 
+-        return self.environ[f"HTTP_{key}"]  # type: ignore[no-any-return]
++        try:
++            return self.environ[env_key]  # type: ignore[no-any-return]
++        except KeyError:
++            # Raise the documented subclass so a missing header results in a
++            # 400 Bad Request rather than a 500 error.
++            raise BadRequestKeyError(key) from None
+ 
+     def __len__(self) -> int:
+         return sum(1 for _ in self)
+diff --git a/src/werkzeug/datastructures/mixins.py b/src/werkzeug/datastructures/mixins.py
+index 8e00bda..e3edaed 100644
+--- a/src/werkzeug/datastructures/mixins.py
++++ b/src/werkzeug/datastructures/mixins.py
+@@ -72,6 +72,9 @@ class ImmutableListMixin:
+     def sort(self, key: t.Any = None, reverse: t.Any = False) -> t.NoReturn:
+         _immutable_error(self)
+ 
++    def clear(self) -> t.NoReturn:
++        _immutable_error(self)
++
+ 
+ class ImmutableDictMixin(t.Generic[K, V]):
+     """Makes a :class:`dict` immutable.
+diff --git a/src/werkzeug/datastructures/range.py b/src/werkzeug/datastructures/range.py
+index 6a017e3..9ced794 100644
+--- a/src/werkzeug/datastructures/range.py
++++ b/src/werkzeug/datastructures/range.py
+@@ -105,7 +105,9 @@ class Range:
+         if end is None:
+             end = length
+             if start < 0:
+-                start += length
++                # A suffix range longer than the representation selects the
++                # entire representation, RFC 9110 section 14.1.3.
++                start = max(start + length, 0)
+         if is_byte_range_valid(start, end, length):
+             return start, min(end, length)
+         return None
+diff --git a/src/werkzeug/datastructures/structures.py b/src/werkzeug/datastructures/structures.py
+index 988a9b1..0652fca 100644
+--- a/src/werkzeug/datastructures/structures.py
++++ b/src/werkzeug/datastructures/structures.py
+@@ -768,10 +768,19 @@ class HeaderSet(cabc.MutableSet[str]):
+     """
+ 
+     def __init__(self, headers: cabc.Iterable[str] | None = None) -> None:
+-        self._headers = list(headers or ())
+-        self._set = {x.lower() for x in self._headers}
++        self._headers: list[str] = []
++        self._set: set[str] = set()
+         self._on_update: cabc.Callable[[HeaderSet], None] | None = None
+ 
++        # Drop case-insensitive duplicates so that the list and the set stay
++        # consistent, otherwise len() and iteration disagree.
++        for header in headers or ():
++            key = header.lower()
++
++            if key not in self._set:
++                self._headers.append(header)
++                self._set.add(key)
++
+     def add(self, header: str) -> None:
+         """Add a new header to the set."""
+         self.update((header,))
+@@ -790,8 +799,8 @@ class HeaderSet(cabc.MutableSet[str]):
+         if key not in self._set:
+             raise KeyError(header)
+         self._set.remove(key)
+-        for idx, key in enumerate(self._headers):
+-            if key.lower() == header:
++        for idx, item in enumerate(self._headers):
++            if item.lower() == key:
+                 del self._headers[idx]
+                 break
+         if self._on_update is not None:
+diff --git a/src/werkzeug/formparser.py b/src/werkzeug/formparser.py
+index da90612..a6858f1 100644
+--- a/src/werkzeug/formparser.py
++++ b/src/werkzeug/formparser.py
+@@ -300,8 +300,18 @@ class FormDataParser:
+         ):
+             raise RequestEntityTooLarge()
+ 
++        if self.max_form_memory_size is not None:
++            # The content length may not be known (chunked transfer encoding),
++            # so also limit how much is read into memory.
++            data = stream.read(self.max_form_memory_size + 1)
++
++            if len(data) > self.max_form_memory_size:
++                raise RequestEntityTooLarge()
++        else:
++            data = stream.read()
++
+         items = parse_qsl(
+-            stream.read().decode(),
++            data.decode(),
+             keep_blank_values=True,
+             errors="werkzeug.url_quote",
+         )
+diff --git a/src/werkzeug/routing/converters.py b/src/werkzeug/routing/converters.py
+index 348f888..b99a6c6 100644
+--- a/src/werkzeug/routing/converters.py
++++ b/src/werkzeug/routing/converters.py
+@@ -3,6 +3,7 @@ from __future__ import annotations
+ import re
+ import typing as t
+ import uuid
++from decimal import Decimal
+ from urllib.parse import quote
+ 
+ if t.TYPE_CHECKING:
+@@ -230,8 +231,16 @@ class FloatConverter(NumberConverter):
+         super().__init__(map, min=min, max=max, signed=signed)  # type: ignore
+ 
+     def to_url(self, value: t.Any) -> str:
+-        # f format ensures no scientific notation, but forces trailing zeroes
+-        return f"{self.num_convert(value):f}".rstrip("0")
++        # Use the shortest repr that round trips, but expanded without
++        # scientific notation. The "f" format would round to 6 decimal places.
++        value_str = format(Decimal(repr(self.num_convert(value))), "f")
++
++        # The value must match the regex, which requires a decimal point with
++        # digits on both sides.
++        if "." not in value_str:
++            value_str = f"{value_str}.0"
++
++        return value_str
+ 
+ 
+ class UUIDConverter(BaseConverter):
+diff --git a/src/werkzeug/routing/map.py b/src/werkzeug/routing/map.py
+index e4f3aae..fe93dc3 100644
+--- a/src/werkzeug/routing/map.py
++++ b/src/werkzeug/routing/map.py
+@@ -960,13 +960,11 @@ class MapAdapter:
+ 
+         # Return a plain path if neither host or subdomain matching is enabled,
+         # or if they are enabled and the current host matches.
+-        if (
+-            not force_external
+-            and (self.map.subdomain_matching or self.map.host_matching)
+-            and (
+-                (self.map.subdomain_matching and domain_part == self.subdomain)
+-                or (self.map.host_matching and host == self.server_name)
+-            )
++        if not force_external and (
++            (self.map.subdomain_matching and domain_part == self.subdomain)
++            or (self.map.host_matching and host == self.server_name)
++            # Without domain matching, all rules are on the current host.
++            or (not self.map.subdomain_matching and not self.map.host_matching)
+         ):
+             return f"{self.script_name.rstrip('/')}/{path.lstrip('/')}"
+ 
+diff --git a/src/werkzeug/routing/rules.py b/src/werkzeug/routing/rules.py
+index 2ffffe7..8238231 100644
+--- a/src/werkzeug/routing/rules.py
++++ b/src/werkzeug/routing/rules.py
+@@ -290,6 +290,11 @@ class RuleTemplateFactory(RuleFactory):
+                     rule.build_only,
+                     new_endpoint,
+                     rule.strict_slashes,
++                    merge_slashes=rule.merge_slashes,
++                    redirect_to=rule.redirect_to,
++                    alias=rule.alias,
++                    host=rule.host,
++                    websocket=rule.websocket,
+                 )
+ 
+ 
+@@ -539,7 +544,7 @@ class Rule(RuleFactory):
+         defaults = None
+         if self.defaults:
+             defaults = dict(self.defaults)
+-        return dict(
++        kwargs: dict[str, t.Any] = dict(
+             defaults=defaults,
+             subdomain=self.subdomain,
+             methods=self.methods,
+@@ -550,6 +555,13 @@ class Rule(RuleFactory):
+             alias=self.alias,
+             host=self.host,
+         )
++        # Only pass these if they were set, so that subclasses with a custom
++        # signature that doesn't accept them continue to work.
++        if self.merge_slashes is not None:
++            kwargs["merge_slashes"] = self.merge_slashes
++        if self.websocket:
++            kwargs["websocket"] = self.websocket
++        return kwargs
+ 
+     def get_rules(self, map: Map) -> t.Iterator[Rule]:
+         yield self
+diff --git a/src/werkzeug/sansio/http.py b/src/werkzeug/sansio/http.py
+index ad6c914..a312d4a 100644
+--- a/src/werkzeug/sansio/http.py
++++ b/src/werkzeug/sansio/http.py
+@@ -84,7 +84,7 @@ def is_resource_modified(
+             # "Origin server MUST use the strong comparison function when
+             # comparing entity-tags for If-Match"
+             if if_match := ds.ETags.from_header(http_if_match):
+-                unmodified = not if_match.is_strong(etag)
++                unmodified = not if_match.contains(etag)
+ 
+     return not unmodified
+ 
+diff --git a/src/werkzeug/sansio/request.py b/src/werkzeug/sansio/request.py
+index bc3313f..6b5896c 100644
+--- a/src/werkzeug/sansio/request.py
++++ b/src/werkzeug/sansio/request.py
+@@ -159,7 +159,8 @@ class Request:
+             Invalid bytes remain percent encoded.
+         """
+         items = parse_qsl(
+-            self.query_string.decode(),
++            # Invalid UTF-8 bytes remain percent encoded instead of failing.
++            self.query_string.decode(errors="werkzeug.url_quote"),
+             keep_blank_values=True,
+             errors="werkzeug.url_quote",
+         )
+@@ -210,7 +211,7 @@ class Request:
+     @cached_property
+     def full_path(self) -> str:
+         """Requested path, including the query string."""
+-        return f"{self.path}?{self.query_string.decode()}"
++        return f"{self.path}?{self.query_string.decode(errors='werkzeug.url_quote')}"
+ 
+     @property
+     def is_secure(self) -> bool:
+diff --git a/src/werkzeug/sansio/response.py b/src/werkzeug/sansio/response.py
+index a75d18c..d127664 100644
+--- a/src/werkzeug/sansio/response.py
++++ b/src/werkzeug/sansio/response.py
+@@ -479,7 +479,11 @@ class Response:
+         except ValueError:
+             return parse_date(value)
+ 
+-        return datetime.now(timezone.utc) + timedelta(seconds=seconds)
++        try:
++            return datetime.now(timezone.utc) + timedelta(seconds=seconds)
++        except OverflowError:
++            # The value is too large to represent as a date.
++            return None
+ 
+     @retry_after.setter
+     def retry_after(self, value: datetime | int | str | None) -> None:
+diff --git a/src/werkzeug/sansio/utils.py b/src/werkzeug/sansio/utils.py
+index 567e596..487bf11 100644
+--- a/src/werkzeug/sansio/utils.py
++++ b/src/werkzeug/sansio/utils.py
+@@ -49,7 +49,8 @@ def host_is_trusted(
+     if (match := _host_re.fullmatch(hostname)) is None:
+         return False
+ 
+-    hostname = match.group("hostname")
++    # Host names are case-insensitive.
++    hostname = match.group("hostname").lower()
+ 
+     if not trusted_list:
+         return True
+@@ -65,7 +66,7 @@ def host_is_trusted(
+             suffix_match = False
+ 
+         try:
+-            ref = ref.encode("idna").decode("ascii")
++            ref = ref.encode("idna").decode("ascii").lower()
+         except UnicodeEncodeError:
+             return False
+ 
+diff --git a/src/werkzeug/test.py b/src/werkzeug/test.py
+index c5a6579..c0ef0f0 100644
+--- a/src/werkzeug/test.py
++++ b/src/werkzeug/test.py
+@@ -7,6 +7,7 @@ import sys
+ import typing as t
+ from collections import defaultdict
+ from datetime import datetime
++from datetime import timezone
+ from io import BytesIO
+ from itertools import chain
+ from random import random
+@@ -1435,7 +1436,8 @@ class Cookie:
+             decoded_value=decoded_value,
+             expires=parse_date(params.get("expires")),
+             max_age=int(params["max-age"] or 0) if "max-age" in params else None,
+-            domain=params.get("domain") or server_name,
++            # A leading dot is ignored, and domains are case-insensitive.
++            domain=(params.get("domain") or "").lstrip(".").lower() or server_name,
+             origin_only="domain" not in params,
+             path=params.get("path") or path.rpartition("/")[0] or "/",
+             secure="secure" in params,
+@@ -1449,6 +1451,10 @@ class Cookie:
+ 
+     @property
+     def _should_delete(self) -> bool:
+-        return self.max_age == 0 or (
+-            self.expires is not None and self.expires.timestamp() == 0
++        # A zero or negative max age, or an expiration date in the past, means
++        # the cookie should be removed.
++        return (self.max_age is not None and self.max_age <= 0) or (
++            self.max_age is None
++            and self.expires is not None
++            and self.expires <= datetime.now(timezone.utc)
+         )
+diff --git a/src/werkzeug/utils.py b/src/werkzeug/utils.py
+index 51e90fa..2fcfec7 100644
+--- a/src/werkzeug/utils.py
++++ b/src/werkzeug/utils.py
+@@ -146,6 +146,20 @@ class header_property(_DictAccessorProperty[_TAccessorValue]):
+     def lookup(self, obj: Request | Response) -> Headers:  # type: ignore[override]
+         return obj.headers
+ 
++    def __set__(self, instance: t.Any, value: _TAccessorValue) -> None:
++        if self.read_only:
++            raise AttributeError("read only property")
++
++        if value is not None and self.dump_func is not None:
++            value = self.dump_func(value)  # type: ignore[assignment]
++
++        if value is None:
++            # Setting None removes the header rather than sending the literal
++            # string "None".
++            self.lookup(instance).pop(self.name, None)
++        else:
++            self.lookup(instance)[self.name] = value
++
+ 
+ # https://cgit.freedesktop.org/xdg/shared-mime-info/tree/freedesktop.org.xml.in
+ # https://www.iana.org/assignments/media-types/media-types.xhtml
+diff --git a/src/werkzeug/wsgi.py b/src/werkzeug/wsgi.py
+index 8aa1b44..95c2430 100644
+--- a/src/werkzeug/wsgi.py
++++ b/src/werkzeug/wsgi.py
+@@ -270,8 +270,19 @@ class ClosingIterator:
+         return self._next()
+ 
+     def close(self) -> None:
++        # Call every callback even if one fails, so that resources are not
++        # leaked. The first error is raised after all callbacks have run.
++        error: BaseException | None = None
++
+         for callback in self._callbacks:
+-            callback()
++            try:
++                callback()
++            except BaseException as e:
++                if error is None:
++                    error = e
++
++        if error is not None:
++            raise error
+ 
+ 
+ def wrap_file(
+@@ -425,11 +436,16 @@ class _RangeWrapper:
+         return chunk
+ 
+     def __next__(self) -> bytes:
+-        chunk = self._next()
+-        if chunk:
+-            return chunk
+-        self.end_reached = True
+-        raise StopIteration()
++        while True:
++            chunk = self._next()
++
++            if chunk:
++                return chunk
++
++            # An empty chunk from the wrapped iterable doesn't mean the end
++            # was reached, skip it unless the range is complete.
++            if self.end_reached:
++                raise StopIteration()
+ 
+     def close(self) -> None:
+         if hasattr(self.iterable, "close"):
+@@ -559,7 +575,8 @@ class LimitedStream(io.RawIOBase):
+                     return 0
+ 
+                 if out_size:
+-                    b[:out_size] = temp_b
++                    # The stream may return fewer bytes than requested.
++                    b[:out_size] = temp_b[:out_size]
+         else:
+             # WSGI requires that stream.read is available.
+             try:
+diff --git a/tests/test_hardening.py b/tests/test_hardening.py
+new file mode 100644
+index 0000000..4b63f44
+--- /dev/null
++++ b/tests/test_hardening.py
+@@ -0,0 +1,307 @@
++"""Regression tests for edge cases found while hardening the library."""
++
++from __future__ import annotations
++
++import io
++import warnings
++from datetime import datetime
++from datetime import timedelta
++from datetime import timezone
++
++import pytest
++
++from werkzeug import routing as r
++from werkzeug.datastructures import EnvironHeaders
++from werkzeug.datastructures import Headers
++from werkzeug.datastructures import HeaderSet
++from werkzeug.datastructures import LanguageAccept
++from werkzeug.datastructures import Range
++from werkzeug.datastructures import RequestCacheControl
++from werkzeug.datastructures import ResponseCacheControl
++from werkzeug.datastructures.structures import ImmutableList
++from werkzeug.exceptions import BadRequestKeyError
++from werkzeug.exceptions import RequestEntityTooLarge
++from werkzeug.exceptions import SecurityError
++from werkzeug.formparser import FormDataParser
++from werkzeug.http import http_date
++from werkzeug.sansio.utils import get_host
++from werkzeug.sansio.utils import host_is_trusted
++from werkzeug.test import Client
++from werkzeug.test import create_environ
++from werkzeug.wrappers import Request
++from werkzeug.wrappers import Response
++from werkzeug.wsgi import _RangeWrapper
++from werkzeug.wsgi import ClosingIterator
++from werkzeug.wsgi import LimitedStream
++
++
++def test_header_set_remove_case_insensitive() -> None:
++    hs = HeaderSet(["Foo", "bar"])
++    hs.remove("FOO")
++    assert list(hs) == ["bar"]
++    assert len(hs) == 1
++    assert "foo" not in hs
++    assert hs.to_header() == "bar"
++
++
++def test_header_set_init_duplicates() -> None:
++    hs = HeaderSet(["a", "A", "b"])
++    assert list(hs) == ["a", "b"]
++    assert len(hs) == len(list(hs))
++    hs.remove("a")
++    assert list(hs) == ["b"]
++
++
++def test_immutable_list_clear() -> None:
++    lst = ImmutableList([1, 2])
++
++    with pytest.raises(TypeError):
++        lst.clear()
++
++    assert lst == [1, 2]
++
++
++def test_headers_setlist_empty_iterator() -> None:
++    h = Headers([("X", "1")])
++    h.setlist("X", iter([]))
++    assert "X" not in h
++    h.setlist("Y", (v for v in ["a", "b"]))
++    assert h.getlist("Y") == ["a", "b"]
++
++
++def test_environ_headers_missing_is_bad_request() -> None:
++    headers = EnvironHeaders(create_environ())
++
++    with pytest.raises(BadRequestKeyError):
++        headers["X-Missing"]
++
++    with pytest.raises(BadRequestKeyError):
++        headers["Content-Type"]
++
++    assert headers.get("X-Missing") is None
++    assert "X-Missing" not in headers
++
++
++def test_range_suffix_longer_than_length() -> None:
++    rng = Range.from_header("bytes=-500")
++    assert rng is not None
++    assert rng.range_for_length(100) == (0, 100)
++    assert rng.to_content_range_header(100) == "bytes 0-99/100"
++
++
++def test_if_match_star_not_precondition_failed() -> None:
++    env = create_environ(headers={"If-Match": "*"})
++    rv = Response("data")
++    rv.set_etag("abc")
++    rv.make_conditional(env)
++    assert rv.status_code == 200
++
++    env = create_environ(headers={"If-Match": '"other"'})
++    rv = Response("data")
++    rv.set_etag("abc")
++    rv.make_conditional(env)
++    assert rv.status_code == 412
++
++
++def test_request_args_invalid_utf8() -> None:
++    env = create_environ()
++    env["QUERY_STRING"] = "a=\xff&b=1"
++    request = Request(env)
++    assert request.args["a"] == "%FF"
++    assert request.args["b"] == "1"
++    assert request.full_path == "/?a=%FF&b=1"
++
++
++def test_urlencoded_limit_unknown_length() -> None:
++    parser = FormDataParser(max_form_memory_size=10)
++
++    with pytest.raises(RequestEntityTooLarge):
++        parser.parse(
++            io.BytesIO(b"a=" + b"x" * 100),
++            "application/x-www-form-urlencoded",
++            content_length=None,
++        )
++
++    _, form, _ = parser.parse(
++        io.BytesIO(b"a=b"), "application/x-www-form-urlencoded", content_length=None
++    )
++    assert form["a"] == "b"
++
++
++def test_trusted_hosts_case_insensitive() -> None:
++    assert host_is_trusted("Example.COM", ["example.com"])
++    assert host_is_trusted("www.EXAMPLE.com:8080", [".Example.com"])
++    assert get_host("http", "EXAMPLE.com", None, ["example.com"]) == "EXAMPLE.com"
++
++    with pytest.raises(SecurityError):
++        get_host("http", "evil.com", None, ["example.com"])
++
++
++def test_header_property_set_none_removes() -> None:
++    rv = Response()
++    rv.content_length = 10
++    rv.content_length = None
++    assert "Content-Length" not in rv.headers
++    rv.age = 10
++    rv.age = None
++    assert "Age" not in rv.headers
++    rv.location = "/a"
++    rv.location = None
++    assert "Location" not in rv.headers
++    rv.date = None
++    assert "Date" not in rv.headers
++
++
++def test_float_converter_build_round_trips() -> None:
++    m = r.Map([r.Rule("/<float:v>", endpoint="f")])
++    a = m.bind("example.org")
++
++    for value in (1.0, 0.12345678, 1e-9, 123456789.5, 1e20):
++        url = a.build("f", {"v": value})
++        assert "e" not in url
++        assert a.match(url) == ("f", {"v": value})
++
++
++def test_submount_keeps_websocket_and_merge_slashes() -> None:
++    m = r.Map(
++        [
++            r.Submount(
++                "/s",
++                [
++                    r.Rule("/ws", endpoint="ws", websocket=True),
++                    r.Rule("/a//b", endpoint="ab", merge_slashes=False),
++                ],
++            )
++        ]
++    )
++    rules = {rule.endpoint: rule for rule in m.iter_rules()}
++    assert rules["ws"].websocket
++    assert rules["ab"].merge_slashes is False
++
++
++def test_rule_template_keeps_options() -> None:
++    template = r.RuleTemplate(
++        [
++            r.Rule("/$name/ws", endpoint="$name.ws", websocket=True),
++            r.Rule("/$name/old", redirect_to="/$name/new", endpoint="$name.old"),
++        ]
++    )
++    m = r.Map([template(name="x")])
++    rules = {rule.endpoint: rule for rule in m.iter_rules()}
++    assert rules["x.ws"].websocket
++    assert rules["x.old"].redirect_to == "/$name/new"
++
++
++def test_build_relative_without_domain_matching() -> None:
++    m = r.Map([r.Rule("/", endpoint="index")], subdomain_matching=False)
++    a = m.bind("example.org", "/app")
++    assert a.build("index") == "/app/"
++    assert a.build("index", force_external=True) == "http://example.org/app/"
++
++
++class _ShortReads(io.RawIOBase):
++    def __init__(self, data: bytes) -> None:
++        self.data = data
++
++    def readable(self) -> bool:
++        return True
++
++    def readinto(self, b):  # type: ignore[no-untyped-def]
++        n = min(len(b), 3, len(self.data))
++        b[:n] = self.data[:n]
++        self.data = self.data[n:]
++        return n
++
++
++def test_limited_stream_short_read() -> None:
++    stream = LimitedStream(_ShortReads(b"abcdefghij"), 10)
++    buf = bytearray(100)
++    assert stream.readinto(memoryview(buf)) == 3
++    assert len(buf) == 100
++    assert buf[:3] == b"abc"
++    buffered = io.BufferedReader(LimitedStream(_ShortReads(b"abcdefghij"), 10))
++    assert buffered.read() == b"abcdefghij"
++
++
++def test_range_wrapper_empty_chunks() -> None:
++    wrapped = _RangeWrapper(iter([b"ab", b"", b"cd", b"ef"]), 1, 4)
++    assert b"".join(wrapped) == b"bcde"
++
++
++def test_closing_iterator_calls_all_callbacks() -> None:
++    called = []
++
++    def fail() -> None:
++        called.append("fail")
++        raise RuntimeError("fail")
++
++    it = ClosingIterator([b"a"], [fail, lambda: called.append("second")])
++
++    with pytest.raises(RuntimeError):
++        it.close()
++
++    assert called == ["fail", "second"]
++
++
++def test_language_accept_generator_matches() -> None:
++    accept = LanguageAccept([("en", 1)])
++    assert accept.best_match(x for x in ["en-US", "de"]) == "en-US"
++    accept = LanguageAccept([("en-GB", 1)])
++    assert accept.best_match(["enx", "en"]) == "en"
++
++
++def test_cache_control_case_insensitive() -> None:
++    cc = RequestCacheControl.from_header("Max-Age=60, No-Cache")
++    assert cc.max_age == 60
++    assert cc.no_cache
++    cc = ResponseCacheControl.from_header("NO-STORE")
++    assert cc.no_store
++
++
++def test_retry_after_overflow() -> None:
++    rv = Response()
++    rv.headers["Retry-After"] = "9" * 30
++    assert rv.retry_after is None
++
++
++def _cookie_app(environ, start_response):  # type: ignore[no-untyped-def]
++    request = Request(environ)
++    response = Response(request.headers.get("Cookie", ""))
++
++    if request.path == "/set-dot":
++        response.headers.add("Set-Cookie", "a=1; Domain=.Example.COM; Path=/")
++    elif request.path == "/expire-past":
++        response.headers.add(
++            "Set-Cookie",
++            f"a=; Domain=example.com; Path=/; Expires={http_date(1000)}",
++        )
++    elif request.path == "/expire-negative":
++        response.headers.add("Set-Cookie", "a=; Domain=example.com; Max-Age=-1")
++
++    return response(environ, start_response)
++
++
++def test_client_cookie_leading_dot_domain() -> None:
++    client = Client(_cookie_app)
++    client.get("/set-dot", "http://example.com/")
++    assert client.get("/", "http://sub.example.com/").text == "a=1"
++    assert client.get("/", "http://example.com/").text == "a=1"
++
++
++@pytest.mark.parametrize("path", ["/expire-past", "/expire-negative"])
++def test_client_cookie_expired_removed(path: str) -> None:
++    client = Client(_cookie_app)
++    client.get("/set-dot", "http://example.com/")
++    client.get(path, "http://example.com/")
++    assert client.get_cookie("a", domain="example.com") is None
++
++
++def test_client_cookie_future_expires_kept() -> None:
++    client = Client(_cookie_app)
++    future = datetime.now(timezone.utc) + timedelta(days=1)
++
++    with warnings.catch_warnings():
++        warnings.simplefilter("ignore")
++        client.set_cookie("b", "2", expires=future)
++
++    assert client.get_cookie("b") is not None

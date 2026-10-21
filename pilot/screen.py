@@ -32,6 +32,15 @@ def package_dirs(tree: Path):
     return out
 
 
+def generated_files(repo, rev, work: Path, p):
+    """Files under package path p in the work tree that git doesn't track (e.g. a hatch-vcs version.py)."""
+    tracked = set(git(repo, "ls-tree", "-r", "--name-only", rev, "--", str(p)).split())
+    base = work / p
+    files = [base] if base.is_file() else base.rglob("*") if base.is_dir() else []
+    return {str(f.relative_to(work)): f.read_bytes() for f in files
+            if f.is_file() and "__pycache__" not in f.parts and str(f.relative_to(work)) not in tracked}
+
+
 def tests_dir(tree: Path):
     for d in ("tests", "test", "testing"):
         if (tree / d).is_dir():
@@ -41,7 +50,7 @@ def tests_dir(tree: Path):
 
 def run_pytest(d: Path, py: Path, tests: str, extra):
     junit = d / "junit.xml"
-    code, out = sh([str(py), "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o", "addopts=",
+    code, out = sh([str(py), "-m", "pytest", "-q", "-p", "no:cacheprovider", "-p", "no:randomly", "-o", "addopts=",
                     "--continue-on-collection-errors", f"--junitxml={junit}", *extra, tests], cwd=d, timeout=1200)
     results = {}
     if junit.exists():
@@ -72,7 +81,7 @@ def screen(spec, clones: Path, out: Path, cutoff: str, extra, extra_deps=()):
     py = venv / "bin" / "python"
     env = {**os.environ, "VIRTUAL_ENV": str(venv),
            # git archive has no .git, so tell setuptools-scm / hatch-vcs what version to use
-           "SETUPTOOLS_SCM_PRETEND_VERSION": "0.0.0"}
+           "SETUPTOOLS_SCM_PRETEND_VERSION": os.environ.get("SETUPTOOLS_SCM_PRETEND_VERSION", "0.0.0")}
     sh(["uv", "pip", "install", "-q", "pytest"], env=env)
     # install the package (with deps) plus any test dependency group / requirements we can find
     for group in ("test", "tests", "dev", "testing"):
@@ -90,8 +99,13 @@ def screen(spec, clones: Path, out: Path, cutoff: str, extra, extra_deps=()):
     pkgs = package_dirs(work)
     for p in pkgs:
         target = work / p
+        keep = generated_files(repo, head, work, p)
         shutil.rmtree(target, ignore_errors=True) if target.is_dir() else target.unlink(missing_ok=True)
         sh(f"git -C {repo} archive {snap} {p} | tar -x -C {work}")
+        for rel, data in keep.items():  # generated at install time; the snapshot archive doesn't have them
+            if not (work / rel).exists():
+                (work / rel).parent.mkdir(parents=True, exist_ok=True)
+                (work / rel).write_bytes(data)
     old, old_sum = run_pytest(work, py, tdir, extra)
     newly_failing = sorted(t for t, s in old.items() if s == "fail" and fut.get(t) == "pass")
     res = dict(repo=spec, snapshot=snap, snapshot_date=git(repo, "log", "-1", "--format=%cs", snap).strip(),

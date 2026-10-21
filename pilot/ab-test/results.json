@@ -1,0 +1,229 @@
+{
+ "python-dotenv-r1": {
+  "arm": "base",
+  "fixed": 6,
+  "target": 33,
+  "bug_tests": 6,
+  "n_bug_tests": 33,
+  "bug_commits": [
+   "f7b18d9"
+  ],
+  "n_bug_commits": 7,
+  "regressions": 0,
+  "verified_new_tests": 22
+ },
+ "python-dotenv-r2": {
+  "arm": "base",
+  "fixed": 3,
+  "target": 33,
+  "bug_tests": 3,
+  "n_bug_tests": 33,
+  "bug_commits": [
+   "f7b18d9"
+  ],
+  "n_bug_commits": 7,
+  "regressions": 0,
+  "verified_new_tests": 11
+ },
+ "python-dotenv-r3": {
+  "arm": "impr",
+  "fixed": 16,
+  "target": 33,
+  "bug_tests": 16,
+  "n_bug_tests": 33,
+  "bug_commits": [
+   "f215c02",
+   "f5485a6",
+   "f7b18d9"
+  ],
+  "n_bug_commits": 7,
+  "regressions": 0,
+  "verified_new_tests": 13
+ },
+ "python-dotenv-r4": {
+  "arm": "impr",
+  "fixed": 7,
+  "target": 33,
+  "bug_tests": 7,
+  "n_bug_tests": 33,
+  "bug_commits": [
+   "f215c02",
+   "f7b18d9"
+  ],
+  "n_bug_commits": 7,
+  "regressions": 0,
+  "verified_new_tests": 14
+ },
+ "cattrs-r1": {
+  "arm": "base",
+  "fixed": 5,
+  "target": 44,
+  "bug_tests": 5,
+  "n_bug_tests": 40,
+  "bug_commits": [
+   "02c3ead",
+   "3d57d6b",
+   "f2e42f3"
+  ],
+  "n_bug_commits": 7,
+  "regressions": 0,
+  "verified_new_tests": 24
+ },
+ "cattrs-r2": {
+  "arm": "base",
+  "fixed": 26,
+  "target": 44,
+  "bug_tests": 26,
+  "n_bug_tests": 40,
+  "bug_commits": [
+   "02c3ead",
+   "3d57d6b",
+   "b618aab",
+   "f2e42f3"
+  ],
+  "n_bug_commits": 7,
+  "regressions": 0,
+  "verified_new_tests": 30
+ },
+ "cattrs-r3": {
+  "arm": "impr",
+  "fixed": 6,
+  "target": 44,
+  "bug_tests": 6,
+  "n_bug_tests": 40,
+  "bug_commits": [
+   "02c3ead",
+   "3d57d6b",
+   "bc34a46",
+   "f2e42f3"
+  ],
+  "n_bug_commits": 7,
+  "regressions": 0,
+  "verified_new_tests": 40
+ },
+ "cattrs-r4": {
+  "arm": "impr",
+  "fixed": 5,
+  "target": 44,
+  "bug_tests": 5,
+  "n_bug_tests": 40,
+  "bug_commits": [
+   "02c3ead",
+   "3d57d6b",
+   "f2e42f3"
+  ],
+  "n_bug_commits": 7,
+  "regressions": 0,
+  "verified_new_tests": 37
+ },
+ "werkzeug-r1": {
+  "arm": "base",
+  "fixed": 6,
+  "target": 54,
+  "bug_tests": 6,
+  "n_bug_tests": 26,
+  "bug_commits": [
+   "4da3786f",
+   "884437ae",
+   "c678a231"
+  ],
+  "n_bug_commits": 10,
+  "regressions": 0,
+  "verified_new_tests": 65
+ },
+ "werkzeug-r2": {
+  "arm": "base",
+  "fixed": 4,
+  "target": 54,
+  "bug_tests": 4,
+  "n_bug_tests": 26,
+  "bug_commits": [
+   "884437ae",
+   "c678a231"
+  ],
+  "n_bug_commits": 10,
+  "regressions": 0,
+  "verified_new_tests": 24
+ },
+ "werkzeug-r3": {
+  "arm": "impr",
+  "fixed": 7,
+  "target": 54,
+  "bug_tests": 7,
+  "n_bug_tests": 26,
+  "bug_commits": [
+   "4da3786f",
+   "c678a231"
+  ],
+  "n_bug_commits": 10,
+  "regressions": 0,
+  "verified_new_tests": 46
+ },
+ "werkzeug-r4": {
+  "arm": "impr",
+  "fixed": 10,
+  "target": 54,
+  "bug_tests": 10,
+  "n_bug_tests": 26,
+  "bug_commits": [
+   "0c419f95",
+   "4da3786f",
+   "6d7c0b4e",
+   "884437ae",
+   "c678a231"
+  ],
+  "n_bug_commits": 10,
+  "regressions": 0,
+  "verified_new_tests": 68
+ },
+ "pydantic-settings-r1": {
+  "arm": "base",
+  "fixed": 1,
+  "target": 42,
+  "bug_tests": 0,
+  "n_bug_tests": 12,
+  "bug_commits": [],
+  "n_bug_commits": 6,
+  "regressions": 0,
+  "verified_new_tests": 10
+ },
+ "pydantic-settings-r2": {
+  "arm": "base",
+  "fixed": 1,
+  "target": 42,
+  "bug_tests": 1,
+  "n_bug_tests": 12,
+  "bug_commits": [
+   "bf443bd"
+  ],
+  "n_bug_commits": 6,
+  "regressions": 0,
+  "verified_new_tests": 11
+ },
+ "pydantic-settings-r3": {
+  "arm": "impr",
+  "fixed": 2,
+  "target": 42,
+  "bug_tests": 1,
+  "n_bug_tests": 12,
+  "bug_commits": [
+   "bf443bd"
+  ],
+  "n_bug_commits": 6,
+  "regressions": 0,
+  "verified_new_tests": 28
+ },
+ "pydantic-settings-r4": {
+  "arm": "impr",
+  "fixed": 1,
+  "target": 42,
+  "bug_tests": 1,
+  "n_bug_tests": 12,
+  "bug_commits": [
+   "bf443bd"
+  ],
+  "n_bug_commits": 6,
+  "regressions": 0,
+  "verified_new_tests": 19
+ }
+}

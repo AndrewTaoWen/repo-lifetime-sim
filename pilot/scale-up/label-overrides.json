@@ -72,5 +72,40 @@
   "*": "bug",
   "49d6efa": "feature",
   "ea9263f": "unclear"
+ },
+ "python-dotenv": {
+  "*": "bug"
+ },
+ "cattrs": {
+  "*": "bug",
+  "f693a0b": "feature"
+ },
+ "werkzeug": {
+  "test:*": "feature",
+  "1b8bc581": "bug",
+  "5b0e3209": "feature",
+  "884437ae": "bug",
+  "c678a231": "bug",
+  "6d7c0b4e": "bug",
+  "0e170182": "bug",
+  "d441b0c7": "feature",
+  "4da3786f": "bug",
+  "test:test_get_host_invalid": "bug",
+  "test:test_plain_int": "bug",
+  "test:test_if_range_parsing": "bug",
+  "test:test_range_parsing": "bug",
+  "test:test_csp_header": "feature",
+  "test:test_parse_cookie": "unclear"
+ },
+ "pydantic-settings": {
+  "*": "feature",
+  "test:*": "unclear",
+  "0e8d7d4": "bug",
+  "12cdb0a": "bug",
+  "081d39f": "bug",
+  "d2fdeda": "bug",
+  "e1e0ece": "bug",
+  "bf443bd": "bug",
+  "a6d6813": "unclear"
  }
 }

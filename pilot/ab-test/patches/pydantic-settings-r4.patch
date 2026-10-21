@@ -1,0 +1,524 @@
+diff --git a/pydantic_settings/sources/base.py b/pydantic_settings/sources/base.py
+index eafe713..fe3aa15 100644
+--- a/pydantic_settings/sources/base.py
++++ b/pydantic_settings/sources/base.py
+@@ -4,12 +4,12 @@ from __future__ import annotations as _annotations
+ 
+ import json
+ from abc import ABC, abstractmethod
+-from collections.abc import Sequence
++from collections.abc import Mapping, Sequence
+ from dataclasses import asdict, is_dataclass
+ from pathlib import Path
+ from typing import TYPE_CHECKING, Any, cast, get_args
+ 
+-from pydantic import AliasChoices, AliasPath, BaseModel, TypeAdapter
++from pydantic import AliasChoices, AliasPath, TypeAdapter
+ from pydantic._internal._typing_extra import (  # type: ignore[attr-defined]
+     get_origin,
+ )
+@@ -18,7 +18,6 @@ from pydantic.fields import FieldInfo
+ from typing_inspection.introspection import is_union_origin
+ 
+ from ..exceptions import SettingsError
+-from ..utils import _lenient_issubclass
+ from .types import EnvNoneType, EnvPrefixTarget, ForceDecode, NoDecode, PathType, PydanticModel, _CliSubCommand
+ from .utils import (
+     _annotation_is_complex,
+@@ -217,6 +216,14 @@ class ConfigFileSourceMixin(ABC):
+                 continue
+ 
+             updating_vars = self._read_file(file_path)
++            if updating_vars is None:
++                # e.g. a JSON file containing only `null`
++                continue
++            if not isinstance(updating_vars, Mapping):
++                raise SettingsError(
++                    f'config file {file_path} must contain a mapping at the top level, '
++                    f'not {type(updating_vars).__name__}'
++                )
+             if deep_merge:
+                 vars = deep_update(vars, updating_vars)
+             else:
+@@ -454,7 +461,7 @@ class PydanticBaseEnvSettingsSource(PydanticBaseSettingsSource):
+                 args = get_args(annotation)
+                 if len(args) == 2 and type(None) in args:
+                     for arg in args:
+-                        if arg is not None:
++                        if arg is not type(None):
+                             annotation = arg
+                             break
+ 
+@@ -478,11 +485,8 @@ class PydanticBaseEnvSettingsSource(PydanticBaseSettingsSource):
+                 values[name] = value
+                 continue
+ 
+-            if (
+-                sub_model_field is not None
+-                and _lenient_issubclass(sub_model_field.annotation, BaseModel)
+-                and isinstance(value, dict)
+-            ):
++            if sub_model_field is not None and isinstance(value, dict):
++                # The recursive call unwraps `Optional[...]` and leaves non-model annotations untouched.
+                 values[field_key] = self._replace_field_names_case_insensitively(sub_model_field, value)
+             else:
+                 values[field_key] = value
+diff --git a/pydantic_settings/sources/providers/cli.py b/pydantic_settings/sources/providers/cli.py
+index 25cdb8f..75ec314 100644
+--- a/pydantic_settings/sources/providers/cli.py
++++ b/pydantic_settings/sources/providers/cli.py
+@@ -42,7 +42,7 @@ from pydantic._internal._repr import Representation
+ from pydantic._internal._utils import is_model_class
+ from pydantic.dataclasses import is_pydantic_dataclass
+ from pydantic.fields import FieldInfo
+-from pydantic_core import PydanticUndefined
++from pydantic_core import PydanticUndefined, to_jsonable_python
+ from typing_inspection import typing_objects
+ from typing_inspection.introspection import is_union_origin
+ 
+@@ -413,8 +413,12 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
+         )
+         self._cli_flag_prefix = self.cli_flag_prefix_char * 2
+         if self.cli_prefix:
+-            if cli_prefix.startswith('.') or cli_prefix.endswith('.') or not cli_prefix.replace('.', '').isidentifier():  # type: ignore
+-                raise SettingsError(f'CLI settings source prefix is invalid: {cli_prefix}')
++            if (
++                self.cli_prefix.startswith('.')
++                or self.cli_prefix.endswith('.')
++                or not self.cli_prefix.replace('.', '').isidentifier()
++            ):
++                raise SettingsError(f'CLI settings source prefix is invalid: {self.cli_prefix}')
+             self.cli_prefix += '.'
+         self.cli_implicit_flags = (
+             cli_implicit_flags
+@@ -1512,6 +1516,18 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
+                     values = [f'{k}={v}' for k, v in json.loads(value).items()]
+         return values
+ 
++    def _serialize_value(self, value: Any) -> str:
++        """Serialize a single field value into a CLI string that parses back to the same value."""
++        if value is None:
++            return self.cli_parse_none_str
++        if isinstance(value, Enum) and str(value) != str(value.value):
++            # `str(member)` gives `Cls.name` for plain enums, which cannot be parsed back. Use the member name,
++            # which the CLI source resolves via `env_parse_enums`.
++            return _CliArg.get_kebab_case(value.name, self.cli_kebab_case == 'all')
++        if isinstance(value, (dict, list, set, frozenset, tuple)):
++            return json.dumps(to_jsonable_python(value))
++        return str(value)
++
+     @staticmethod
+     def _flatten_serialized_args(
+         serialized_args: dict[str, list[str]],
+@@ -1568,9 +1584,7 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
+ 
+             matched = re.match(r'(-*)(.+)', arg.preferred_arg_name)
+             flag_chars, arg_name = matched.groups() if matched else ('', '')
+-            value: str | list[Any] | dict[str, Any] = (
+-                json.dumps(model_default) if isinstance(model_default, (dict, list, set)) else str(model_default)
+-            )
++            value: str | list[Any] | dict[str, Any] = self._serialize_value(model_default)
+ 
+             if arg.is_alias_path_only:
+                 # For alias path only, we wont know the complete value until we've finished parsing the entire class. In
+@@ -1579,9 +1593,10 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
+                 value = self._update_alias_path_only_default(arg_name, value, field_info, alias_path_only_defaults)
+ 
+             if _CliPositionalArg in field_info.metadata:
+-                for value in model_default if isinstance(model_default, list) else [model_default]:
+-                    value = json.dumps(value) if isinstance(value, (dict, list, set)) else str(value)
+-                    positional_args.append(value)
++                for value in (
++                    model_default if isinstance(model_default, (list, tuple, set, frozenset)) else [model_default]
++                ):
++                    positional_args.append(self._serialize_value(value))
+                 continue
+ 
+             # Note: prepend 'no-' for boolean optional action flag if model_default value is False and flag is not a short option
+diff --git a/pydantic_settings/sources/providers/dotenv.py b/pydantic_settings/sources/providers/dotenv.py
+index 3943387..3ba68f6 100644
+--- a/pydantic_settings/sources/providers/dotenv.py
++++ b/pydantic_settings/sources/providers/dotenv.py
+@@ -130,6 +130,8 @@ class DotEnvSettingsSource(EnvSettingsSource):
+             return data
+ 
+         is_extra_allowed = self.config.get('extra') != 'forbid'
++        # env var names are lower-cased when case-insensitive, so the prefix must be too
++        env_prefix = self._apply_case_sensitive(self.env_prefix)
+ 
+         # As `extra` config is allowed in dotenv settings source, We have to
+         # update data with extra env variables from dotenv file.
+@@ -154,9 +156,9 @@ class DotEnvSettingsSource(EnvSettingsSource):
+                 if env_used:
+                     break
+             if not env_used:
+-                if is_extra_allowed and env_name.startswith(self.env_prefix):
++                if is_extra_allowed and env_name.startswith(env_prefix):
+                     # env_prefix should be respected and removed from the env_name
+-                    normalized_env_name = env_name[len(self.env_prefix) :]
++                    normalized_env_name = env_name[len(env_prefix) :]
+                     data[normalized_env_name] = env_value
+                 else:
+                     data[env_name] = env_value
+diff --git a/pydantic_settings/sources/providers/nested_secrets.py b/pydantic_settings/sources/providers/nested_secrets.py
+index cc9039c..c8344b9 100644
+--- a/pydantic_settings/sources/providers/nested_secrets.py
++++ b/pydantic_settings/sources/providers/nested_secrets.py
+@@ -1,7 +1,7 @@
+ import os
+ import warnings
+ from functools import reduce
+-from glob import iglob
++from glob import escape, iglob
+ from pathlib import Path
+ from typing import TYPE_CHECKING, Any, Literal, Optional
+ 
+@@ -154,7 +154,7 @@ class NestedSecretsSettingsSource(EnvSettingsSource):
+     def load_secrets(path: Path) -> dict[str, str]:
+         return {
+             str(p.relative_to(path)): p.read_text().strip()
+-            for p in map(Path, iglob(f'{path}/**/*', recursive=True))
++            for p in map(Path, iglob(f'{escape(str(path))}/**/*', recursive=True))
+             if p.is_file()
+         }
+ 
+diff --git a/pydantic_settings/sources/providers/pyproject.py b/pydantic_settings/sources/providers/pyproject.py
+index bb02cbb..7de5fc4 100644
+--- a/pydantic_settings/sources/providers/pyproject.py
++++ b/pydantic_settings/sources/providers/pyproject.py
+@@ -44,7 +44,7 @@ class PyprojectTomlConfigSettingsSource(TomlConfigSettingsSource):
+ 
+         """
+         if provided:
+-            return provided.resolve()
++            return Path(provided).resolve()
+         rv = Path.cwd() / 'pyproject.toml'
+         count = 0
+         if not rv.is_file():
+diff --git a/pydantic_settings/sources/providers/secrets.py b/pydantic_settings/sources/providers/secrets.py
+index 14364c7..8fc41e0 100644
+--- a/pydantic_settings/sources/providers/secrets.py
++++ b/pydantic_settings/sources/providers/secrets.py
+@@ -90,12 +90,15 @@ class SecretsSettingsSource(PydanticBaseEnvSettingsSource):
+         Returns:
+             Whether file path or `None` if file does not exist in directory.
+         """
++        # Prefer an exact match over a case-insensitive one, independent of directory listing order.
++        insensitive_match: Path | None = None
++        lower_name = file_name.lower()
+         for f in dir_path.iterdir():
+             if f.name == file_name:
+                 return f
+-            elif not case_sensitive and f.name.lower() == file_name.lower():
+-                return f
+-        return None
++            elif not case_sensitive and insensitive_match is None and f.name.lower() == lower_name:
++                insensitive_match = f
++        return insensitive_match
+ 
+     def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+         """
+@@ -120,6 +123,9 @@ class SecretsSettingsSource(PydanticBaseEnvSettingsSource):
+ 
+                 if path.is_file():
+                     return path.read_text().strip(), field_key, value_is_complex
++                elif not path.exists():
++                    # e.g. a dangling symlink: treat the secret as missing
++                    continue
+                 else:
+                     warnings.warn(
+                         f'attempted to load secret file "{path}" but found a {path_type_label(path)} instead.',
+diff --git a/pydantic_settings/sources/providers/yaml.py b/pydantic_settings/sources/providers/yaml.py
+index e3e48d0..bb1401d 100644
+--- a/pydantic_settings/sources/providers/yaml.py
++++ b/pydantic_settings/sources/providers/yaml.py
+@@ -59,6 +59,14 @@ class YamlConfigSettingsSource(InitSettingsSource, ConfigFileSourceMixin):
+             self.yaml_data = self._traverse_nested_section(
+                 self.yaml_data, self.yaml_config_section, self.yaml_config_section
+             )
++            if self.yaml_data is None:
++                # an empty section (e.g. `app:` with no children) holds no values
++                self.yaml_data = {}
++            elif not isinstance(self.yaml_data, dict):
++                raise TypeError(
++                    f'yaml_config_section "{self.yaml_config_section}" in {self.yaml_file_path} must be a mapping, '
++                    f'not {type(self.yaml_data).__name__}'
++                )
+         super().__init__(settings_cls, self.yaml_data)
+ 
+     def _read_file(self, file_path: Path) -> dict[str, Any]:
+diff --git a/pydantic_settings/sources/utils.py b/pydantic_settings/sources/utils.py
+index 10c79ad..cdc6219 100644
+--- a/pydantic_settings/sources/utils.py
++++ b/pydantic_settings/sources/utils.py
+@@ -115,7 +115,8 @@ def _annotation_is_complex(annotation: Any, metadata: list[Any]) -> bool:
+ 
+ def _get_field_metadata(field: FieldInfo) -> list[Any]:
+     annotation = _resolve_type_alias(field.annotation)
+-    metadata = field.metadata
++    # Copy so that repeated calls never mutate (and grow) the field's own metadata list.
++    metadata = list(field.metadata)
+     origin = get_origin(annotation)
+     if typing_objects.is_annotated(origin):
+         _, *meta = get_args(annotation)
+diff --git a/tests/test_regressions.py b/tests/test_regressions.py
+new file mode 100644
+index 0000000..7274739
+--- /dev/null
++++ b/tests/test_regressions.py
+@@ -0,0 +1,255 @@
++"""Regression tests for latent bugs fixed during hardening."""
++
++from __future__ import annotations
++
++import os
++import sys
++from enum import Enum, IntEnum
++from pathlib import Path
++from typing import Annotated, Optional, Union
++
++import pytest
++from pydantic import BaseModel, field_validator
++
++from pydantic_settings import (
++    BaseSettings,
++    CliApp,
++    CliSettingsSource,
++    JsonConfigSettingsSource,
++    NoDecode,
++    PyprojectTomlConfigSettingsSource,
++    SecretsSettingsSource,
++    SettingsConfigDict,
++    SettingsError,
++    YamlConfigSettingsSource,
++)
++from pydantic_settings.sources.providers.nested_secrets import NestedSecretsSettingsSource
++
++try:
++    import yaml
++except ImportError:  # pragma: no cover
++    yaml = None
++
++
++@pytest.mark.skipif(sys.version_info < (3, 12), reason='requires `type` statement support')
++def test_decode_does_not_grow_field_metadata(env):
++    from typing import TypeAliasType
++
++    IntList = TypeAliasType('IntList', Annotated[list[int], NoDecode])
++
++    class Settings(BaseSettings):
++        x: IntList = []
++
++        @field_validator('x', mode='before')
++        @classmethod
++        def split(cls, v):
++            return [int(i) for i in v.split(',')] if isinstance(v, str) else v
++
++    env.set('X', '1,2')
++    before = list(Settings.model_fields['x'].metadata)
++    for _ in range(3):
++        assert Settings().x == [1, 2]
++    assert Settings.model_fields['x'].metadata == before
++
++
++def test_case_insensitive_nested_union_none_first(env):
++    class Sub(BaseModel):
++        Val: int
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(env_nested_delimiter='__')
++        a: Union[None, Sub] = None
++        b: Optional[Sub] = None
++
++    env.set('A__VAL', '1')
++    env.set('B__VAL', '2')
++    s = Settings()
++    assert s.a == Sub(Val=1)
++    assert s.b == Sub(Val=2)
++
++
++def test_case_insensitive_optional_deeply_nested_model(env):
++    class Deep(BaseModel):
++        Vv: int
++
++    class Mid(BaseModel):
++        Inner: Optional[Deep] = None
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(env_nested_delimiter='__')
++        top: Mid = Mid()
++
++    env.set('TOP__INNER__VV', '3')
++    assert Settings().top.Inner == Deep(Vv=3)
++
++
++def test_dotenv_extra_strips_uppercase_prefix_case_insensitive(tmp_path):
++    p = tmp_path / '.env'
++    p.write_text('APP_foo=1\nAPP_extra_var=x\n')
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(extra='allow', env_file=p, env_prefix='APP_')
++        foo: str = ''
++
++    assert Settings().model_dump() == {'foo': '1', 'extra_var': 'x'}
++
++
++def test_secrets_prefers_exact_case_match(tmp_path, monkeypatch):
++    (tmp_path / 'FOO').write_text('upper')
++    (tmp_path / 'foo').write_text('lower')
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(secrets_dir=tmp_path)
++        foo: str = ''
++
++    # Make directory listing return the non-exact match first.
++    real_iterdir = Path.iterdir
++    monkeypatch.setattr(Path, 'iterdir', lambda self: iter(sorted(real_iterdir(self))))
++    assert SecretsSettingsSource.find_case_path(tmp_path, 'foo', case_sensitive=False).name == 'foo'
++    assert SecretsSettingsSource.find_case_path(tmp_path, 'Foo', case_sensitive=False) is not None
++    assert SecretsSettingsSource.find_case_path(tmp_path, 'Foo', case_sensitive=True) is None
++    assert Settings().foo == 'lower'
++
++
++@pytest.mark.skipif(not hasattr(os, 'symlink'), reason='requires symlinks')
++def test_secrets_dangling_symlink_is_missing(tmp_path):
++    os.symlink(tmp_path / 'does-not-exist', tmp_path / 'foo')
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(secrets_dir=tmp_path)
++        foo: str = 'default'
++
++    assert Settings().foo == 'default'
++
++
++def test_nested_secrets_dir_with_glob_metacharacters(tmp_path):
++    secrets_dir = tmp_path / 'secrets[1]'
++    secrets_dir.mkdir()
++    (secrets_dir / 'foo').write_text('bar')
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(secrets_dir=secrets_dir)
++        foo: str = ''
++
++        @classmethod
++        def settings_customise_sources(
++            cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings
++        ):
++            return (NestedSecretsSettingsSource(file_secret_settings),)
++
++    assert Settings().foo == 'bar'
++
++
++def test_cli_prefix_from_model_config_without_argument():
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(cli_prefix='app')
++        a: int = 1
++
++    source = CliSettingsSource(Settings, cli_parse_args=['--app.a', '3'])
++    assert Settings(_cli_settings_source=source).a == 3
++
++    class BadSettings(BaseSettings):
++        model_config = SettingsConfigDict(cli_prefix='.app')
++        a: int = 1
++
++    with pytest.raises(SettingsError, match='CLI settings source prefix is invalid'):
++        CliSettingsSource(BadSettings)
++
++
++class _Color(Enum):
++    red_x = 'r'
++    blue = 'b'
++
++
++class _Num(IntEnum):
++    one = 1
++    two = 2
++
++
++@pytest.mark.parametrize(
++    'kwargs',
++    [
++        {'tup': (1, 2)},
++        {'fs': frozenset({3})},
++        {'st': {4, 5}},
++        {'opt': None},
++        {'color': _Color.blue},
++        {'num': _Num.two},
++    ],
++)
++def test_cli_serialize_round_trip(kwargs):
++    class Settings(BaseSettings):
++        tup: tuple[int, ...] = ()
++        fs: frozenset[int] = frozenset()
++        st: set[int] = set()
++        opt: Optional[int] = 5
++        color: _Color = _Color.red_x
++        num: _Num = _Num.one
++
++    inst = Settings(**kwargs)
++    args = CliApp.serialize(inst)
++    assert CliApp.run(Settings, cli_args=args) == inst
++
++
++def test_cli_serialize_enum_kebab_case_all():
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(cli_kebab_case='all')
++        color: _Color = _Color.blue
++
++    inst = Settings(color=_Color.red_x)
++    args = CliApp.serialize(inst)
++    assert args == ['--color', 'red-x']
++    assert CliApp.run(Settings, cli_args=args) == inst
++
++
++def _json_only(settings_cls):
++    return (JsonConfigSettingsSource(settings_cls),)
++
++
++@pytest.mark.parametrize('content', ['null', '[1, 2]', '"str"'])
++def test_json_file_non_mapping_top_level(tmp_path, content):
++    p = tmp_path / 'c.json'
++    p.write_text(content)
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(json_file=p)
++        a: int = 1
++
++        @classmethod
++        def settings_customise_sources(cls, settings_cls, **kwargs):
++            return _json_only(settings_cls)
++
++    if content == 'null':
++        assert Settings().a == 1
++    else:
++        with pytest.raises(SettingsError, match='must contain a mapping'):
++            Settings()
++
++
++@pytest.mark.skipif(yaml is None, reason='pyYAML not installed')
++def test_yaml_config_section_empty_or_scalar(tmp_path):
++    p = tmp_path / 'c.yaml'
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(yaml_file=p, yaml_config_section='app')
++        a: int = 1
++
++        @classmethod
++        def settings_customise_sources(cls, settings_cls, **kwargs):
++            return (YamlConfigSettingsSource(settings_cls),)
++
++    p.write_text('app:\n')
++    assert Settings().a == 1
++    p.write_text('app: 3\n')
++    with pytest.raises(TypeError, match='must be a mapping'):
++        Settings()
++
++
++def test_pyproject_toml_accepts_str_path(tmp_path):
++    p = tmp_path / 'pyproject.toml'
++    p.write_text('[tool.pydantic-settings]\na = 3\n')
++
++    class Settings(BaseSettings):
++        a: int = 0
++
++    assert PyprojectTomlConfigSettingsSource(Settings, str(p))() == {'a': 3}

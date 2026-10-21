@@ -1,0 +1,1413 @@
+diff --git a/src/cattrs/_compat.py b/src/cattrs/_compat.py
+index 9a58b1f..911efea 100644
+--- a/src/cattrs/_compat.py
++++ b/src/cattrs/_compat.py
+@@ -88,12 +88,14 @@ except ImportError:  # pragma: no cover
+ 
+ # On some Python versions, `typing_extensions.Any` is different than
+ # `typing.Any`.
++# This is a tuple and not a set so membership checks do not require the
++# checked type to be hashable (`Annotated` with unhashable metadata isn't).
+ try:
+     from typing_extensions import Any as teAny
+ 
+-    ANIES = frozenset([Any, teAny])
++    ANIES = (Any, teAny) if teAny is not Any else (Any,)
+ except ImportError:  # pragma: no cover
+-    ANIES = frozenset([Any])
++    ANIES = (Any,)
+ 
+ NoneType = type(None)
+ 
+diff --git a/src/cattrs/cols.py b/src/cattrs/cols.py
+index f88bc26..6b97d21 100644
+--- a/src/cattrs/cols.py
++++ b/src/cattrs/cols.py
+@@ -84,13 +84,29 @@ def is_namedtuple(type: Any) -> bool:
+     return False
+ 
+ 
++def _namedtuple_field_types(cl: type[tuple]) -> tuple[Any, ...]:
++    """Return the (resolved) types of the fields of a typed namedtuple, in order.
++
++    Unlike `cl.__annotations__`, this handles stringified annotations and
++    subclasses of namedtuples (which have no annotations of their own).
++    """
++    try:
++        hints = get_full_type_hints(cl)
++    except Exception:  # noqa: BLE001
++        # Fall back to raw annotations if they cannot be resolved.
++        hints = {}
++        for base in reversed(cl.__mro__):
++            hints.update(base.__dict__.get("__annotations__", {}))
++    return tuple(hints.get(name, Any) for name in cl._fields)
++
++
+ def _is_passthrough(type: type[tuple], converter: BaseConverter) -> bool:
+     """If all fields would be passed through, this class should not be processed
+     either.
+     """
+     return all(
+         converter.get_unstructure_hook(t) == identity
+-        for t in type.__annotations__.values()
++        for t in _namedtuple_field_types(type)
+     )
+ 
+ 
+@@ -209,7 +225,7 @@ def namedtuple_unstructure_factory(
+         cl,
+         converter,
+         unstructure_to=tuple if unstructure_to is None else unstructure_to,
+-        type_args=tuple(cl.__annotations__.values()),
++        type_args=_namedtuple_field_types(cl),
+     )
+ 
+ 
+@@ -218,7 +234,7 @@ def namedtuple_structure_factory(
+ ) -> StructureHook:
+     """A hook factory for structuring namedtuples from iterables."""
+     # We delegate to the existing infrastructure for heterogenous tuples.
+-    hetero_tuple_type = tuple[tuple(cl.__annotations__.values())]
++    hetero_tuple_type = tuple[_namedtuple_field_types(cl)]
+     base_hook = converter.get_structure_hook(hetero_tuple_type)
+     return lambda v, _: cl(*base_hook(v, hetero_tuple_type))
+ 
+diff --git a/src/cattrs/converters.py b/src/cattrs/converters.py
+index fb48581..9df68ad 100644
+--- a/src/cattrs/converters.py
++++ b/src/cattrs/converters.py
+@@ -441,6 +441,7 @@ class BaseConverter:
+                     self._unstructure_func.register_func_list(
+                         [(predicate, factory, True)]
+                     )
++                return factory
+ 
+             return decorator
+ 
+@@ -579,6 +580,7 @@ class BaseConverter:
+                     self._structure_func.register_func_list(
+                         [(predicate, factory, True)]
+                     )
++                return factory
+ 
+             return decorator
+         self._structure_func.register_func_list(
+@@ -713,17 +715,25 @@ class BaseConverter:
+ 
+     @staticmethod
+     def _structure_simple_literal(val, type):
+-        if val not in type.__args__:
+-            raise CattrsError(f"{val} not in literal {type}")
+-        return val
++        # Bools compare equal to ints (`True == 1`), but `Literal[1]` and
++        # `Literal[True]` are distinct types, so we take care not to mix them.
++        val_is_bool = isinstance(val, bool)
++        for arg in type.__args__:
++            if val == arg and val_is_bool is isinstance(arg, bool):
++                return val
++        raise CattrsError(f"{val} not in literal {type}")
+ 
+     @staticmethod
+     def _structure_enum_literal(val, type):
+-        vals = {(x.value if isinstance(x, Enum) else x): x for x in type.__args__}
+-        try:
+-            return vals[val]
+-        except KeyError:
+-            raise CattrsError(f"{val} not in literal {type}") from None
++        val_is_bool = isinstance(val, bool)
++        # Later arguments take precedence, as with a dictionary lookup.
++        for x in reversed(type.__args__):
++            if isinstance(x, Enum):
++                if val == x.value and val_is_bool is isinstance(x.value, bool):
++                    return x
++            elif val == x and val_is_bool is isinstance(x, bool):
++                return x
++        raise CattrsError(f"{val} not in literal {type}")
+ 
+     def _structure_newtype(self, val: UnstructuredValue, type) -> StructuredValue:
+         base = get_newtype_base(type)
+@@ -1041,9 +1051,24 @@ class BaseConverter:
+ 
+         self._unstructure_func.copy_to(res._unstructure_func, self._unstruct_copy_skip)
+         self._structure_func.copy_to(res._structure_func, self._struct_copy_skip)
++        self._copy_state_to(res)
+ 
+         return res
+ 
++    def _copy_state_to(self, other: BaseConverter) -> None:
++        """Copy state not covered by the dispatch copies to `other`.
++
++        This covers the fallback hook factories and union structure hooks
++        registered using `register_structure_hook`.
++        """
++        other._unstructure_func._fallback_factory = (
++            self._unstructure_func._fallback_factory
++        )
++        other._structure_func._fallback_factory = self._structure_func._fallback_factory
++        other._union_struct_registry.update(self._union_struct_registry)
++        other._unstructure_func.clear_cache()
++        other._structure_func.clear_cache()
++
+ 
+ class Converter(BaseConverter):
+     """A converter which generates specialized un/structuring functions."""
+@@ -1274,6 +1299,23 @@ class Converter(BaseConverter):
+         """
+         return make_typeddict_dict_unstruct_fn(cl, self)
+ 
++    def _get_attrib_type_overrides(
++        self, attribs: Iterable[Attribute]
++    ) -> dict[str, AttributeOverride]:
++        """Get the `type_overrides` applicable to the given attributes."""
++        res = {}
++        if not self.type_overrides:
++            return res
++        for a in attribs:
++            try:
++                override = self.type_overrides.get(a.type)
++            except TypeError:
++                # Unhashable types (like `Annotated[int, {}]`) can't be overridden.
++                continue
++            if override is not None:
++                res[a.name] = override
++        return res
++
+     def gen_unstructure_attrs_fromdict(
+         self, cl: type[T]
+     ) -> Callable[[T], dict[str, Any]]:
+@@ -1282,11 +1324,7 @@ class Converter(BaseConverter):
+         if attrs_has(cl) and any(isinstance(a.type, str) for a in attribs):
+             # PEP 563 annotations - need to be resolved.
+             resolve_types(origin or cl)
+-        attrib_overrides = {
+-            a.name: self.type_overrides[a.type]
+-            for a in attribs
+-            if a.type in self.type_overrides
+-        }
++        attrib_overrides = self._get_attrib_type_overrides(attribs)
+ 
+         return make_dict_unstructure_fn(
+             cl, self, _cattrs_omit_if_default=self.omit_if_default, **attrib_overrides
+@@ -1324,11 +1362,7 @@ class Converter(BaseConverter):
+         if attrs_has(cl) and any(isinstance(a.type, str) for a in attribs):
+             # PEP 563 annotations - need to be resolved.
+             resolve_types(origin or cl)
+-        attrib_overrides = {
+-            a.name: self.type_overrides[a.type]
+-            for a in attribs
+-            if a.type in self.type_overrides
+-        }
++        attrib_overrides = self._get_attrib_type_overrides(attribs)
+         return make_dict_structure_fn(
+             cl,
+             self,
+@@ -1461,6 +1495,7 @@ class Converter(BaseConverter):
+             res._unstructure_func, skip=self._unstruct_copy_skip
+         )
+         self._structure_func.copy_to(res._structure_func, skip=self._struct_copy_skip)
++        self._copy_state_to(res)
+ 
+         return res
+ 
+diff --git a/src/cattrs/disambiguators.py b/src/cattrs/disambiguators.py
+index f6e4392..825f8e6 100644
+--- a/src/cattrs/disambiguators.py
++++ b/src/cattrs/disambiguators.py
+@@ -4,7 +4,6 @@ from __future__ import annotations
+ 
+ from collections import defaultdict
+ from collections.abc import Mapping
+-from dataclasses import MISSING
+ from functools import reduce
+ from operator import or_
+ from typing import TYPE_CHECKING, Any, Callable, Literal, Union, get_origin
+@@ -14,7 +13,6 @@ from attrs import NOTHING, Attribute, AttrsInstance
+ from ._compat import (
+     NoneType,
+     adapted_fields,
+-    fields_dict,
+     get_args,
+     has,
+     is_literal,
+@@ -69,14 +67,15 @@ def create_default_dis_func(
+         # requirements for a discriminator field:
+         # (... TODO: a single fallback is OK)
+         #  - it must always be enumerated
+-        cls_candidates = [
+-            {
+-                at.name
+-                for at in adapted_fields(get_origin(cl) or cl)
+-                if is_literal(at.type)
+-            }
++        # `adapted_fields` resolves stringified annotations, for dataclasses too.
++        cls_fields = [
++            {at.name: at for at in adapted_fields(get_origin(cl) or cl)}
+             for cl in classes
+         ]
++        cls_candidates = [
++            {name for name, at in fields.items() if is_literal(at.type)}
++            for fields in cls_fields
++        ]
+ 
+         # literal field names common to all members
+         discriminators: set[str] = cls_candidates[0]
+@@ -85,14 +84,23 @@ def create_default_dis_func(
+ 
+         best_result = None
+         best_discriminator = None
+-        for discriminator in discriminators:
++        best_key = None
++        for discriminator in sorted(discriminators):
++            # The discriminator may be renamed in the unstructured data.
++            # This only works if all classes agree on the name.
++            keys = {
++                _overriden_name(fields[discriminator], override.get(discriminator))
++                for fields, override in zip(cls_fields, overrides)
++            }
++            if len(keys) != 1:
++                continue
++            (data_key,) = keys
++
+             # maps Literal values (strings, ints...) to classes
+             mapping = defaultdict(list)
+ 
+-            for cl in classes:
+-                for key in get_args(
+-                    fields_dict(get_origin(cl) or cl)[discriminator].type
+-                ):
++            for cl, fields in zip(classes, cls_fields):
++                for key in get_args(fields[discriminator].type):
+                     mapping[key].append(cl)
+ 
+             if best_result is None or max(len(v) for v in mapping.values()) <= max(
+@@ -100,6 +108,7 @@ def create_default_dis_func(
+             ):
+                 best_result = mapping
+                 best_discriminator = discriminator
++                best_key = data_key
+ 
+         if (
+             best_result
+@@ -114,7 +123,7 @@ def create_default_dis_func(
+             def dis_func(data: Mapping[Any, Any]) -> type | None:
+                 if not isinstance(data, Mapping):
+                     raise ValueError("Only input mappings are supported.")
+-                return final_mapping[data[best_discriminator]]
++                return final_mapping[data[best_key]]
+ 
+             return dis_func
+ 
+@@ -147,10 +156,11 @@ def create_default_dis_func(
+         uniq = cl_reqs - other_reqs
+ 
+         # We want a unique attribute with no default.
+-        cl_fields = fields_dict(get_origin(cl) or cl)
++        # `adapted_fields` normalizes dataclass `default_factory` into a default.
++        cl_fields = {a.name: a for a in adapted_fields(get_origin(cl) or cl)}
+         for maybe_renamed_attr_name in uniq:
+             orig_name = back_map[maybe_renamed_attr_name]
+-            if cl_fields[orig_name].default in (NOTHING, MISSING):
++            if cl_fields[orig_name].default is NOTHING:
+                 break
+         else:
+             if fallback is None:
+diff --git a/src/cattrs/dispatch.py b/src/cattrs/dispatch.py
+index f98dc51..35005ab 100644
+--- a/src/cattrs/dispatch.py
++++ b/src/cattrs/dispatch.py
+@@ -82,7 +82,40 @@ class FunctionDispatch:
+         return len(self._handler_pairs)
+ 
+     def copy_to(self, other: FunctionDispatch, skip: int = 0) -> None:
+-        other._handler_pairs = self._handler_pairs[:-skip] + other._handler_pairs
++        other._handler_pairs = (
++            self._handler_pairs[: len(self._handler_pairs) - skip]
++            + other._handler_pairs
++        )
++
++
++def _make_cached_dispatch(
++    dispatch_without_caching: Callable[[TargetType], Hook],
++) -> Callable[[TargetType], Hook]:
++    """Wrap `dispatch_without_caching` in a cache.
++
++    Types which cannot be hashed (for example, `Annotated` with unhashable
++    metadata) cannot be cached, so they are dispatched without caching.
++
++    The result exposes `cache_clear` and `cache_info`, like `functools.lru_cache`.
++    """
++    cached = lru_cache(maxsize=None)(dispatch_without_caching)
++
++    def dispatch(
++        typ: TargetType, _cached=cached, _uncached=dispatch_without_caching
++    ) -> Hook:
++        try:
++            return _cached(typ)
++        except TypeError:
++            try:
++                hash(typ)
++            except TypeError:
++                return _uncached(typ)
++            raise
++
++    dispatch.cache_clear = cached.cache_clear
++    dispatch.cache_info = cached.cache_info
++    dispatch.__wrapped__ = dispatch_without_caching
++    return dispatch
+ 
+ 
+ @define(init=False)
+@@ -115,7 +148,7 @@ class MultiStrategyDispatch(Generic[Hook]):
+         self._direct_dispatch = {}
+         self._function_dispatch = FunctionDispatch(converter)
+         self._single_dispatch = singledispatch(_DispatchNotFound)
+-        self.dispatch = lru_cache(maxsize=None)(self.dispatch_without_caching)
++        self.dispatch = _make_cached_dispatch(self.dispatch_without_caching)
+ 
+     def dispatch_without_caching(self, typ: TargetType) -> Hook:
+         """Dispatch on the type but without caching the result."""
+@@ -126,7 +159,11 @@ class MultiStrategyDispatch(Generic[Hook]):
+         except Exception:  # noqa: S110
+             pass
+ 
+-        direct_dispatch = self._direct_dispatch.get(typ)
++        try:
++            direct_dispatch = self._direct_dispatch.get(typ)
++        except TypeError:
++            # Unhashable types (like `Annotated[int, {}]`) cannot be in here.
++            direct_dispatch = None
+         if direct_dispatch is not None:
+             return direct_dispatch
+ 
+@@ -137,7 +174,11 @@ class MultiStrategyDispatch(Generic[Hook]):
+         """Register a class to direct or singledispatch."""
+         for cls, handler in cls_and_handler:
+             if direct:
+-                self._direct_dispatch[cls] = handler
++                try:
++                    self._direct_dispatch[cls] = handler
++                except TypeError:
++                    # Unhashable types cannot be stored; this is just a cache.
++                    pass
+             else:
+                 self._single_dispatch.register(cls, handler)
+                 self.clear_direct()
+diff --git a/src/cattrs/enums.py b/src/cattrs/enums.py
+index b1ab504..710ebee 100644
+--- a/src/cattrs/enums.py
++++ b/src/cattrs/enums.py
+@@ -1,11 +1,37 @@
+ from collections.abc import Callable
+ from enum import Enum
++from inspect import get_annotations
+ from typing import TYPE_CHECKING, Any
+ 
++from attrs import NOTHING
++
+ if TYPE_CHECKING:
+     from .converters import BaseConverter
+ 
+ 
++def _get_value_type(type: type[Enum]) -> Any:
++    """Return the type of the `_value_` annotation of the enum, if present.
++
++    Returns `NOTHING` if the enum has no `_value_` annotation of its own.
++    Stringified annotations (PEP 563) are resolved if possible.
++    """
++    try:
++        annotations = type.__annotations__
++    except Exception:  # noqa: BLE001
++        # Python 3.14+ may fail evaluating lazy annotations.
++        annotations = {}
++    if "_value_" not in annotations:
++        return NOTHING
++    val_type = annotations["_value_"]
++    if isinstance(val_type, str):
++        try:
++            val_type = get_annotations(type, eval_str=True)["_value_"]
++        except Exception:  # noqa: BLE001
++            # Leave it unresolved; the converter will complain.
++            pass
++    return val_type
++
++
+ def enum_unstructure_factory(
+     type: type[Enum], converter: "BaseConverter"
+ ) -> Callable[[Enum], Any]:
+@@ -14,7 +40,7 @@ def enum_unstructure_factory(
+     If the enum is a typed enum (has `_value_`), we use the underlying value's hook.
+     Otherwise, we use the value directly.
+     """
+-    if "_value_" in type.__annotations__:
++    if _get_value_type(type) is not NOTHING:
+         return lambda e: converter.unstructure(e.value)
+ 
+     return lambda e: e.value
+@@ -28,8 +54,8 @@ def enum_structure_factory(
+     If the enum is a typed enum (has `_value_`), we structure the value first.
+     Otherwise, we use the value directly.
+     """
+-    if "_value_" in type.__annotations__:
+-        val_type = type.__annotations__["_value_"]
++    val_type = _get_value_type(type)
++    if val_type is not NOTHING:
+         val_hook = converter.get_structure_hook(val_type)
+         return lambda v, _: type(val_hook(v, val_type))
+ 
+diff --git a/src/cattrs/errors.py b/src/cattrs/errors.py
+index 13df100..f8db816 100644
+--- a/src/cattrs/errors.py
++++ b/src/cattrs/errors.py
+@@ -138,5 +138,5 @@ class ForbiddenExtraKeysError(CattrsError):
+         return (
+             self.message
+             or f"Extra fields in constructor for {self.cl.__name__}: "
+-            f"{', '.join(sorted(self.extra_fields))}"
++            f"{', '.join(sorted(map(str, self.extra_fields)))}"
+         )
+diff --git a/src/cattrs/gen/__init__.py b/src/cattrs/gen/__init__.py
+index 3e386fa..f8e2b3e 100644
+--- a/src/cattrs/gen/__init__.py
++++ b/src/cattrs/gen/__init__.py
+@@ -217,11 +217,11 @@ def make_dict_unstructure_fn_from_attrs(
+                     internal_arg_parts[def_name] = c(d)
+ 
+             lines.append(f"  if instance.{attr_name} != {def_str}:")
+-            lines.append(f"    res['{kn}'] = {invoke}")
++            lines.append(f"    res[{kn!r}] = {invoke}")
+ 
+         else:
+             # No default or no override.
+-            invocation_lines.append(f"'{kn}': {invoke},")
++            invocation_lines.append(f"{kn!r}: {invoke},")
+ 
+     internal_arg_line = ", ".join([f"{i}={i}" for i in internal_arg_parts])
+     if internal_arg_line:
+@@ -388,8 +388,10 @@ def make_dict_structure_fn_from_attrs(
+         name = getattr(name_base, "__name__", None) or str(name_base)
+         # `<>` can be present in lambdas
+         # `|` can be present in unions
+-        name = re.sub(r"[\[\.\] ,<>]", "_", name)
+         name = re.sub(r"\|", "u", name)
++        # Anything else that cannot be part of an identifier (like quotes
++        # in forward references or literals) is replaced too.
++        name = re.sub(r"\W", "_", name)
+         fn_name += f"_{name}"
+ 
+     internal_arg_parts = {"__cl": cl}
+@@ -468,7 +470,7 @@ def make_dict_structure_fn_from_attrs(
+ 
+             if not a.init:
+                 if a.default is not NOTHING:
+-                    pi_lines.append(f"{i}if '{kn}' in o:")
++                    pi_lines.append(f"{i}if {kn!r} in o:")
+                     i = f"{i}  "
+                 pi_lines.append(f"{i}try:")
+                 i = f"{i}  "
+@@ -478,16 +480,16 @@ def make_dict_structure_fn_from_attrs(
+                     if handler == converter._structure_call:
+                         internal_arg_parts[struct_handler_name] = t
+                         pi_lines.append(
+-                            f"{i}instance.{an} = {struct_handler_name}(o['{kn}'])"
++                            f"{i}instance.{an} = {struct_handler_name}(o[{kn!r}])"
+                         )
+                     else:
+                         tn = f"__c_type_{an}"
+                         internal_arg_parts[tn] = t
+                         pi_lines.append(
+-                            f"{i}instance.{an} = {struct_handler_name}(o['{kn}'], {tn})"
++                            f"{i}instance.{an} = {struct_handler_name}(o[{kn!r}], {tn})"
+                         )
+                 else:
+-                    pi_lines.append(f"{i}instance.{an} = o['{kn}']")
++                    pi_lines.append(f"{i}instance.{an} = o[{kn!r}]")
+                 i = i[:-2]
+                 pi_lines.append(f"{i}except Exception as e:")
+                 i = f"{i}  "
+@@ -498,7 +500,7 @@ def make_dict_structure_fn_from_attrs(
+ 
+             else:
+                 if a.default is not NOTHING:
+-                    lines.append(f"{i}if '{kn}' in o:")
++                    lines.append(f"{i}if {kn!r} in o:")
+                     i = f"{i}  "
+                 lines.append(f"{i}try:")
+                 i = f"{i}  "
+@@ -508,14 +510,14 @@ def make_dict_structure_fn_from_attrs(
+                     if handler == converter._structure_call:
+                         internal_arg_parts[struct_handler_name] = t
+                         lines.append(
+-                            f"{i}res['{ian}'] = {struct_handler_name}(o['{kn}'])"
++                            f"{i}res[{ian!r}] = {struct_handler_name}(o[{kn!r}])"
+                         )
+                     else:
+                         lines.append(
+-                            f"{i}res['{ian}'] = {struct_handler_name}(o['{kn}'], {type_name})"
++                            f"{i}res[{ian!r}] = {struct_handler_name}(o[{kn!r}], {type_name})"
+                         )
+                 else:
+-                    lines.append(f"{i}res['{ian}'] = o['{kn}']")
++                    lines.append(f"{i}res[{ian!r}] = o[{kn!r}]")
+                 i = i[:-2]
+                 lines.append(f"{i}except Exception as e:")
+                 i = f"{i}  "
+@@ -609,15 +611,15 @@ def make_dict_structure_fn_from_attrs(
+                     internal_arg_parts[struct_handler_name] = handler
+                     if handler == converter._structure_call:
+                         internal_arg_parts[struct_handler_name] = t
+-                        pi_line = f"  instance.{an} = {struct_handler_name}(o['{kn}'])"
++                        pi_line = f"  instance.{an} = {struct_handler_name}(o[{kn!r}])"
+                     else:
+                         tn = f"__c_type_{an}"
+                         internal_arg_parts[tn] = t
+                         pi_line = (
+-                            f"  instance.{an} = {struct_handler_name}(o['{kn}'], {tn})"
++                            f"  instance.{an} = {struct_handler_name}(o[{kn!r}], {tn})"
+                         )
+                 else:
+-                    pi_line = f"  instance.{an} = o['{kn}']"
++                    pi_line = f"  instance.{an} = o[{kn!r}]"
+ 
+                 pi_lines.append(pi_line)
+             else:
+@@ -626,13 +628,13 @@ def make_dict_structure_fn_from_attrs(
+                     internal_arg_parts[struct_handler_name] = handler
+                     if handler == converter._structure_call:
+                         internal_arg_parts[struct_handler_name] = t
+-                        invocation_line = f"{struct_handler_name}(o['{kn}']),"
++                        invocation_line = f"{struct_handler_name}(o[{kn!r}]),"
+                     else:
+                         tn = f"__c_type_{an}"
+                         internal_arg_parts[tn] = t
+-                        invocation_line = f"{struct_handler_name}(o['{kn}'], {tn}),"
++                        invocation_line = f"{struct_handler_name}(o[{kn!r}], {tn}),"
+                 else:
+-                    invocation_line = f"o['{kn}'],"
++                    invocation_line = f"o[{kn!r}],"
+ 
+                 if a.kw_only:
+                     invocation_line = f"{a.alias}={invocation_line}"
+@@ -674,37 +676,37 @@ def make_dict_structure_fn_from_attrs(
+                     kn = override.rename
+                 allowed_fields.add(kn)
+                 if not a.init:
+-                    pi_lines.append(f"  if '{kn}' in o:")
++                    pi_lines.append(f"  if {kn!r} in o:")
+                     if handler:
+                         if handler == converter._structure_call:
+                             internal_arg_parts[struct_handler_name] = t
+                             pi_lines.append(
+-                                f"    instance.{an} = {struct_handler_name}(o['{kn}'])"
++                                f"    instance.{an} = {struct_handler_name}(o[{kn!r}])"
+                             )
+                         else:
+                             tn = f"__c_type_{an}"
+                             internal_arg_parts[tn] = t
+                             pi_lines.append(
+-                                f"    instance.{an} = {struct_handler_name}(o['{kn}'], {tn})"
++                                f"    instance.{an} = {struct_handler_name}(o[{kn!r}], {tn})"
+                             )
+                     else:
+-                        pi_lines.append(f"    instance.{an} = o['{kn}']")
++                        pi_lines.append(f"    instance.{an} = o[{kn!r}]")
+                 else:
+-                    post_lines.append(f"  if '{kn}' in o:")
++                    post_lines.append(f"  if {kn!r} in o:")
+                     if handler:
+                         if handler == converter._structure_call:
+                             internal_arg_parts[struct_handler_name] = t
+                             post_lines.append(
+-                                f"    res['{a.alias}'] = {struct_handler_name}(o['{kn}'])"
++                                f"    res[{a.alias!r}] = {struct_handler_name}(o[{kn!r}])"
+                             )
+                         else:
+                             tn = f"__c_type_{an}"
+                             internal_arg_parts[tn] = t
+                             post_lines.append(
+-                                f"    res['{a.alias}'] = {struct_handler_name}(o['{kn}'], {tn})"
++                                f"    res[{a.alias!r}] = {struct_handler_name}(o[{kn!r}], {tn})"
+                             )
+                     else:
+-                        post_lines.append(f"    res['{a.alias}'] = o['{kn}']")
++                        post_lines.append(f"    res[{a.alias!r}] = o[{kn!r}]")
+         if not pi_lines:
+             instantiation_lines = (
+                 ["  return __cl("]
+@@ -927,7 +929,7 @@ def mapping_unstructure_factory(
+             key_arg, val_arg = args
+         else:
+             # Probably a Counter
+-            key_arg, val_arg = args, Any
++            key_arg, val_arg = (args[0] if args else Any), Any
+         # We can do the dispatch here and now.
+         kh = key_handler or converter.get_unstructure_hook(key_arg, cache_result=False)
+         if kh == identity:
+diff --git a/src/cattrs/gen/typeddicts.py b/src/cattrs/gen/typeddicts.py
+index fc6e173..265e76f 100644
+--- a/src/cattrs/gen/typeddicts.py
++++ b/src/cattrs/gen/typeddicts.py
+@@ -107,12 +107,7 @@ def make_dict_unstructure_fn(
+             if nrb is not NOTHING:
+                 t = nrb
+ 
+-            if attr_name in kwargs:
+-                override = kwargs[attr_name]
+-            else:
+-                override = _annotated_override_or_default(t, neutral)
+-                if override != neutral:
+-                    kwargs[attr_name] = override
++            override = _get_override(a.type, attr_name, kwargs)
+             if override != neutral:
+                 break
+             handler = None
+@@ -146,21 +141,16 @@ def make_dict_unstructure_fn(
+             if nrb is not NOTHING:
+                 t = nrb
+ 
+-            if attr_name in kwargs:
+-                override = kwargs[attr_name]
+-            else:
+-                override = _annotated_override_or_default(t, neutral)
+-                if override != neutral:
+-                    kwargs[attr_name] = override
++            override = _get_override(a.type, attr_name, kwargs)
+ 
+             if override.omit:
+-                lines.append(f"  res.pop('{attr_name}', None)")
++                lines.append(f"  res.pop({attr_name!r}, None)")
+                 continue
+ 
+             if override.rename is not None:
+                 # We also need to pop when renaming, since we're copying
+                 # the original.
+-                lines.append(f"  res.pop('{attr_name}', None)")
++                lines.append(f"  res.pop({attr_name!r}, None)")
+             kn = attr_name if override.rename is None else override.rename
+             attr_required = attr_name in req_keys
+ 
+@@ -192,20 +182,20 @@ def make_dict_unstructure_fn(
+                 unstruct_handler_name = f"__c_unstr_{ix}"
+                 globs[unstruct_handler_name] = handler
+                 internal_arg_parts[unstruct_handler_name] = handler
+-                invoke = f"{unstruct_handler_name}(instance['{attr_name}'])"
++                invoke = f"{unstruct_handler_name}(instance[{attr_name!r}])"
+             elif override.rename is None:
+                 # We're not doing anything to this attribute, so
+                 # it'll already be present in the input dict.
+                 continue
+             else:
+                 # Probably renamed, we just fetch it.
+-                invoke = f"instance['{attr_name}']"
++                invoke = f"instance[{attr_name!r}]"
+ 
+             if attr_required:
+                 # No default or no override.
+-                lines.append(f"  res['{kn}'] = {invoke}")
++                lines.append(f"  res[{kn!r}] = {invoke}")
+             else:
+-                lines.append(f"  if '{attr_name}' in instance: res['{kn}'] = {invoke}")
++                lines.append(f"  if {attr_name!r} in instance: res[{kn!r}] = {invoke}")
+ 
+         internal_arg_line = ", ".join([f"{i}={i}" for i in internal_arg_parts])
+         if internal_arg_line:
+@@ -293,8 +283,10 @@ def make_dict_structure_fn(
+         name = getattr(name_base, "__name__", None) or str(name_base)
+         # `<>` can be present in lambdas
+         # `|` can be present in unions
+-        name = re.sub(r"[\[\.\] ,<>]", "_", name)
+         name = re.sub(r"\|", "u", name)
++        # Anything else that cannot be part of an identifier (like quotes
++        # in forward references or literals) is replaced too.
++        name = re.sub(r"\W", "_", name)
+         fn_name += f"_{name}"
+ 
+     internal_arg_parts = {"__cl": cl}
+@@ -340,12 +332,7 @@ def make_dict_structure_fn(
+             if nrb is not NOTHING:
+                 t = nrb
+ 
+-            if an in kwargs:
+-                override = kwargs[an]
+-            else:
+-                override = _annotated_override_or_default(t, neutral)
+-                if override != neutral:
+-                    kwargs[an] = override
++            override = _get_override(a.type, an, kwargs)
+             if override.omit:
+                 continue
+ 
+@@ -373,7 +360,7 @@ def make_dict_structure_fn(
+             allowed_fields.add(kn)
+             i = "  "
+             if not attr_required:
+-                lines.append(f"{i}if '{kn}' in o:")
++                lines.append(f"{i}if {kn!r} in o:")
+                 i = f"{i}  "
+             lines.append(f"{i}try:")
+             i = f"{i}  "
+@@ -383,16 +370,18 @@ def make_dict_structure_fn(
+ 
+             if handler == converter._structure_call:
+                 internal_arg_parts[struct_handler_name] = t
+-                lines.append(f"{i}res['{an}'] = {struct_handler_name}(o['{kn}'])")
++                lines.append(f"{i}res[{an!r}] = {struct_handler_name}(o[{kn!r}])")
+             else:
+-                lines.append(f"{i}res['{an}'] = {struct_handler_name}(o['{kn}'], {tn})")
+-            if override.rename is not None:
+-                lines.append(f"{i}del res['{kn}']")
++                lines.append(f"{i}res[{an!r}] = {struct_handler_name}(o[{kn!r}], {tn})")
++            if override.rename is not None and kn != an:
++                lines.append(f"{i}del res[{kn!r}]")
+             i = i[:-2]
+             lines.append(f"{i}except Exception as e:")
+             i = f"{i}  "
++            note_msg = f"Structuring typeddict {cl.__qualname__} @ attribute {an}"
+             lines.append(
+-                f'{i}e.__notes__ = [*getattr(e, \'__notes__\', []), __c_avn("Structuring typeddict {cl.__qualname__} @ attribute {an}", "{an}", {tn})]'
++                f"{i}e.__notes__ = [*getattr(e, '__notes__', []), "
++                f"__c_avn({note_msg!r}, {an!r}, {tn})]"
+             )
+             lines.append(f"{i}errors.append(e)")
+ 
+@@ -413,12 +402,7 @@ def make_dict_structure_fn(
+         for ix, a in enumerate(attrs):
+             an = a.name
+             attr_required = an in req_keys
+-            if an in kwargs:
+-                override = kwargs[an]
+-            else:
+-                override = _annotated_override_or_default(a.type, neutral)
+-                if override != neutral:
+-                    kwargs[an] = override
++            override = _get_override(a.type, an, kwargs)
+             if override.omit:
+                 continue
+             if not attr_required:
+@@ -451,17 +435,17 @@ def make_dict_structure_fn(
+             internal_arg_parts[struct_handler_name] = handler
+             if handler == converter._structure_call:
+                 internal_arg_parts[struct_handler_name] = t
+-                invocation_line = f"  res['{an}'] = {struct_handler_name}(o['{kn}'])"
++                invocation_line = f"  res[{an!r}] = {struct_handler_name}(o[{kn!r}])"
+             else:
+                 tn = f"__c_type_{ix}"
+                 internal_arg_parts[tn] = t
+                 invocation_line = (
+-                    f"  res['{an}'] = {struct_handler_name}(o['{kn}'], {tn})"
++                    f"  res[{an!r}] = {struct_handler_name}(o[{kn!r}], {tn})"
+                 )
+ 
+             lines.append(invocation_line)
+-            if override.rename is not None:
+-                lines.append(f"  del res['{override.rename}']")
++            if override.rename is not None and override.rename != an:
++                lines.append(f"  del res[{override.rename!r}]")
+ 
+         # The second loop is for optional args.
+         if non_required:
+@@ -472,12 +456,7 @@ def make_dict_structure_fn(
+                 if nrb is not NOTHING:
+                     t = nrb
+ 
+-                if an in kwargs:
+-                    override = kwargs[an]
+-                else:
+-                    override = _annotated_override_or_default(t, neutral)
+-                    if override != neutral:
+-                        kwargs[an] = override
++                override = _get_override(a.type, an, kwargs)
+ 
+                 if isinstance(t, TypeVar):
+                     t = mapping.get(t.__name__, t)
+@@ -498,20 +477,20 @@ def make_dict_structure_fn(
+                 ian = an
+                 kn = an if override.rename is None else override.rename
+                 allowed_fields.add(kn)
+-                post_lines.append(f"  if '{kn}' in o:")
++                post_lines.append(f"  if {kn!r} in o:")
+                 if handler == converter._structure_call:
+                     internal_arg_parts[struct_handler_name] = t
+                     post_lines.append(
+-                        f"    res['{ian}'] = {struct_handler_name}(o['{kn}'])"
++                        f"    res[{ian!r}] = {struct_handler_name}(o[{kn!r}])"
+                     )
+                 else:
+                     tn = f"__c_type_{ix}"
+                     internal_arg_parts[tn] = t
+                     post_lines.append(
+-                        f"    res['{ian}'] = {struct_handler_name}(o['{kn}'], {tn})"
++                        f"    res[{ian!r}] = {struct_handler_name}(o[{kn!r}], {tn})"
+                     )
+                 if override.rename is not None:
+-                    lines.append(f"  res.pop('{override.rename}', None)")
++                    lines.append(f"  res.pop({override.rename!r}, None)")
+ 
+         if _cattrs_forbid_extra_keys:
+             post_lines += [
+@@ -543,6 +522,27 @@ def make_dict_structure_fn(
+     return res
+ 
+ 
++def _get_override(
++    type: Any, name: str, kwargs: dict[str, AttributeOverride]
++) -> AttributeOverride:
++    """Find the override for a TypedDict field.
++
++    Explicit overrides take precedence. Otherwise, look for an override in
++    `Annotated` metadata, both outside and inside `(Not)Required`.
++    Overrides found in annotations are stored into `kwargs`.
++    """
++    if name in kwargs:
++        return kwargs[name]
++    override = _annotated_override_or_default(type, neutral)
++    if override == neutral:
++        nrb = get_notrequired_base(type)
++        if nrb is not NOTHING:
++            override = _annotated_override_or_default(nrb, neutral)
++    if override != neutral:
++        kwargs[name] = override
++    return override
++
++
+ def _adapted_fields(cls: Any) -> list[Attribute]:
+     annotations = get_annots(cls)
+     hints = get_full_type_hints(cls)
+diff --git a/src/cattrs/preconf/msgspec.py b/src/cattrs/preconf/msgspec.py
+index 123e277..67c4b05 100644
+--- a/src/cattrs/preconf/msgspec.py
++++ b/src/cattrs/preconf/msgspec.py
+@@ -11,12 +11,11 @@ from functools import partial
+ from typing import Any, TypeVar, Union, get_type_hints
+ 
+ from attrs import has as attrs_has
+-from attrs import resolve_types
+ from msgspec import Struct, convert, to_builtins
+ from msgspec.json import Encoder, decode
+ 
+ from .._compat import (
+-    fields,
++    adapted_fields,
+     get_args,
+     get_origin,
+     is_bare,
+@@ -154,7 +153,7 @@ def mapping_unstructure_factory(type, converter: BaseConverter) -> UnstructureHo
+             key_arg, val_arg = args
+         else:
+             # Probably a Counter
+-            key_arg, val_arg = args, Any
++            key_arg, val_arg = (args[0] if args else Any), Any
+         key_handler = converter.get_unstructure_hook(key_arg, cache_result=False)
+         value_handler = converter.get_unstructure_hook(val_arg, cache_result=False)
+ 
+@@ -176,13 +175,11 @@ def msgspec_attrs_unstructure_factory(
+             private attributes, making us do the work.
+     """
+     origin = get_origin(type)
+-    attribs = fields(origin or type)
+-    if attrs_has(type) and any(isinstance(a.type, str) for a in attribs):
+-        resolve_types(type)
+-        attribs = fields(origin or type)
++    # This resolves stringified annotations, for dataclasses too.
++    attribs = adapted_fields(origin or type)
+ 
+-    if msgspec_skips_private and any(
+-        attr.name.startswith("_")
++    if any(
++        (msgspec_skips_private and attr.name.startswith("_"))
+         or (
+             converter.get_unstructure_hook(attr.type, cache_result=False)
+             not in (identity, to_builtins)
+diff --git a/src/cattrs/preconf/pyyaml.py b/src/cattrs/preconf/pyyaml.py
+index b1b8854..d1d11c0 100644
+--- a/src/cattrs/preconf/pyyaml.py
++++ b/src/cattrs/preconf/pyyaml.py
+@@ -1,6 +1,7 @@
+ """Preconfigured converters for pyyaml."""
+ 
+ from datetime import date, datetime
++from enum import Enum
+ from functools import partial
+ from typing import Any, TypeVar, Union
+ 
+@@ -23,6 +24,16 @@ def validate_date(v: Any, _):
+     return v
+ 
+ 
++def _unstructure_str(v: str) -> Any:
++    """Convert string enums and other string subclasses into plain strings."""
++    if v.__class__ is str:
++        return v
++    if isinstance(v, Enum):
++        return v.value
++    # Other `str` subclasses cannot be represented by `safe_dump`.
++    return str.__str__(v)
++
++
+ class PyyamlConverter(Converter):
+     def dumps(self, obj: Any, unstructure_as: Any = None, **kwargs: Any) -> str:
+         return safe_dump(self.unstructure(obj, unstructure_as=unstructure_as), **kwargs)
+@@ -43,9 +54,7 @@ def configure_converter(converter: BaseConverter) -> None:
+     .. versionchanged:: 24.1.0
+         Add support for typed namedtuples.
+     """
+-    converter.register_unstructure_hook(
+-        str, lambda v: v if v.__class__ is str else v.value
+-    )
++    converter.register_unstructure_hook(str, _unstructure_str)
+ 
+     # datetime inherits from date, so identity unstructure hook used
+     # here to prevent the date unstructure hook running.
+diff --git a/src/cattrs/subclasses.py b/src/cattrs/subclasses.py
+index 6c6164e..f7a8472 100644
+--- a/src/cattrs/subclasses.py
++++ b/src/cattrs/subclasses.py
+@@ -1,6 +1,24 @@
+ import sys
+ 
+-if sys.version_info <= (3, 13):
++
++def _is_replaced_by_slotted_class(cl: type) -> bool:
++    """Is `cl` the original class, replaced by a slotted copy at creation time?
++
++    Both `dataclasses` and `attrs` create a new class when slots are requested,
++    and the original class may linger in `__subclasses__()` of its bases.
++    """
++    cl_dict = cl.__dict__
++    if "__attrs_base_of_slotted__" in cl_dict:
++        return True
++    params = cl_dict.get("__dataclass_params__")
++    return (
++        params is not None
++        and getattr(params, "slots", False)
++        and "__slots__" not in cl_dict
++    )
++
++
++if sys.version_info < (3, 13):
+ 
+     def subclasses(cls: type) -> list[type]:
+         """A proxy for `cls.__subclasses__()` on older Pythons."""
+@@ -14,14 +32,5 @@ else:
+         Filters out duplicate subclasses of slot dataclasses and attrs classes.
+         """
+         return [
+-            cl
+-            for cl in cls.__subclasses__()
+-            if (
+-                not (
+-                    "__slots__" not in cl.__dict__
+-                    and hasattr(cls, "__dataclass_params__")
+-                    and cls.__dataclass_params__.slots
+-                )
+-                and not hasattr(cls, "__attrs_base_of_slotted__")
+-            )
++            cl for cl in cls.__subclasses__() if not _is_replaced_by_slotted_class(cl)
+         ]
+diff --git a/src/cattrs/v.py b/src/cattrs/v.py
+index 134c990..509c1ed 100644
+--- a/src/cattrs/v.py
++++ b/src/cattrs/v.py
+@@ -33,7 +33,7 @@ def format_exception(exc: BaseException, type: Union[type, None]) -> str:
+             res = "invalid value"
+     elif isinstance(exc, TypeError):
+         if type is None:
+-            if exc.args[0].endswith("object is not iterable"):
++            if str(exc).endswith("object is not iterable"):
+                 res = "invalid value for type, expected an iterable"
+             else:
+                 res = f"invalid type ({exc})"
+@@ -41,8 +41,8 @@ def format_exception(exc: BaseException, type: Union[type, None]) -> str:
+             tn = type.__name__ if hasattr(type, "__name__") else repr(type)
+             res = f"invalid value for type, expected {tn}"
+     elif isinstance(exc, ForbiddenExtraKeysError):
+-        res = f"extra fields found ({', '.join(exc.extra_fields)})"
+-    elif isinstance(exc, AttributeError) and exc.args[0].endswith(
++        res = f"extra fields found ({', '.join(map(str, exc.extra_fields))})"
++    elif isinstance(exc, AttributeError) and str(exc).endswith(
+         "object has no attribute 'items'"
+     ):
+         # This was supposed to be a mapping (and have .items()) but it something else.
+diff --git a/tests/test_regressions_hardening.py b/tests/test_regressions_hardening.py
+new file mode 100644
+index 0000000..271d31c
+--- /dev/null
++++ b/tests/test_regressions_hardening.py
+@@ -0,0 +1,378 @@
++"""Regression tests for assorted latent bugs."""
++
++from __future__ import annotations
++
++from collections import Counter
++from dataclasses import dataclass, field
++from enum import Enum
++from typing import (
++    Annotated,
++    Generic,
++    Literal,
++    NamedTuple,
++    TypedDict,
++    TypeVar,
++    Union,
++)
++
++import attrs
++import pytest
++from attrs import define
++from typing_extensions import NotRequired
++
++from cattrs import BaseConverter, Converter
++from cattrs.dispatch import FunctionDispatch
++from cattrs.errors import CattrsError, ForbiddenExtraKeysError
++from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
++from cattrs.gen.typeddicts import make_dict_structure_fn as td_structure_fn
++from cattrs.strategies import include_subclasses
++from cattrs.subclasses import subclasses
++from cattrs.v import format_exception
++
++T = TypeVar("T")
++
++
++@define
++class Simple:
++    a: int
++
++
++@pytest.mark.parametrize("converter_cls", [BaseConverter, Converter])
++def test_factory_decorators_return_factory(converter_cls):
++    """Hook factory decorators return the decorated factory."""
++    c = converter_cls()
++
++    def unstruct_factory(_):
++        return lambda _: "u"
++
++    def struct_factory(_):
++        return lambda _, __: "s"
++
++    assert (
++        c.register_unstructure_hook_factory(lambda t: t is Simple)(unstruct_factory)
++        is unstruct_factory
++    )
++    assert (
++        c.register_structure_hook_factory(lambda t: t is Simple)(struct_factory)
++        is struct_factory
++    )
++    assert c.unstructure(Simple(1)) == "u"
++    assert c.structure({}, Simple) == "s"
++
++
++@pytest.mark.parametrize("converter_cls", [BaseConverter, Converter])
++def test_copy_keeps_fallbacks_and_union_hooks(converter_cls):
++    """Copies keep fallback factories and union structure hooks."""
++
++    class Unknown:
++        pass
++
++    c = converter_cls(
++        structure_fallback_factory=lambda _: lambda v, _: "fallback",
++        unstructure_fallback_factory=lambda _: lambda v: "ufallback",
++    )
++    c.register_structure_hook(Union[int, str], lambda v, _: "union")
++
++    copy = c.copy()
++    assert copy.structure(1, Unknown) == "fallback"
++    assert copy.unstructure(Unknown()) == "ufallback"
++    assert copy.structure(1, Union[int, str]) == "union"
++
++
++def test_function_dispatch_copy_to_no_skip():
++    """`FunctionDispatch.copy_to` with the default `skip` copies everything."""
++    src = FunctionDispatch(Converter())
++    src.register(lambda _: True, lambda: None)
++    dst = FunctionDispatch(Converter())
++    src.copy_to(dst)
++    assert dst.get_num_fns() == 1
++
++
++class NT(NamedTuple):  # stringified annotations, due to the __future__ import
++    a: int
++    b: Simple
++
++
++class NTSub(NT):
++    pass
++
++
++@pytest.mark.parametrize("cl", [NT, NTSub])
++def test_namedtuple_stringified_and_subclass(cl):
++    """Namedtuples with stringified annotations and subclasses work."""
++    c = Converter()
++    assert c.structure(["1", {"a": "2"}], cl) == cl(1, Simple(2))
++    assert c.unstructure(cl(1, Simple(2))) == (1, {"a": 2})
++
++
++class Color(Enum):
++    RED = "red"
++
++
++def test_counter_key_unstructuring():
++    """Counter keys are unstructured using the key type."""
++    c = Converter()
++    assert c.unstructure(Counter({Color.RED: 2}), Counter[Color]) == {"red": 2}
++
++
++@pytest.mark.parametrize("detailed_validation", [True, False])
++@pytest.mark.parametrize("name", ["it's", 'a"b', "back\\slash"])
++def test_rename_with_special_chars(name, detailed_validation):
++    """Renames with quotes and backslashes generate valid code."""
++    c = Converter(detailed_validation=detailed_validation)
++
++    @define
++    class A:
++        a: int
++        b: int = 0
++
++    unstruct = make_dict_unstructure_fn(A, c, a=override(rename=name))
++    struct = make_dict_structure_fn(
++        A, c, a=override(rename=name), b=override(rename=name + "b")
++    )
++    assert unstruct(A(1)) == {name: 1, "b": 0}
++    assert struct({name: "1", name + "b": "2"}, A) == A(1, 2)
++
++    TD = TypedDict("TD", {name: int})
++    td_struct = td_structure_fn(TD, c)
++    assert td_struct({name: "1"}, TD) == {name: 1}
++
++
++class TDAnnotatedOutside(TypedDict):
++    a: Annotated[NotRequired[int], override(rename="b")]
++
++
++class TDAnnotatedInside(TypedDict):
++    a: NotRequired[Annotated[int, override(rename="b")]]
++
++
++@pytest.mark.parametrize("detailed_validation", [True, False])
++@pytest.mark.parametrize("cl", [TDAnnotatedOutside, TDAnnotatedInside])
++def test_typeddict_annotated_notrequired_override(cl, detailed_validation):
++    """Overrides in `Annotated` around `NotRequired` are honored."""
++    c = Converter(detailed_validation=detailed_validation)
++    assert c.unstructure({"a": 1}, cl) == {"b": 1}
++    assert c.structure({"b": "1"}, cl) == {"a": 1}
++
++
++@pytest.mark.parametrize("detailed_validation", [True, False])
++def test_typeddict_rename_to_same_name(detailed_validation):
++    """Renaming a TypedDict field to its own name doesn't drop it."""
++
++    class TD(TypedDict):
++        a: int
++
++    c = Converter(detailed_validation=detailed_validation)
++    fn = td_structure_fn(TD, c, a=override(rename="a"))
++    assert fn({"a": "1"}, TD) == {"a": 1}
++
++
++class TypedValueEnum(Enum):
++    _value_: int  # stringified, due to the __future__ import
++    A = 1
++
++
++def test_enum_value_stringified_annotation():
++    """Stringified `_value_` annotations are resolved."""
++    c = Converter()
++    assert c.structure("1", TypedValueEnum) is TypedValueEnum.A
++    assert c.unstructure(TypedValueEnum.A) == 1
++
++
++def test_format_exception_without_args():
++    """`format_exception` handles exceptions without arguments."""
++    assert format_exception(TypeError(), None) == "invalid type ()"
++    assert format_exception(AttributeError(), None) == "unknown error ()"
++
++
++def test_forbidden_extra_keys_non_str():
++    """Non-string extra keys don't break error formatting."""
++    exc = ForbiddenExtraKeysError(None, Simple, {1, "a"})
++    assert str(exc) == "Extra fields in constructor for Simple: 1, a"
++    assert format_exception(ForbiddenExtraKeysError(None, Simple, {1}), None) == (
++        "extra fields found (1)"
++    )
++
++
++def test_subclasses_of_slotted_dataclass():
++    """Non-slotted subclasses of slotted dataclasses are found, once."""
++
++    @dataclass(slots=True)
++    class Parent:
++        a: int
++
++    @dataclass
++    class Child(Parent):
++        b: int
++
++    @dataclass(slots=True)
++    class SlottedChild(Parent):
++        c: int
++
++    found = subclasses(Parent)
++    assert Child in found
++    assert len([c for c in found if c.__name__ == "SlottedChild"]) == 1
++
++    c = Converter()
++    include_subclasses(Parent, c)
++    assert c.structure({"a": 1, "b": 2}, Parent) == Child(1, 2)
++
++
++def test_subclasses_of_attrs_slotted_deduplicated():
++    """Slotted attrs subclasses aren't duplicated."""
++
++    @define
++    class Parent:
++        a: int
++
++    @define
++    class Child(Parent):
++        b: int
++
++    assert len(subclasses(Parent)) == 1
++
++
++@define
++class AliasedA:
++    type_: Literal["a"] = attrs.field(alias="type")
++    x: int = 0
++
++
++@define
++class AliasedB:
++    type_: Literal["b"] = attrs.field(alias="type")
++    y: int = 0
++
++
++def test_literal_disambiguation_with_aliases():
++    """Literal discriminators work with aliases."""
++    c = Converter(use_alias=True)
++    assert c.structure({"type": "b", "y": 1}, Union[AliasedA, AliasedB]) == AliasedB(
++        "b", 1
++    )
++    assert c.structure({"type": "a"}, Union[AliasedA, AliasedB]) == AliasedA("a")
++
++
++@dataclass
++class DcA:
++    kind: Literal["a"]
++    x: int = 0
++
++
++@dataclass
++class DcB:
++    kind: Literal["b"]
++    x: int = 0
++
++
++def test_literal_disambiguation_stringified_dataclasses():
++    """Literal discriminators work with stringified dataclass annotations."""
++    c = Converter()
++    assert c.structure({"kind": "b"}, Union[DcA, DcB]) == DcB("b")
++
++
++@dataclass
++class DcFactory:
++    x: int
++    items: list = field(default_factory=list)
++
++
++@dataclass
++class DcRequired:
++    x: int
++    b: int
++
++
++def test_disambiguation_default_factory_is_not_required():
++    """Fields with a `default_factory` aren't used as required unique fields."""
++    c = Converter()
++    # `DcFactory` has no required unique field, so it becomes the fallback.
++    assert c.structure({"x": 1}, Union[DcFactory, DcRequired]) == DcFactory(1)
++    assert c.structure({"x": 1, "b": 2}, Union[DcFactory, DcRequired]) == DcRequired(
++        1, 2
++    )
++
++
++@pytest.mark.parametrize("converter_cls", [BaseConverter, Converter])
++def test_literal_bool_int_distinct(converter_cls):
++    """`Literal[1]` doesn't accept `True` and vice versa."""
++    c = converter_cls()
++    with pytest.raises(CattrsError):
++        c.structure(True, Literal[1])
++    with pytest.raises(CattrsError):
++        c.structure(1, Literal[True])
++    assert c.structure(1, Literal[1]) == 1
++    assert c.structure(True, Literal[True]) is True
++    with pytest.raises(CattrsError):
++        c.structure(1, Literal[True, Color.RED])
++    with pytest.raises(CattrsError):
++        c.structure([], Literal[1, Color.RED])
++    assert c.structure("red", Literal[1, Color.RED]) is Color.RED
++
++
++@define
++class Gen(Generic[T]):
++    a: T
++
++
++class GenTD(TypedDict, Generic[T]):
++    a: T
++
++
++def test_generic_function_names_sanitized():
++    """Generic arguments with quotes don't break code generation."""
++    c = Converter()
++    arg = list[Literal["x"]] | None
++    assert c.structure({"a": ["x"]}, Gen[arg]) == Gen(["x"])
++    assert c.structure({"a": ["x"]}, GenTD[arg]) == {"a": ["x"]}
++
++
++@define
++class WithUnhashableMetadata:
++    x: Annotated[int, {"doc": "x"}]
++    y: list[Annotated[int, ["meta"]]]
++
++
++def test_unhashable_annotated_metadata():
++    """`Annotated` types with unhashable metadata work."""
++    c = Converter(type_overrides={int: override()})
++    inst = WithUnhashableMetadata(1, [2])
++    assert c.structure({"x": "1", "y": ["2"]}, WithUnhashableMetadata) == inst
++    assert c.unstructure(inst) == {"x": 1, "y": [2]}
++    assert c.structure("1", Annotated[int, {"doc": "x"}]) == 1
++
++
++class Money:
++    def __init__(self, v):
++        self.v = v
++
++
++@dataclass
++class D:
++    m: Money
++
++
++def test_msgspec_dataclass_respects_field_hooks():
++    """The msgspec converter uses registered hooks for dataclass fields."""
++    pytest.importorskip("msgspec")
++    from cattrs.preconf.msgspec import make_converter
++
++    c = make_converter()
++    c.register_unstructure_hook(Money, lambda m: f"${m.v}")
++    assert c.unstructure(D(Money(1))) == {"m": "$1"}
++    assert c.dumps(D(Money(1))) == b'{"m":"$1"}'
++
++
++def test_pyyaml_str_subclass():
++    """The pyyaml converter handles non-enum str subclasses."""
++    pytest.importorskip("yaml")
++    from cattrs.preconf.pyyaml import make_converter
++
++    class S(str):
++        pass
++
++    c = make_converter()
++    res = c.unstructure(S("x"))
++    assert res == "x"
++    assert res.__class__ is str
++    assert c.dumps(S("x")) == "x\n...\n"

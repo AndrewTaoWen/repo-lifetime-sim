@@ -1,0 +1,23 @@
+round3 A/B launched 2026-10-21 ~03:05 UTC, root /srv/blind4. r1,r2 = baseline prompt; r3,r4 = improved prompt.
+Future data NOT moved this time (screening still running); isolation relies on audit.
+dotenv: r1 a94ccffdca74e2867, r2 a12422ea30c1ace5c, r3 a5ba5ac45cbdc35ec, r4 a5703a1db40de2ffe
+cattrs: r1 a2294a474255deb12, r2 a4fdfb00e788b55aa, r3 aeb6779da3704c8cc, r4 a96b977631811e422
+dotenv-r2 done (7 fixes). NOTE: subprocess CLI tests call first 'dotenv' on PATH (/usr/local/bin) - check scoring PATH
+dotenv-r4 done (10 fixes)
+dotenv-r3 done (10 fixes)
+dotenv-r1 done (10 fixes)
+werkzeug: r1 aa8cf9ed491e32d56, r2 aa9a904f6413bd003, r3 a4cd5b4fc8033c536, r4 ac6330e1cb0460597 (launched)
+pydantic-settings: r1 af862ce7340dd93d4, r2 a718b9cba3249a273, r3 a685cc85bc13858d2, r4 a895cfe7ebff0bbef (launched)
+2026-10-21 ~03:11 all 12 remaining agents stopped by usage limit; resumed via SendMessage at 07:06 UTC (runs now span two sessions)
+cattrs-r4 done (16 fixes, 92447d9)
+cattrs-r3 done (15 fixes, d533a46)
+cattrs-r2 done (20 fixes, e95a2c4)
+pydantic-settings-r2 done (9-10 fixes, f88b6c9)
+pydantic-settings-r1 done (7 fixes, 60f6488 + format commit; also fixed pre-existing cli failures via pydantic 2.14 compat)
+pydantic-settings-r4 done (11 fixes, c04e4f8)
+cattrs-r1 done (18 fixes, f144015)
+werkzeug-r2 done (21 fixes, 34c6a44)
+pydantic-settings-r3 done (12-13 fixes, ddcddf2)
+werkzeug-r3 done (21 fix groups, 260fac3)
+werkzeug-r1 done (35 fixes, 9bdc32d)
+werkzeug-r4 done (33 fixes, 2f59bea). All 16 runs finished.

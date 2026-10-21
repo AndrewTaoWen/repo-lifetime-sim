@@ -1,0 +1,486 @@
+diff --git a/pydantic_settings/main.py b/pydantic_settings/main.py
+index 197ebd2..b05f350 100644
+--- a/pydantic_settings/main.py
++++ b/pydantic_settings/main.py
+@@ -12,7 +12,6 @@ from typing import Any, ClassVar, Literal, TextIO, TypeVar, cast
+ 
+ from pydantic import ConfigDict
+ from pydantic._internal._config import config_keys
+-from pydantic._internal._signature import _field_name_for_signature
+ from pydantic._internal._utils import deep_update, is_model_class
+ from pydantic.dataclasses import is_pydantic_dataclass
+ from pydantic.main import BaseModel
+@@ -38,7 +37,7 @@ from .sources import (
+     YamlConfigSettingsSource,
+     get_subcommand,
+ )
+-from .sources.utils import _get_alias_names
++from .sources.utils import _get_alias_names, _validation_key
+ 
+ T = TypeVar('T')
+ 
+@@ -733,8 +732,15 @@ class CliApp:
+             )
+             model = base_settings_cls(**base_settings_cls._settings_build_values(sources, init_kwargs))
+             model_init_data = {}
++            model_config: Mapping[str, Any] = (
++                model_cls.model_config  # type: ignore[attr-defined]
++                if is_model_class(model_cls)
++                else (getattr(model_cls, '__pydantic_config__', None) or {})
++            )
+             for field_name, field_info in base_settings_cls.model_fields.items():
+-                model_init_data[_field_name_for_signature(field_name, field_info)] = getattr(model, field_name)
++                # Pass each value under the key pydantic validates it by (alias or field name). This avoids relying on
++                # pydantic's private `_field_name_for_signature`, whose signature changed in newer pydantic releases.
++                model_init_data[_validation_key(field_name, field_info, model_config)] = getattr(model, field_name)
+             command = model_cls(**model_init_data)
+         else:
+             sources, init_kwargs = model_cls._settings_init_sources(
+diff --git a/pydantic_settings/sources/base.py b/pydantic_settings/sources/base.py
+index eafe713..b1a5a29 100644
+--- a/pydantic_settings/sources/base.py
++++ b/pydantic_settings/sources/base.py
+@@ -5,11 +5,11 @@ from __future__ import annotations as _annotations
+ import json
+ from abc import ABC, abstractmethod
+ from collections.abc import Sequence
+-from dataclasses import asdict, is_dataclass
++from dataclasses import is_dataclass
+ from pathlib import Path
+ from typing import TYPE_CHECKING, Any, cast, get_args
+ 
+-from pydantic import AliasChoices, AliasPath, BaseModel, TypeAdapter
++from pydantic import AliasChoices, AliasPath, BaseModel
+ from pydantic._internal._typing_extra import (  # type: ignore[attr-defined]
+     get_origin,
+ )
+@@ -22,6 +22,7 @@ from ..utils import _lenient_issubclass
+ from .types import EnvNoneType, EnvPrefixTarget, ForceDecode, NoDecode, PathType, PydanticModel, _CliSubCommand
+ from .utils import (
+     _annotation_is_complex,
++    _dump_for_validation,
+     _get_alias_names,
+     _get_field_metadata,
+     _get_model_fields,
+@@ -89,6 +90,15 @@ def get_subcommand(
+     return None
+ 
+ 
++def _is_optional_model(annotation: Any) -> bool:
++    """Return whether `annotation` is a `BaseModel` subclass, optionally wrapped in `Optional`."""
++    if is_union_origin(get_origin(annotation)):
++        args = get_args(annotation)
++        if len(args) == 2 and type(None) in args:
++            annotation = next(arg for arg in args if arg is not type(None))
++    return _lenient_issubclass(annotation, BaseModel)
++
++
+ class PydanticBaseSettingsSource(ABC):
+     """
+     Abstract base class for settings sources, every settings source classes should inherit from it.
+@@ -250,10 +260,9 @@ class DefaultSettingsSource(PydanticBaseSettingsSource):
+             for field_name, field_info in settings_cls.model_fields.items():
+                 alias_names, *_ = _get_alias_names(field_name, field_info)
+                 preferred_alias = alias_names[0]
+-                if is_dataclass(type(field_info.default)):
+-                    self.defaults[preferred_alias] = asdict(field_info.default)
+-                elif is_model_class(type(field_info.default)):
+-                    self.defaults[preferred_alias] = field_info.default.model_dump()
++                if is_dataclass(type(field_info.default)) or is_model_class(type(field_info.default)):
++                    # Dump keyed by validation alias so that partial updates still validate (see #aliases)
++                    self.defaults[preferred_alias] = _dump_for_validation(field_info.default)
+ 
+     def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+         # Nothing to do here. Only implement the return statement to make mypy happy
+@@ -320,11 +329,7 @@ class InitSettingsSource(PydanticBaseSettingsSource):
+         return None, '', False
+ 
+     def __call__(self) -> dict[str, Any]:
+-        return (
+-            TypeAdapter(dict[str, Any]).dump_python(self.init_kwargs)
+-            if self.nested_model_default_partial_update
+-            else self.init_kwargs
+-        )
++        return _dump_for_validation(self.init_kwargs) if self.nested_model_default_partial_update else self.init_kwargs
+ 
+     def __repr__(self) -> str:
+         return f'{self.__class__.__name__}(init_kwargs={self.init_kwargs!r})'
+@@ -454,7 +459,7 @@ class PydanticBaseEnvSettingsSource(PydanticBaseSettingsSource):
+                 args = get_args(annotation)
+                 if len(args) == 2 and type(None) in args:
+                     for arg in args:
+-                        if arg is not None:
++                        if arg is not type(None):
+                             annotation = arg
+                             break
+ 
+@@ -480,8 +485,8 @@ class PydanticBaseEnvSettingsSource(PydanticBaseSettingsSource):
+ 
+             if (
+                 sub_model_field is not None
+-                and _lenient_issubclass(sub_model_field.annotation, BaseModel)
+                 and isinstance(value, dict)
++                and _is_optional_model(sub_model_field.annotation)
+             ):
+                 values[field_key] = self._replace_field_names_case_insensitively(sub_model_field, value)
+             else:
+diff --git a/pydantic_settings/sources/providers/aws.py b/pydantic_settings/sources/providers/aws.py
+index 131d7a4..62470fc 100644
+--- a/pydantic_settings/sources/providers/aws.py
++++ b/pydantic_settings/sources/providers/aws.py
+@@ -21,11 +21,15 @@ def import_aws_secrets_manager() -> None:
+ 
+     try:
+         from boto3 import client as boto3_client
+-        from types_boto3_secretsmanager.client import SecretsManagerClient
+     except ImportError as e:  # pragma: no cover
+         raise ImportError(
+             'AWS Secrets Manager dependencies are not installed, run `pip install pydantic-settings[aws-secrets-manager]`'
+         ) from e
++    try:
++        # Only used for type annotations; boto3 works without the stubs being installed.
++        from types_boto3_secretsmanager.client import SecretsManagerClient
++    except ImportError:  # pragma: no cover
++        pass
+ 
+ 
+ class AWSSecretsManagerSettingsSource(EnvSettingsSource):
+@@ -67,8 +71,16 @@ class AWSSecretsManagerSettingsSource(EnvSettingsSource):
+ 
+         response = self._secretsmanager_client.get_secret_value(**request)  # type: ignore
+ 
++        secret_values = json.loads(response['SecretString'])
++        if isinstance(secret_values, dict):
++            # Nested JSON objects/arrays are re-encoded so they are decoded like any other complex env value
++            # (otherwise `json.loads` is later called on a dict/list and fails with a TypeError).
++            secret_values = {
++                key: json.dumps(value) if isinstance(value, (dict, list)) else value
++                for key, value in secret_values.items()
++            }
+         return parse_env_vars(
+-            json.loads(response['SecretString']),
++            secret_values,
+             self.case_sensitive,
+             self.env_ignore_empty,
+             self.env_parse_none_str,
+diff --git a/pydantic_settings/sources/providers/dotenv.py b/pydantic_settings/sources/providers/dotenv.py
+index 3943387..48e7f56 100644
+--- a/pydantic_settings/sources/providers/dotenv.py
++++ b/pydantic_settings/sources/providers/dotenv.py
+@@ -154,9 +154,11 @@ class DotEnvSettingsSource(EnvSettingsSource):
+                 if env_used:
+                     break
+             if not env_used:
+-                if is_extra_allowed and env_name.startswith(self.env_prefix):
++                # env var names are lower-cased when case-insensitive, so compare against the same-cased prefix
++                env_prefix = self._apply_case_sensitive(self.env_prefix)
++                if is_extra_allowed and env_name.startswith(env_prefix):
+                     # env_prefix should be respected and removed from the env_name
+-                    normalized_env_name = env_name[len(self.env_prefix) :]
++                    normalized_env_name = env_name[len(env_prefix) :]
+                     data[normalized_env_name] = env_value
+                 else:
+                     data[env_name] = env_value
+diff --git a/pydantic_settings/sources/providers/nested_secrets.py b/pydantic_settings/sources/providers/nested_secrets.py
+index cc9039c..c8344b9 100644
+--- a/pydantic_settings/sources/providers/nested_secrets.py
++++ b/pydantic_settings/sources/providers/nested_secrets.py
+@@ -1,7 +1,7 @@
+ import os
+ import warnings
+ from functools import reduce
+-from glob import iglob
++from glob import escape, iglob
+ from pathlib import Path
+ from typing import TYPE_CHECKING, Any, Literal, Optional
+ 
+@@ -154,7 +154,7 @@ class NestedSecretsSettingsSource(EnvSettingsSource):
+     def load_secrets(path: Path) -> dict[str, str]:
+         return {
+             str(p.relative_to(path)): p.read_text().strip()
+-            for p in map(Path, iglob(f'{path}/**/*', recursive=True))
++            for p in map(Path, iglob(f'{escape(str(path))}/**/*', recursive=True))
+             if p.is_file()
+         }
+ 
+diff --git a/pydantic_settings/sources/utils.py b/pydantic_settings/sources/utils.py
+index 10c79ad..cb4508d 100644
+--- a/pydantic_settings/sources/utils.py
++++ b/pydantic_settings/sources/utils.py
+@@ -115,7 +115,8 @@ def _annotation_is_complex(annotation: Any, metadata: list[Any]) -> bool:
+ 
+ def _get_field_metadata(field: FieldInfo) -> list[Any]:
+     annotation = _resolve_type_alias(field.annotation)
+-    metadata = field.metadata
++    # Copy so that callers never mutate (and repeatedly grow) `field.metadata` in place.
++    metadata = list(field.metadata)
+     origin = get_origin(annotation)
+     if typing_objects.is_annotated(origin):
+         _, *meta = get_args(annotation)
+@@ -303,6 +304,54 @@ def _get_alias_names(
+     return tuple(dict.fromkeys(alias_names)), is_alias_path_only
+ 
+ 
++def _validation_key(field_name: str, field_info: FieldInfo, config: Mapping[str, Any]) -> str:
++    """Return the input key under which pydantic will look up `field_name` during validation."""
++    from pydantic import AliasChoices
++
++    if config.get('validate_by_alias', True):
++        v_alias = field_info.validation_alias
++        if isinstance(v_alias, str):
++            return v_alias
++        if isinstance(v_alias, AliasChoices):
++            first = next((choice for choice in v_alias.choices if isinstance(choice, str)), None)
++            if first is not None:
++                return first
++        elif v_alias is None and isinstance(field_info.alias, str):
++            return field_info.alias
++    return field_name
++
++
++def _dump_for_validation(value: Any) -> Any:
++    """
++    Recursively convert pydantic models (and dataclasses) to dicts keyed so that they validate back into
++    the same model, i.e. keyed by alias where pydantic expects one rather than by field name.
++    """
++    if isinstance(value, BaseModel):
++        config = type(value).model_config
++        result: dict[str, Any] = {}
++        for name, field_info in type(value).model_fields.items():
++            if name in value.__dict__:
++                result[_validation_key(name, field_info, config)] = _dump_for_validation(value.__dict__[name])
++        for key, extra_value in (value.__pydantic_extra__ or {}).items():
++            result[key] = _dump_for_validation(extra_value)
++        return result
++    if is_dataclass(value) and not isinstance(value, type):
++        import dataclasses
++
++        fields_info = getattr(type(value), '__pydantic_fields__', {})
++        config = getattr(type(value), '__pydantic_config__', {}) or {}
++        result = {}
++        for f in dataclasses.fields(value):
++            key = _validation_key(f.name, fields_info[f.name], config) if f.name in fields_info else f.name
++            result[key] = _dump_for_validation(getattr(value, f.name))
++        return result
++    if type(value) is dict:
++        return {k: _dump_for_validation(v) for k, v in value.items()}
++    if type(value) in (list, tuple, set, frozenset):
++        return type(value)(_dump_for_validation(v) for v in value)
++    return value
++
++
+ def _is_function(obj: Any) -> bool:
+     """Check if an object is a function."""
+     from types import BuiltinFunctionType, FunctionType
+@@ -316,6 +365,7 @@ __all__ = [
+     '_annotation_enum_val_to_name',
+     '_annotation_is_complex',
+     '_annotation_is_complex_inner',
++    '_dump_for_validation',
+     '_get_alias_names',
+     '_get_env_var_key',
+     '_get_model_fields',
+diff --git a/tests/test_hardening.py b/tests/test_hardening.py
+new file mode 100644
+index 0000000..4a292f8
+--- /dev/null
++++ b/tests/test_hardening.py
+@@ -0,0 +1,198 @@
++"""Regression tests for latent bugs fixed during hardening."""
++
++from __future__ import annotations
++
++import json
++import sys
++from dataclasses import field
++from typing import Annotated, Optional
++
++import pytest
++from pydantic import BaseModel, Field
++from pydantic.dataclasses import dataclass as pydantic_dataclass
++
++from pydantic_settings import BaseSettings, CliApp, NoDecode, SettingsConfigDict
++from pydantic_settings.sources.providers.nested_secrets import NestedSecretsSettingsSource
++from pydantic_settings.sources.utils import _get_field_metadata
++
++
++@pytest.mark.skipif(sys.version_info < (3, 12), reason='requires PEP 695 type aliases')
++def test_get_field_metadata_does_not_mutate_field_metadata():
++    ns: dict = {}
++    exec(
++        'from typing import Annotated\n'
++        'from pydantic_settings import NoDecode\n'
++        'type L = Annotated[list[int], NoDecode]\n',
++        ns,
++    )
++
++    class Settings(BaseSettings):
++        x: ns['L'] = []
++
++    field_info = Settings.model_fields['x']
++    before = list(field_info.metadata)
++    assert NoDecode in _get_field_metadata(field_info)
++    _get_field_metadata(field_info)
++    assert field_info.metadata == before
++
++
++def test_get_field_metadata_returns_copy():
++    class Settings(BaseSettings):
++        x: Annotated[list[int], NoDecode] = []
++
++    field_info = Settings.model_fields['x']
++    result = _get_field_metadata(field_info)
++    result.append('sentinel')
++    assert 'sentinel' not in field_info.metadata
++
++
++def test_case_insensitive_optional_model_with_none_first(env):
++    class Sub(BaseModel):
++        VAL1: str
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(env_nested_delimiter='__')
++        nested: None | Sub = None
++
++    env.set('NESTED__val1', 'v')
++    assert Settings().nested == Sub(VAL1='v')
++
++
++def test_case_insensitive_nested_optional_submodel(env):
++    class InnerModel(BaseModel):
++        X: int = 0
++
++    class Sub(BaseModel):
++        A: int = 1
++        Inner: Optional[InnerModel] = None
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(env_nested_delimiter='__')
++        nested: Optional[Sub] = None
++
++    env.set('NESTED__a', '3')
++    env.set('NESTED__inner__x', '4')
++    s = Settings()
++    assert s.nested.A == 3
++    assert s.nested.Inner == InnerModel(X=4)
++
++
++def test_dotenv_extra_with_uppercase_prefix_case_insensitive(tmp_path):
++    p = tmp_path / '.env'
++    p.write_text('APP_FOO=1\nAPP_EXTRA=x\n')
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(env_file=p, env_prefix='APP_', extra='allow')
++        foo: int
++
++    assert Settings().model_dump() == {'foo': 1, 'extra': 'x'}
++
++
++class _AliasedSub(BaseModel):
++    a: int = Field(alias='AA')
++    b: int = 2
++
++
++def test_partial_update_default_with_aliased_nested_field(env):
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(env_nested_delimiter='__', nested_model_default_partial_update=True)
++        nested: _AliasedSub = _AliasedSub(AA=1)
++
++    env.set('NESTED__b', '5')
++    assert Settings().nested.model_dump() == {'a': 1, 'b': 5}
++    assert Settings(nested={'b': 7}).nested.model_dump() == {'a': 1, 'b': 7}
++
++
++def test_partial_update_init_kwarg_with_aliased_nested_field():
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(nested_model_default_partial_update=True)
++        nested: _AliasedSub = _AliasedSub(AA=1)
++        items: list[_AliasedSub] = []
++
++    s = Settings(nested=_AliasedSub(AA=3), items=[_AliasedSub(AA=4, b=5)])
++    assert s.nested.model_dump() == {'a': 3, 'b': 2}
++    assert s.items[0].model_dump() == {'a': 4, 'b': 5}
++
++
++def test_partial_update_serialization_alias_only_still_works(env):
++    class Sub(BaseModel):
++        a: int = Field(1, serialization_alias='S')
++        b: int = 2
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(env_nested_delimiter='__', nested_model_default_partial_update=True)
++        nested: Sub = Sub()
++
++    env.set('NESTED__b', '5')
++    assert Settings().nested.model_dump() == {'a': 1, 'b': 5}
++
++
++def test_partial_update_dataclass_default(env):
++    @pydantic_dataclass
++    class Sub:
++        a: int = 1
++        tags: list[str] = field(default_factory=list)
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(env_nested_delimiter='__', nested_model_default_partial_update=True)
++        nested: Sub = Sub(a=3, tags=['x'])
++
++    env.set('NESTED__tags', '["y"]')
++    assert Settings().nested == Sub(a=3, tags=['y'])
++
++
++def test_cli_app_run_plain_model_with_alias():
++    class Cmd(BaseModel):
++        some_value: int = Field(alias='some-value')
++        other: str = 'o'
++
++        def cli_cmd(self) -> None:
++            pass
++
++    result = CliApp.run(Cmd, cli_args=['--some-value', '3'])
++    assert result.some_value == 3
++    assert result.other == 'o'
++
++
++def test_nested_secrets_dir_with_glob_metacharacters(tmp_path):
++    secrets_dir = tmp_path / 'secrets[1]'
++    secrets_dir.mkdir()
++    (secrets_dir / 'password').write_text('hunter2')
++
++    class Settings(BaseSettings):
++        model_config = SettingsConfigDict(secrets_dir=secrets_dir)
++        password: str
++
++        @classmethod
++        def settings_customise_sources(
++            cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings
++        ):
++            return (init_settings, NestedSecretsSettingsSource(file_secret_settings))
++
++    assert Settings().password == 'hunter2'
++
++
++def test_aws_secrets_manager_nested_json_values(monkeypatch):
++    pytest.importorskip('boto3')
++    moto = pytest.importorskip('moto')
++    import boto3
++
++    from pydantic_settings import AWSSecretsManagerSettingsSource
++
++    monkeypatch.setenv('AWS_DEFAULT_REGION', 'us-east-1')
++
++    class Db(BaseModel):
++        host: str
++        port: int
++
++    class Settings(BaseSettings):
++        db: Db
++        tags: list[str]
++        port: int
++
++    with moto.mock_aws():
++        boto3.client('secretsmanager').create_secret(
++            Name='s', SecretString=json.dumps({'db': {'host': 'h', 'port': 1}, 'tags': ['a'], 'port': 5})
++        )
++        source = AWSSecretsManagerSettingsSource(Settings, 's')
++        assert source() == {'db': {'host': 'h', 'port': 1}, 'tags': ['a'], 'port': 5}

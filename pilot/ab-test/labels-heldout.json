@@ -1,0 +1,1394 @@
+{
+ "python-dotenv": [
+  {
+   "test": "tests.test_cli::test_get_empty_string_value",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f215c02",
+   "subject": "fix: dotenv get exits 0 for empty string values (#700)",
+   "failure": "AssertionError: assert (1, '') == (0, '\\n')"
+  },
+  {
+   "test": "tests.test_cli::test_set_missing_directory",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "6a49d6d",
+   "subject": "fix: name the .env path in set_key and unset_key write errors (#711)",
+   "failure": "assert (1, '') == (2, \"Error wr..._dir/.env'\\n\")"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_expands_user[dotenv_values-Path]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "AssertionError: assert OrderedDict() == {'a': 'x'}"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_expands_user[dotenv_values-str]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "AssertionError: assert OrderedDict() == {'a': 'x'}"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_expands_user[get_key-Path]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "AssertionError: assert None == 'x'"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_expands_user[get_key-str]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "AssertionError: assert None == 'x'"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_expands_user[set_key-Path]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-249/test_dotenv_path_expands_user_5/~/.tmp_nwyyre4u'"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_expands_user[set_key-str]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-249/test_dotenv_path_expands_user_4/~/.tmp_tlhu4gl3'"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_expands_user[unset_key-Path]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "AssertionError: assert (None, 'a') == (True, 'a')"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_expands_user[unset_key-str]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "AssertionError: assert (None, 'a') == (True, 'a')"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_keeps_type[path1-expected1]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "AssertionError: assert PosixPath('~/.env') == PosixPath('/tmp/pytest-of-root/pytest-249/test_dotenv_path_keeps_type_pa0/.env')"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_path_keeps_type[~/.env-{home}/.env]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "AssertionError: assert '~/.env' == '/tmp/pytest-...type___0/.env'"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_values_empty_value_with_inline_comment[KEY=  # comment-expected1]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f5485a6",
+   "subject": "fix: parse empty unquoted value with inline comment as empty string",
+   "failure": "AssertionError: assert OrderedDict({... '# comment'}) == {'KEY': ''}"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_values_empty_value_with_inline_comment[KEY= # comment-expected0]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f5485a6",
+   "subject": "fix: parse empty unquoted value with inline comment as empty string",
+   "failure": "AssertionError: assert OrderedDict({... '# comment'}) == {'KEY': ''}"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_values_empty_value_with_inline_comment[KEY= # comment\\nOTHER=val-expected7]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f5485a6",
+   "subject": "fix: parse empty unquoted value with inline comment as empty string",
+   "failure": "AssertionError: assert OrderedDict({...THER': 'val'}) == {'KEY': '', 'OTHER': 'val'}"
+  },
+  {
+   "test": "tests.test_main::test_dotenv_values_empty_value_with_inline_comment[KEY=\\t# comment-expected6]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f5485a6",
+   "subject": "fix: parse empty unquoted value with inline comment as empty string",
+   "failure": "AssertionError: assert OrderedDict({... '# comment'}) == {'KEY': ''}"
+  },
+  {
+   "test": "tests.test_main::test_find_dotenv_expands_user",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "0b28805",
+   "subject": "fix: expand ~ in find_dotenv and the %dotenv magic (#714)",
+   "failure": "AssertionError: assert '' == '/tmp/pytest-...er0/home/.env'"
+  },
+  {
+   "test": "tests.test_main::test_load_dotenv_expands_user",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "7914148",
+   "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+   "failure": "assert False is True"
+  },
+  {
+   "test": "tests.test_main::test_rewrite_read_only_file_leaves_no_temp_file[set_key]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "6bdf86a",
+   "subject": "fix: don't leak or mask errors when rewrite cleanup fails on Windows (#686)",
+   "failure": "AssertionError: assert None == '/tmp/pytest-of-root/pytest-249/test_rewrite_read_only_file_le0/.env'"
+  },
+  {
+   "test": "tests.test_main::test_rewrite_read_only_file_leaves_no_temp_file[unset_key]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "6bdf86a",
+   "subject": "fix: don't leak or mask errors when rewrite cleanup fails on Windows (#686)",
+   "failure": "AssertionError: assert None == '/tmp/pytest-of-root/pytest-249/test_rewrite_read_only_file_le1/.env'"
+  },
+  {
+   "test": "tests.test_main::test_rewrite_reports_original_error_when_cleanup_fails",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "6bdf86a",
+   "subject": "fix: don't leak or mask errors when rewrite cleanup fails on Windows (#686)",
+   "failure": "AssertionError: assert OSError('unlink failed') is OSError('replace failed')"
+  },
+  {
+   "test": "tests.test_main::test_set_key[-a-b\\\\'c-expected15-a='b\\\\\\\\\\\\'c'\\n]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f7b18d9",
+   "subject": "fix: round-trip backslashes through set_key (#680)",
+   "failure": "assert \"a='b\\\\\\\\'c'\\n\" == \"a='b\\\\\\\\\\\\'c'\\n\""
+  },
+  {
+   "test": "tests.test_main::test_set_key[-a-b\\\\-expected14-a='b\\\\\\\\'\\n]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f7b18d9",
+   "subject": "fix: round-trip backslashes through set_key (#680)",
+   "failure": "assert \"a='b\\\\'\\n\" == \"a='b\\\\\\\\'\\n\""
+  },
+  {
+   "test": "tests.test_main::test_set_key[-a-b\\\\c-expected13-a='b\\\\\\\\c'\\n]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f7b18d9",
+   "subject": "fix: round-trip backslashes through set_key (#680)",
+   "failure": "assert \"a='b\\\\c'\\n\" == \"a='b\\\\\\\\c'\\n\""
+  },
+  {
+   "test": "tests.test_main::test_set_key_missing_directory",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "6a49d6d",
+   "subject": "fix: name the .env path in set_key and unset_key write errors (#711)",
+   "failure": "AssertionError: assert '/tmp/pytest-....tmp_g4rlnhk0' == '/tmp/pytest-...0/nx_dir/.env'"
+  },
+  {
+   "test": "tests.test_main::test_set_key_round_trips[C:\\\\Users\\\\]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f7b18d9",
+   "subject": "fix: round-trip backslashes through set_key (#680)",
+   "failure": "AssertionError: assert None == 'C:\\\\Users\\\\'"
+  },
+  {
+   "test": "tests.test_main::test_set_key_round_trips[back\\\\]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "f7b18d9",
+   "subject": "fix: round-trip backslashes through set_key (#680)",
+   "failure": "AssertionError: assert None == 'back\\\\'"
+  },
+  {
+   "test": "tests.test_parser::test_parse_stream[a=  # b-expected12]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert [Binding(key=... error=False)] == [Binding(key=... error=False)]"
+  },
+  {
+   "test": "tests.test_parser::test_parse_stream[a= #b-expected11]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert [Binding(key=... error=False)] == [Binding(key=... error=False)]"
+  },
+  {
+   "test": "tests.test_parser::test_parse_stream[a= #c\\nd=e-expected16]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert [Binding(key=... error=False)] == [Binding(key=... error=False)]"
+  },
+  {
+   "test": "tests.test_parser::test_parse_stream[a=\"b\\\\\\\\\"\\nc=\"d\"-expected36]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "assert [Binding(key=..., error=True)] == [Binding(key=... error=False)]"
+  },
+  {
+   "test": "tests.test_parser::test_parse_stream[a='b\\\\\\\\'\\nc='d'-expected35]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "assert [Binding(key=..., error=True)] == [Binding(key=... error=False)]"
+  },
+  {
+   "test": "tests.test_parser::test_parse_stream[a=\\t#c-expected15]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert [Binding(key=... error=False)] == [Binding(key=... error=False)]"
+  }
+ ],
+ "cattrs": [
+  {
+   "test": "tests.strategies.test_include_subclasses::test_omit_if_default_with_discriminator_override[None]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2c6cf5b",
+   "subject": "Inherit omit_if_default in generated dict hooks",
+   "failure": "AssertionError: assert {'kind': 'par... 'renamed': 0} == {'kind': 'parent'}"
+  },
+  {
+   "test": "tests.strategies.test_include_subclasses::test_omit_if_default_with_discriminator_override[configure_tagged_union]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2c6cf5b",
+   "subject": "Inherit omit_if_default in generated dict hooks",
+   "failure": "AssertionError: assert {'kind': 'par...pe': 'Parent'} == {'kind': 'par...pe': 'Parent'}"
+  },
+  {
+   "test": "tests.strategies.test_union_passthrough_695::test_type_alias_union_member[BaseConverter-False]",
+   "label": "feature",
+   "why": "added in a feature commit",
+   "commit": "f693a0b",
+   "subject": "Support type aliases in union passthrough",
+   "failure": "cattrs.errors.StructureHandlerNotFoundError: Unsupported type: NewScalar | tests.strategies.test_union_passthrough_695.DataClass. Register a structure hook for it."
+  },
+  {
+   "test": "tests.strategies.test_union_passthrough_695::test_type_alias_union_member[BaseConverter-True]",
+   "label": "feature",
+   "why": "added in a feature commit",
+   "commit": "f693a0b",
+   "subject": "Support type aliases in union passthrough",
+   "failure": "cattrs.errors.StructureHandlerNotFoundError: Unsupported type: NewScalar | tests.strategies.test_union_passthrough_695.DataClass. Register a structure hook for it."
+  },
+  {
+   "test": "tests.strategies.test_union_passthrough_695::test_type_alias_union_member[Converter-False]",
+   "label": "feature",
+   "why": "added in a feature commit",
+   "commit": "f693a0b",
+   "subject": "Support type aliases in union passthrough",
+   "failure": "cattrs.errors.StructureHandlerNotFoundError: Unsupported type: NewScalar | tests.strategies.test_union_passthrough_695.DataClass. Register a structure hook for it."
+  },
+  {
+   "test": "tests.strategies.test_union_passthrough_695::test_type_alias_union_member[Converter-True]",
+   "label": "feature",
+   "why": "added in a feature commit",
+   "commit": "f693a0b",
+   "subject": "Support type aliases in union passthrough",
+   "failure": "cattrs.errors.StructureHandlerNotFoundError: Unsupported type: NewScalar | tests.strategies.test_union_passthrough_695.DataClass. Register a structure hook for it."
+  },
+  {
+   "test": "tests.test_disambiguators::test_disambiguation_is_order_independent",
+   "label": "unclear",
+   "why": "",
+   "commit": "a6c0900",
+   "subject": "Disambiguate unions independent of member class order",
+   "failure": "TypeError: <class 'tests.test_disambiguators.test_disambiguation_is_order_independent.<locals>.C'> has no usable non-default attributes"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_explicit_overrides",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False--dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False--define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False-type-dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False-type-define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True--dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True--define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True-type-dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True-type-define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[Converter-False--dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[Converter-False--define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[Converter-False-type-dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[Converter-False-type-define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[Converter-True--dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[Converter-True--define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[Converter-True-type-dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming[Converter-True-type-define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming_different_attributes[BaseConverter-False]",
+   "label": "unclear",
+   "why": "",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "TypeError: <class 'tests.test_disambiguators.test_literal_field_renaming_different_attributes.<locals>.B'> has no usable non-default attributes"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming_different_attributes[BaseConverter-True]",
+   "label": "unclear",
+   "why": "",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "TypeError: <class 'tests.test_disambiguators.test_literal_field_renaming_different_attributes.<locals>.B'> has no usable non-default attributes"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming_different_attributes[Converter-False]",
+   "label": "unclear",
+   "why": "",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "TypeError: <class 'tests.test_disambiguators.test_literal_field_renaming_different_attributes.<locals>.B'> has no usable non-default attributes"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming_different_attributes[Converter-True]",
+   "label": "unclear",
+   "why": "",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "TypeError: <class 'tests.test_disambiguators.test_literal_field_renaming_different_attributes.<locals>.B'> has no usable non-default attributes"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming_different_keys[BaseConverter-False]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming_different_keys[BaseConverter-True]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming_different_keys[Converter-False]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_disambiguators::test_literal_field_renaming_different_keys[Converter-True]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "b618aab",
+   "subject": "Honor renamed literal fields in union disambiguation",
+   "failure": "KeyError: 'kind'"
+  },
+  {
+   "test": "tests.test_gen_dict::test_omit_if_default_from_converter[None-True-False-dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2c6cf5b",
+   "subject": "Inherit omit_if_default in generated dict hooks",
+   "failure": "AssertionError: assert {'a': 1, 'renamed': 2} == {}"
+  },
+  {
+   "test": "tests.test_gen_dict::test_omit_if_default_from_converter[None-True-False-define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2c6cf5b",
+   "subject": "Inherit omit_if_default in generated dict hooks",
+   "failure": "AssertionError: assert {'a': 1, 'renamed': 2} == {}"
+  },
+  {
+   "test": "tests.test_gen_dict::test_omit_if_default_from_converter[None-True-True-dataclass]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2c6cf5b",
+   "subject": "Inherit omit_if_default in generated dict hooks",
+   "failure": "AssertionError: assert {'a': 1, 'renamed': 2} == {}"
+  },
+  {
+   "test": "tests.test_gen_dict::test_omit_if_default_from_converter[None-True-True-define]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2c6cf5b",
+   "subject": "Inherit omit_if_default in generated dict hooks",
+   "failure": "AssertionError: assert {'a': 1, 'renamed': 2} == {}"
+  },
+  {
+   "test": "tests.test_gen_dict::test_omit_if_default_from_converter_attribute_overrides[False-True]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2c6cf5b",
+   "subject": "Inherit omit_if_default in generated dict hooks",
+   "failure": "AssertionError: assert {'a': 1, 'c': 3} == {'a': 1}"
+  },
+  {
+   "test": "tests.test_gen_dict::test_omit_if_default_from_converter_attribute_overrides[True-True]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "2c6cf5b",
+   "subject": "Inherit omit_if_default in generated dict hooks",
+   "failure": "AssertionError: assert {'a': 1, 'c': 3} == {'a': 1}"
+  },
+  {
+   "test": "tests.test_gen_dict::test_renaming_to_key_with_special_characters[a'] or 1 or ['b]",
+   "label": "unclear",
+   "why": "",
+   "commit": "3d57d6b",
+   "subject": "Escape override rename keys when generating structure/unstructure code",
+   "failure": "  File \"<cattrs generated unstructure tests.test_gen_dict.test_renaming_to_key_with_special_characters.<locals>.A-3>\", line 3"
+  },
+  {
+   "test": "tests.test_gen_dict::test_renaming_to_key_with_special_characters[it's]",
+   "label": "unclear",
+   "why": "",
+   "commit": "3d57d6b",
+   "subject": "Escape override rename keys when generating structure/unstructure code",
+   "failure": "  File \"<cattrs generated unstructure tests.test_gen_dict.test_renaming_to_key_with_special_characters.<locals>.A>\", line 3"
+  },
+  {
+   "test": "tests.test_typeddicts::test_key_with_single_quote_roundtrip[False]",
+   "label": "unclear",
+   "why": "",
+   "commit": "f2e42f3",
+   "subject": "Improve TypedDict key quoting",
+   "failure": "  File \"<cattrs generated unstructure tests.test_typeddicts.SingleQuoteKey>\", line 3"
+  },
+  {
+   "test": "tests.test_typeddicts::test_key_with_single_quote_roundtrip[True]",
+   "label": "unclear",
+   "why": "",
+   "commit": "f2e42f3",
+   "subject": "Improve TypedDict key quoting",
+   "failure": "  File \"<cattrs generated unstructure tests.test_typeddicts.SingleQuoteKey>\", line 3"
+  },
+  {
+   "test": "tests.test_unstructure_collections::test_counter_unstructure_applies_key_hook",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "02c3ead",
+   "subject": "Unpack the single type arg for Counter keys when unstructuring",
+   "failure": "assert {Key(v=1): 5, Key(v=2): 3} == {1: 5, 2: 3}"
+  },
+  {
+   "test": "tests.test_v::test_extra_keys_are_sorted",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "bc34a46",
+   "subject": "Sort extra keys when formatting ForbiddenExtraKeysError (#776)",
+   "failure": "AssertionError: assert ['extra field...d, c, e) @ $'] == ['extra field...c, d, e) @ $']"
+  }
+ ],
+ "werkzeug": [
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[all]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[for]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[host]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[ignore 0]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[ignore empty]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[ignore len < trusted]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[ignore untrusted]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[ipv6 - port, host with port]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[ipv6 host]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[ipv6 port, host without port]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[multiple for]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[port, host with port]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[port, host without port]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[port, no host]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[prefix < for]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[prefix]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.middleware.test_proxy_fix::test_proxy_fix[proto]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT WARN. No warnings of type (<class 'DeprecationWarning'>, <class 'PendingDeprecationWarning'>, <class 'FutureWarning'>) were emitted."
+  },
+  {
+   "test": "tests.sansio.test_utils::test_get_host_invalid[a.test:0443]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert 'a.test:0443' == ''"
+  },
+  {
+   "test": "tests.sansio.test_utils::test_get_host_invalid[a.test:0]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert 'a.test:0' == ''"
+  },
+  {
+   "test": "tests.sansio.test_utils::test_get_host_invalid[a.test:65536]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert 'a.test:65536' == ''"
+  },
+  {
+   "test": "tests.test_http.TestHTTPUtility::test_authorization_basic_validate",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "1b8bc581",
+   "subject": "validate base64",
+   "failure": "AssertionError: assert <Authorization Basic dGVzdDo=> is None"
+  },
+  {
+   "test": "tests.test_http.TestHTTPUtility::test_csp_header",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "KeyError: 'img-src'"
+  },
+  {
+   "test": "tests.test_http.TestHTTPUtility::test_is_hop_by_hop_header[Keep-Alive]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "5b0e3209",
+   "subject": "deprecate `remove_hop_by_hop_headers`",
+   "failure": "TypeError: is_hop_by_hop_header() takes 1 positional argument but 2 were given"
+  },
+  {
+   "test": "tests.test_http.TestHTTPUtility::test_is_hop_by_hop_header[connection]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "5b0e3209",
+   "subject": "deprecate `remove_hop_by_hop_headers`",
+   "failure": "TypeError: is_hop_by_hop_header() takes 1 positional argument but 2 were given"
+  },
+  {
+   "test": "tests.test_http.TestHTTPUtility::test_is_hop_by_hop_header[test-Header]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "5b0e3209",
+   "subject": "deprecate `remove_hop_by_hop_headers`",
+   "failure": "TypeError: is_hop_by_hop_header() takes 1 positional argument but 2 were given"
+  },
+  {
+   "test": "tests.test_http.TestHTTPUtility::test_parse_cookie",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "assert {'dismiss-top...a': '42', ...} == {'CP': 'null*...op': '6', ...}"
+  },
+  {
+   "test": "tests.test_http.TestRange::test_if_range_parsing",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "assert 'invalid_unquoted' is None"
+  },
+  {
+   "test": "tests.test_http.TestRange::test_range_parsing",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AssertionError: assert <Range 'bytes=0-'> is None"
+  },
+  {
+   "test": "tests.test_internal::test_plain_int[0x7B-16-None]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT RAISE ValueError"
+  },
+  {
+   "test": "tests.test_internal::test_plain_int[\\u2029123-10-None]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: DID NOT RAISE ValueError"
+  },
+  {
+   "test": "tests.test_routing.TestNoDomainMatching::test_build_relative",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "884437ae",
+   "subject": "fix boolean logic for external url",
+   "failure": "AssertionError: assert 'http://app.test/' == '/'"
+  },
+  {
+   "test": "tests.test_routing::test_converter[float build inf]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "Failed: DID NOT RAISE BuildError"
+  },
+  {
+   "test": "tests.test_routing::test_converter[float build nan]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "Failed: DID NOT RAISE BuildError"
+  },
+  {
+   "test": "tests.test_routing::test_converter[float build range]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "Failed: DID NOT RAISE BuildError"
+  },
+  {
+   "test": "tests.test_routing::test_converter[float build unsigned negative]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "Failed: DID NOT RAISE BuildError"
+  },
+  {
+   "test": "tests.test_routing::test_converter[float negative zero]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "AssertionError: assert '/-0.' == '/-0.0'"
+  },
+  {
+   "test": "tests.test_routing::test_converter[float no exp large]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "AssertionError: assert '/10000000000000000.' == '/10000000000000000.0'"
+  },
+  {
+   "test": "tests.test_routing::test_converter[float range]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "AssertionError: assert '/5.' == '/5.0'"
+  },
+  {
+   "test": "tests.test_routing::test_converter[int build fixed too large]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "Failed: DID NOT RAISE BuildError"
+  },
+  {
+   "test": "tests.test_routing::test_converter[int build range]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "Failed: DID NOT RAISE BuildError"
+  },
+  {
+   "test": "tests.test_routing::test_converter[int build unsigned negative]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "Failed: DID NOT RAISE BuildError"
+  },
+  {
+   "test": "tests.test_routing::test_converter[int fixed negative]",
+   "label": "unclear",
+   "why": "",
+   "commit": "c678a231",
+   "subject": "stricter int and float converters",
+   "failure": "werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again."
+  },
+  {
+   "test": "tests.test_routing::test_part_converter_order",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "6d7c0b4e",
+   "subject": "sort converter matches numerically",
+   "failure": "AssertionError: assert {'a0': 0, 'a1... 'a3': 2, ...} == {'a0': 0, 'a1... 'a3': 3, ...}"
+  },
+  {
+   "test": "tests.test_send_file::test_etag",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "0e170182",
+   "subject": "update etag comparison functions",
+   "failure": "assert 2 == 1"
+  },
+  {
+   "test": "tests.test_send_file::test_file",
+   "label": "unclear",
+   "why": "",
+   "commit": "d441b0c7",
+   "subject": "improve `send_file`",
+   "failure": "TypeError: Unable to detect the MIME type because a file name is not available. Either set 'download_name', pass a path instead of a file, or set 'mimetype'."
+  },
+  {
+   "test": "tests.test_send_file::test_object",
+   "label": "unclear",
+   "why": "",
+   "commit": "d441b0c7",
+   "subject": "improve `send_file`",
+   "failure": "TypeError: Unable to detect the MIME type because a file name is not available. Either set 'download_name', pass a path instead of a file, or set 'mimetype'."
+  },
+  {
+   "test": "tests.test_urls::test_uri_empty_auth[http://:@d.test]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4da3786f",
+   "subject": "preserve empty username, password, port 0",
+   "failure": "AssertionError: assert 'http://d.test' == 'http://:@d.test'"
+  },
+  {
+   "test": "tests.test_urls::test_uri_empty_auth[http://:p@d.test]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4da3786f",
+   "subject": "preserve empty username, password, port 0",
+   "failure": "AssertionError: assert 'http://d.test' == 'http://:p@d.test'"
+  },
+  {
+   "test": "tests.test_urls::test_uri_empty_auth[http://u:@d.test]",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4da3786f",
+   "subject": "preserve empty username, password, port 0",
+   "failure": "AssertionError: assert 'http://u@d.test' == 'http://u:@d.test'"
+  },
+  {
+   "test": "tests.test_urls::test_uri_port_0",
+   "label": "bug",
+   "why": "wrong behaviour on snapshot",
+   "commit": "4da3786f",
+   "subject": "preserve empty username, password, port 0",
+   "failure": "AssertionError: assert 'http://d.test' == 'http://d.test:0'"
+  },
+  {
+   "test": "tests.test_wsgi::test_limited_stream",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AttributeError: module 'werkzeug.wsgi' has no attribute '_LimitedStream'. Did you mean: 'LimitedStream'?"
+  },
+  {
+   "test": "tests.test_wsgi::test_limited_stream_disconnection",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AttributeError: module 'werkzeug.wsgi' has no attribute '_LimitedStream'. Did you mean: 'LimitedStream'?"
+  },
+  {
+   "test": "tests.test_wsgi::test_limited_stream_json_load",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AttributeError: module 'werkzeug.wsgi' has no attribute '_LimitedStream'. Did you mean: 'LimitedStream'?"
+  },
+  {
+   "test": "tests.test_wsgi::test_limited_stream_read_with_raw_io",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "AttributeError: module 'werkzeug.wsgi' has no attribute '_LimitedStream'. Did you mean: 'LimitedStream'?"
+  }
+ ],
+ "pydantic-settings": [
+  {
+   "test": "tests.test_docs::test_docs_examples[docs/index.md:1160-1189]",
+   "label": "unclear",
+   "why": "",
+   "commit": "",
+   "subject": "",
+   "failure": "pydantic_core._pydantic_core.ValidationError: 1 validation error for Settings"
+  },
+  {
+   "test": "tests.test_docs::test_docs_examples[docs/index.md:1468-1505]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "TypeError: _field_name_for_signature() missing 1 required positional argument: 'validate_by_alias'"
+  },
+  {
+   "test": "tests.test_docs::test_docs_examples[docs/index.md:2143-2168]",
+   "label": "unclear",
+   "why": "",
+   "commit": "",
+   "subject": "",
+   "failure": "Failed: Print output changed code:"
+  },
+  {
+   "test": "tests.test_docs::test_docs_examples[docs/index.md:2768-2809]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "",
+   "subject": "",
+   "failure": "ImportError: cannot import name 'AWSSystemsManagerSettingsSource' from 'pydantic_settings' (/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/pydantic-settings/py"
+  },
+  {
+   "test": "tests.test_docs::test_docs_examples[docs/index.md:3747-3777]",
+   "label": "unclear",
+   "why": "",
+   "commit": "",
+   "subject": "",
+   "failure": "AttributeError: settings_cached"
+  },
+  {
+   "test": "tests.test_source_json::test_json_empty_file[   \\n\\t]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "0e8d7d4",
+   "subject": "fix: treat empty JSON config file as empty mapping instead of crashing (#947)",
+   "failure": "json.decoder.JSONDecodeError: Expecting value: line 2 column 2 (char 5)"
+  },
+  {
+   "test": "tests.test_source_json::test_json_empty_file[]",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "0e8d7d4",
+   "subject": "fix: treat empty JSON config file as empty mapping instead of crashing (#947)",
+   "failure": "json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+  },
+  {
+   "test": "tests.test_source_json::test_json_file_is_read_as_utf8_by_default",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "12cdb0a",
+   "subject": "fix: read JSON and YAML config as UTF-8, not the locale encoding (#955)",
+   "failure": "UnicodeDecodeError: 'charmap' codec can't decode byte 0x81 in position 11: character maps to <undefined>"
+  },
+  {
+   "test": "tests.test_source_json::test_json_file_validation_alias_differs_from_alias",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "081d39f",
+   "subject": "Fix config file and CLI values being ignored when alias differs from validation_alias (#1038)",
+   "failure": "pydantic_core._pydantic_core.ValidationError: 2 validation errors for Settings"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_last_directory_wins_when_secret_filenames_differ_by_case[posix-False-third]",
+   "label": "unclear",
+   "why": "",
+   "commit": "a6d6813",
+   "subject": "Honor `secrets_case_sensitive` on Windows by overriding `_load_env_vars` (#1001)",
+   "failure": "AttributeError: <module 'pydantic_settings.sources.providers.env' from '/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/pydantic-settings/pydantic_settings/sour"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_last_directory_wins_when_secret_filenames_differ_by_case[posix-True-second]",
+   "label": "unclear",
+   "why": "",
+   "commit": "a6d6813",
+   "subject": "Honor `secrets_case_sensitive` on Windows by overriding `_load_env_vars` (#1001)",
+   "failure": "AttributeError: <module 'pydantic_settings.sources.providers.env' from '/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/pydantic-settings/pydantic_settings/sour"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_last_directory_wins_when_secret_filenames_differ_by_case[windows-False-third]",
+   "label": "unclear",
+   "why": "",
+   "commit": "a6d6813",
+   "subject": "Honor `secrets_case_sensitive` on Windows by overriding `_load_env_vars` (#1001)",
+   "failure": "AttributeError: <module 'pydantic_settings.sources.providers.env' from '/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/pydantic-settings/pydantic_settings/sour"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_last_directory_wins_when_secret_filenames_differ_by_case[windows-True-second]",
+   "label": "unclear",
+   "why": "",
+   "commit": "a6d6813",
+   "subject": "Honor `secrets_case_sensitive` on Windows by overriding `_load_env_vars` (#1001)",
+   "failure": "AttributeError: <module 'pydantic_settings.sources.providers.env' from '/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/pydantic-settings/pydantic_settings/sour"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_load_secrets_utf8_under_non_utf8_locale",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "d2fdeda",
+   "subject": "fix: read secret files as UTF-8 instead of the locale encoding (#917)",
+   "failure": "AssertionError: assert {'token': 'caf\u00c3\u00a9-p\u00c3\u00a4ssw\u00c3\u00b6rd'} == {'token': 'caf\u00e9-p\u00e4ssw\u00f6rd'}"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_secrets_case_sensitive_is_not_downgraded_for_files[posix]",
+   "label": "unclear",
+   "why": "",
+   "commit": "a6d6813",
+   "subject": "Honor `secrets_case_sensitive` on Windows by overriding `_load_env_vars` (#1001)",
+   "failure": "AttributeError: <module 'pydantic_settings.sources.providers.env' from '/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/pydantic-settings/pydantic_settings/sour"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_secrets_case_sensitive_is_not_downgraded_for_files[windows]",
+   "label": "unclear",
+   "why": "",
+   "commit": "a6d6813",
+   "subject": "Honor `secrets_case_sensitive` on Windows by overriding `_load_env_vars` (#1001)",
+   "failure": "AttributeError: <module 'pydantic_settings.sources.providers.env' from '/tmp/claude-0/-home-claude/f38ed4fd-150c-5b52-bbe3-44fc19b0841d/scratchpad/scr-out/work/pydantic-settings/pydantic_settings/sour"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_symlink_dir_escaping_secrets_dir_is_ignored",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "e1e0ece",
+   "subject": "Prevent NestedSecretsSettingsSource from following symlinks outside secrets_dir (#889)",
+   "failure": "AssertionError: assert {'app_key': N...aked-secret'}} == {'app_key': N...asswd': None}}"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_symlink_escape_does_not_bypass_max_size",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "e1e0ece",
+   "subject": "Prevent NestedSecretsSettingsSource from following symlinks outside secrets_dir (#889)",
+   "failure": "AssertionError: assert {'app_key': N...SSSSSSSSSSS'}} == {'app_key': N...asswd': None}}"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_symlink_file_escaping_secrets_dir_is_ignored",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "e1e0ece",
+   "subject": "Prevent NestedSecretsSettingsSource from following symlinks outside secrets_dir (#889)",
+   "failure": "AssertionError: assert {'app_key': N...aked-secret'}} == {'app_key': N...asswd': None}}"
+  },
+  {
+   "test": "tests.test_source_nested_secrets::test_symlinked_dir_escaping_secrets_dir_is_not_walked",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "e1e0ece",
+   "subject": "Prevent NestedSecretsSettingsSource from following symlinks outside secrets_dir (#889)",
+   "failure": "AttributeError: type object 'NestedSecretsSettingsSource' has no attribute '_iter_secret_files'"
+  },
+  {
+   "test": "tests.test_source_toml::test_repr",
+   "label": "feature",
+   "why": "added in a feature commit",
+   "commit": "d26fc0c",
+   "subject": "Add an AWS Systems Manager Parameter Store settings source (#941)",
+   "failure": "AssertionError: assert 'TomlConfigSe...=config.toml)' == 'TomlConfigSe...le_header=())'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "9941cae",
+   "subject": "Address issues in toml table header implementation (#887)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_file_multiple",
+   "label": "feature",
+   "why": "added in a feature commit",
+   "commit": "9941cae",
+   "subject": "Address issues in toml table header implementation (#887)",
+   "failure": "pydantic_core._pydantic_core.ValidationError: 2 validation errors for Settings"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_file_multiple_no_header",
+   "label": "feature",
+   "why": "added in a feature commit",
+   "commit": "9941cae",
+   "subject": "Address issues in toml table header implementation (#887)",
+   "failure": "pydantic_core._pydantic_core.ValidationError: 2 validation errors for Settings"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_from_model_config",
+   "label": "feature",
+   "why": "added in a feature commit",
+   "commit": "9941cae",
+   "subject": "Address issues in toml table header implementation (#887)",
+   "failure": "pydantic_core._pydantic_core.ValidationError: 2 validation errors for Settings"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_home_path[False-Path]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "c46ebc4",
+   "subject": "Expand home paths when checking TOML table headers (#1034)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_home_path[False-str]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "c46ebc4",
+   "subject": "Expand home paths when checking TOML table headers (#1034)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_home_path[True-Path]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "c46ebc4",
+   "subject": "Expand home paths when checking TOML table headers (#1034)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_home_path[True-str]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "c46ebc4",
+   "subject": "Expand home paths when checking TOML table headers (#1034)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_ignores_directories[False-False]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "c46ebc4",
+   "subject": "Expand home paths when checking TOML table headers (#1034)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_ignores_directories[False-True]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "c46ebc4",
+   "subject": "Expand home paths when checking TOML table headers (#1034)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_ignores_directories[True-False]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "c46ebc4",
+   "subject": "Expand home paths when checking TOML table headers (#1034)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_ignores_directories[True-True]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "c46ebc4",
+   "subject": "Expand home paths when checking TOML table headers (#1034)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_missing_from_home_file",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "c46ebc4",
+   "subject": "Expand home paths when checking TOML table headers (#1034)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_no_header",
+   "label": "feature",
+   "why": "added in a feature commit",
+   "commit": "9941cae",
+   "subject": "Address issues in toml table header implementation (#887)",
+   "failure": "pydantic_core._pydantic_core.ValidationError: 2 validation errors for Settings"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_override[None-nested]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "bedb60e",
+   "subject": "Honor explicit empty TOML table header overrides (#1027)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_override[table_header0-root]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "bedb60e",
+   "subject": "Honor explicit empty TOML table header overrides (#1027)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_override[table_header1-nested]",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "bedb60e",
+   "subject": "Honor explicit empty TOML table header overrides (#1027)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_toml::test_toml_table_header_traversable",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "d51a822",
+   "subject": "Support Traversable for json/toml/yaml config file sources (#299) (#902)",
+   "failure": "TypeError: TomlConfigSettingsSource.__init__() got an unexpected keyword argument 'toml_table_header'"
+  },
+  {
+   "test": "tests.test_source_yaml::test_yaml_config_section_empty_section",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "bf443bd",
+   "subject": "fix: coerce empty yaml_config_section to an empty mapping instead of crashing (#914)",
+   "failure": "AttributeError: 'NoneType' object has no attribute 'keys'"
+  },
+  {
+   "test": "tests.test_source_yaml::test_yaml_config_section_scalar_section",
+   "label": "feature",
+   "why": "API missing on snapshot",
+   "commit": "bf443bd",
+   "subject": "fix: coerce empty yaml_config_section to an empty mapping instead of crashing (#914)",
+   "failure": "AttributeError: 'int' object has no attribute 'keys'"
+  },
+  {
+   "test": "tests.test_source_yaml::test_yaml_file_is_read_as_utf8_by_default",
+   "label": "bug",
+   "why": "added in a fix commit",
+   "commit": "12cdb0a",
+   "subject": "fix: read JSON and YAML config as UTF-8, not the locale encoding (#955)",
+   "failure": "UnicodeDecodeError: 'charmap' codec can't decode byte 0x81 in position 16: character maps to <undefined>"
+  }
+ ]
+}

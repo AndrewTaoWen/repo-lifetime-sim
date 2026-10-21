@@ -1,0 +1,534 @@
+diff --git a/src/dotenv/cli.py b/src/dotenv/cli.py
+index 79613e2..7ce7f7b 100644
+--- a/src/dotenv/cli.py
++++ b/src/dotenv/cli.py
+@@ -17,7 +17,7 @@ except ImportError:
+     )
+     sys.exit(1)
+ 
+-from .main import dotenv_values, set_key, unset_key
++from .main import DotEnv, dotenv_values, set_key, unset_key
+ from .version import __version__
+ 
+ 
+@@ -39,7 +39,7 @@ def enumerate_env() -> Optional[str]:
+ @click.option(
+     "-f",
+     "--file",
+-    default=enumerate_env(),
++    default=None,
+     type=click.Path(file_okay=True),
+     help="Location of the .env file, defaults to .env file in current working directory.",
+ )
+@@ -61,6 +61,15 @@ def enumerate_env() -> Optional[str]:
+ @click.pass_context
+ def cli(ctx: click.Context, file: Any, quote: Any, export: Any) -> None:
+     """This script is used to set, get or unset values from a .env file."""
++    if file is None:
++        # Resolved here rather than at import time so that the default follows
++        # the working directory at the time the command is run.
++        file = enumerate_env()
++        if file is None:
++            raise click.UsageError(
++                "Current working directory does not exist; use '-f' to specify the .env file.",
++                ctx=ctx,
++            )
+     ctx.obj = {"QUOTE": quote, "EXPORT": export, "FILE": file}
+ 
+ 
+@@ -73,7 +82,9 @@ def stream_file(path: os.PathLike) -> Iterator[IO[str]]:
+     """
+ 
+     try:
+-        with open(path) as stream:
++        # Use the same encoding as `dotenv_values`, `set_key` and `unset_key`
++        # rather than the locale's encoding.
++        with open(path, encoding="utf-8") as stream:
+             yield stream
+     except OSError as exc:
+         print(f"Error opening env file: {exc}", file=sys.stderr)
+@@ -188,9 +199,12 @@ def run(ctx: click.Context, override: bool, commandline: tuple[str, ...]) -> Non
+         raise click.BadParameter(
+             f"Invalid value for '-f' \"{file}\" does not exist.", ctx=ctx
+         )
++    # Interpolate with the same precedence as `load_dotenv(override=...)`, so
++    # that `${VAR}` agrees with the value `VAR` gets in the command's environment.
++    values = DotEnv(dotenv_path=file, override=override, encoding="utf-8").dict()
+     dotenv_as_dict = {
+         k: v
+-        for (k, v) in dotenv_values(file).items()
++        for (k, v) in values.items()
+         if v is not None and (override or k not in os.environ)
+     }
+ 
+diff --git a/src/dotenv/main.py b/src/dotenv/main.py
+index 3c4608d..f7c8c46 100644
+--- a/src/dotenv/main.py
++++ b/src/dotenv/main.py
+@@ -2,11 +2,13 @@ import io
+ import logging
+ import os
+ import pathlib
++import re
+ import stat
+ import sys
+ import tempfile
+-from collections import OrderedDict
++from collections import ChainMap, OrderedDict
+ from contextlib import contextmanager
++from types import FrameType
+ from typing import IO, Dict, Iterable, Iterator, Mapping, Optional, Tuple, Union
+ 
+ from .parser import Binding, parse_stream
+@@ -160,34 +162,49 @@ def rewrite(
+         source = io.StringIO("")
+         original_mode = None
+ 
+-    with tempfile.NamedTemporaryFile(
+-        mode="w",
+-        encoding=encoding,
+-        delete=False,
+-        prefix=".tmp_",
+-        dir=os.path.dirname(os.path.abspath(path)),
+-    ) as dest:
+-        dest_path = pathlib.Path(dest.name)
+-        error = None
++    try:
++        dest_file = tempfile.NamedTemporaryFile(
++            mode="w",
++            encoding=encoding,
++            delete=False,
++            prefix=".tmp_",
++            dir=os.path.dirname(os.path.abspath(path)),
++        )
++    except BaseException:
++        source.close()
++        raise
+ 
+-        try:
+-            with source:
+-                yield (source, dest)
+-        except BaseException as err:
+-            error = err
++    dest_path = pathlib.Path(dest_file.name)
+ 
+-    if error is None:
+-        try:
+-            if original_mode is not None:
+-                os.chmod(dest_path, original_mode)
++    try:
++        # Closing `dest_file` (which flushes it) is part of this block so that a
++        # failure to write the temporary file also leads to its removal.
++        with source, dest_file as dest:
++            yield (source, dest)
++    except BaseException:
++        dest_path.unlink(missing_ok=True)
++        raise
+ 
+-            os.replace(dest_path, path)
+-        except BaseException:
+-            dest_path.unlink(missing_ok=True)
+-            raise
+-    else:
++    try:
++        if original_mode is not None:
++            os.chmod(dest_path, original_mode)
++
++        os.replace(dest_path, path)
++    except BaseException:
+         dest_path.unlink(missing_ok=True)
+-        raise error from None
++        raise
++
++
++def _escape_single_quoted(value: str) -> str:
++    r"""
++    Escape `value` so that it reads back unchanged from a single-quoted value.
++
++    The parser decodes `\\` to `\` and `\'` to `'` in single-quoted values, so
++    backslashes which would otherwise be part of such a sequence (or escape the
++    closing quote) are doubled. Other backslashes are left as they are.
++    """
++    value = re.sub(r"\\(?=[\\']|\Z)", r"\\\\", value)
++    return value.replace("'", "\\'")
+ 
+ 
+ def set_key(
+@@ -216,7 +233,7 @@ def set_key(
+     )
+ 
+     if quote:
+-        value_out = "'{}'".format(value_to_set.replace("'", "\\'"))
++        value_out = "'{}'".format(_escape_single_quoted(value_to_set))
+     else:
+         value_out = value_to_set
+     if export:
+@@ -291,20 +308,26 @@ def resolve_variables(
+     override: bool,
+ ) -> Mapping[str, Optional[str]]:
+     new_values: Dict[str, Optional[str]] = {}
++    # Variables defined with a value in the .env file so far.  Keys without a
++    # value (e.g. a bare `FOO` line) are not set by `load_dotenv`, so they must
++    # not hide the environment or the default value of `${FOO:-default}`.
++    defined: Dict[str, str] = {}
++    environ: Dict[str, str] = dict(os.environ)
++
++    env: Mapping[str, Optional[str]]
++    if override:
++        env = ChainMap(defined, environ)  # type: ignore[arg-type]
++    else:
++        env = ChainMap(environ, defined)  # type: ignore[arg-type]
+ 
+     for name, value in values:
+         if value is None:
+             result = None
++            defined.pop(name, None)
+         else:
+             atoms = parse_variables(value)
+-            env: Dict[str, Optional[str]] = {}
+-            if override:
+-                env.update(os.environ)  # type: ignore
+-                env.update(new_values)
+-            else:
+-                env.update(new_values)
+-                env.update(os.environ)  # type: ignore
+             result = "".join(atom.resolve(env) for atom in atoms)
++            defined[name] = result
+ 
+         new_values[name] = result
+ 
+@@ -361,13 +384,20 @@ def find_dotenv(
+         frame = sys._getframe()
+         current_file = __file__
+ 
+-        while frame.f_code.co_filename == current_file or not os.path.exists(
+-            frame.f_code.co_filename
++        caller: Optional[FrameType] = frame
++        while caller is not None and (
++            caller.f_code.co_filename == current_file
++            or not os.path.exists(caller.f_code.co_filename)
+         ):
+-            assert frame.f_back is not None
+-            frame = frame.f_back
+-        frame_filename = frame.f_code.co_filename
+-        path = os.path.dirname(os.path.abspath(frame_filename))
++            caller = caller.f_back
++
++        if caller is None:
++            # No caller frame maps to a file on disk (e.g. code run from a
++            # zipapp or generated with `exec`): fall back to the current
++            # working directory.
++            path = os.getcwd()
++        else:
++            path = os.path.dirname(os.path.abspath(caller.f_code.co_filename))
+ 
+     for dirname in _walk_to_root(path):
+         check_path = os.path.join(dirname, filename)
+diff --git a/src/dotenv/parser.py b/src/dotenv/parser.py
+index 6677360..29edcd5 100644
+--- a/src/dotenv/parser.py
++++ b/src/dotenv/parser.py
+@@ -22,12 +22,20 @@ _export = make_regex(r"(?:export[^\S\r\n]+)?")
+ _single_quoted_key = make_regex(r"'([^']+)'")
+ _unquoted_key = make_regex(r"([^=\#\s]+)")
+ _equal_sign = make_regex(r"(=[^\S\r\n]*)")
+-_single_quoted_value = make_regex(r"'((?:\\'|[^'])*)'")
+-_double_quoted_value = make_regex(r'"((?:\\"|[^"])*)"')
++# Escape sequences (`\\` and `\'` or `\"`) are consumed as a unit, so that an
++# escaped backslash right before the closing quote (e.g. `"C:\\"`) doesn't
++# escape that quote. A backslash followed by anything else is a literal backslash.
++_single_quoted_value = make_regex(r"'((?:\\[\\']|\\(?![\\'])|[^'\\])*)'")
++_double_quoted_value = make_regex(r'"((?:\\[\\"]|\\(?![\\"])|[^"\\])*)"')
++# Previous, more lenient patterns. They are only used as a fallback when the
++# strict ones don't match, which keeps values with an unescaped trailing
++# backslash (e.g. `'C:\dir\'`) working as before.
++_legacy_single_quoted_value = make_regex(r"'((?:\\'|[^'])*)'")
++_legacy_double_quoted_value = make_regex(r'"((?:\\"|[^"])*)"')
+ _unquoted_value = make_regex(r"([^\r\n]*)")
+ _comment = make_regex(r"(?:[^\S\r\n]*#[^\r\n]*)?")
+ _end_of_line = make_regex(r"[^\S\r\n]*(?:\r\n|\n|\r|$)")
+-_rest_of_line = make_regex(r"[^\r\n]*(?:\r|\n|\r\n)?")
++_rest_of_line = make_regex(r"[^\r\n]*(?:\r\n|\r|\n)?")
+ _double_quote_escapes = make_regex(r"\\[\\'\"abfnrtv]")
+ _single_quote_escapes = make_regex(r"\\[\\']")
+ 
+@@ -125,13 +133,26 @@ def parse_unquoted_value(reader: Reader) -> str:
+     return re.sub(r"\s+#.*", "", part).rstrip()
+ 
+ 
++def _read_quoted(
++    reader: Reader, regex: Pattern[str], fallback: Pattern[str]
++) -> Sequence[str]:
++    try:
++        return reader.read_regex(regex)
++    except Error:
++        return reader.read_regex(fallback)
++
++
+ def parse_value(reader: Reader) -> str:
+     char = reader.peek(1)
+     if char == "'":
+-        (value,) = reader.read_regex(_single_quoted_value)
++        (value,) = _read_quoted(
++            reader, _single_quoted_value, _legacy_single_quoted_value
++        )
+         return decode_escapes(_single_quote_escapes, value)
+     elif char == '"':
+-        (value,) = reader.read_regex(_double_quoted_value)
++        (value,) = _read_quoted(
++            reader, _double_quoted_value, _legacy_double_quoted_value
++        )
+         return decode_escapes(_double_quote_escapes, value)
+     elif char in ("", "\n", "\r"):
+         return ""
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index d4e3ad4..0b1ae8b 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -1,4 +1,6 @@
+ import os
++import subprocess
++import sys
+ from pathlib import Path
+ from typing import Optional
+ 
+@@ -293,3 +295,48 @@ def test_run_with_dotenv_and_command_flags(dotenv_path, tmp_path):
+ 
+     check_process(result, exit_code=0)
+     assert result.stdout.strip().startswith("dotenv, version")
++
++
++def test_default_file_follows_cwd_at_invocation(cli, tmp_path, monkeypatch):
++    (tmp_path / ".env").write_text("a=from_tmp")
++    monkeypatch.chdir(tmp_path)
++
++    result = cli.invoke(dotenv_cli, ["get", "a"])
++
++    assert (result.exit_code, result.output) == (0, "from_tmp\n")
++
++
++def test_list_and_get_read_file_as_utf8(cli, dotenv_path, monkeypatch):
++    dotenv_path.write_bytes("a=é\n".encode("utf-8"))
++    encodings = []
++    real_open = open
++
++    def recording_open(*args, **kwargs):
++        encodings.append(kwargs.get("encoding"))
++        return real_open(*args, **kwargs)
++
++    monkeypatch.setattr(dotenv.cli, "open", recording_open, raising=False)
++
++    result = cli.invoke(dotenv_cli, ["--file", dotenv_path, "get", "a"])
++    assert result.exit_code == 0, result.output
++    result = cli.invoke(dotenv_cli, ["--file", dotenv_path, "list"])
++    assert result.exit_code == 0, result.output
++
++    assert encodings == ["utf-8", "utf-8"]
++
++
++def test_run_no_override_interpolates_with_environment(tmp_path):
++    (tmp_path / ".env").write_text("A=x\nB=${A}\n")
++    env = dict(os.environ)
++    env.update({"LANG": "en_US.UTF-8", "A": "C"})
++
++    # Run this package's CLI (rather than whichever `dotenv` is on the PATH).
++    result = subprocess.run(
++        [sys.executable, "-m", "dotenv", "run", "--no-override", "printenv", "B"],
++        capture_output=True,
++        text=True,
++        cwd=tmp_path,
++        env=env,
++    )
++
++    check_process(result, exit_code=0, stdout="C\n")
+diff --git a/tests/test_main.py b/tests/test_main.py
+index 1c33c80..587c6d8 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -708,3 +708,146 @@ def test_dotenv_values_file_stream(dotenv_path):
+         result = dotenv.dotenv_values(stream=f)
+ 
+     assert result == {"a": "b"}
++
++
++@pytest.mark.parametrize(
++    "value",
++    [
++        "a\\\\b",
++        "C:\\dir\\",
++        "\\",
++        "\\'",
++        "x\\'y",
++        "it's",
++        "a\\b\\nc",
++        "end\\\\",
++    ],
++)
++@pytest.mark.parametrize("quote_mode", ["always", "auto"])
++def test_set_key_round_trips_backslashes(dotenv_path, value, quote_mode):
++    dotenv.set_key(dotenv_path, "a", value, quote_mode=quote_mode)
++    dotenv.set_key(dotenv_path, "b", "x'y")
++
++    result = dotenv.dotenv_values(dotenv_path, interpolate=False)
++
++    assert result == {"a": value, "b": "x'y"}
++
++
++def test_set_key_keeps_legacy_values_readable(dotenv_path):
++    dotenv.set_key(dotenv_path, "a", "C:\\dir")
++
++    assert dotenv_path.read_text() == "a='C:\\dir'\n"
++
++
++def test_rewrite_closes_source_when_temp_file_fails(dotenv_path, monkeypatch):
++    dotenv_path.write_text("a=b\n")
++    opened = []
++    real_open = open
++
++    def recording_open(*args, **kwargs):
++        f = real_open(*args, **kwargs)
++        opened.append(f)
++        return f
++
++    def failing_tempfile(*args, **kwargs):
++        raise OSError("no space")
++
++    monkeypatch.setattr(dotenv.main, "open", recording_open, raising=False)
++    monkeypatch.setattr(dotenv.main.tempfile, "NamedTemporaryFile", failing_tempfile)
++
++    with pytest.raises(OSError, match="no space"):
++        dotenv.set_key(dotenv_path, "a", "c")
++
++    assert opened and all(f.closed for f in opened)
++    assert dotenv_path.read_text() == "a=b\n"
++
++
++def test_rewrite_removes_temp_file_when_closing_it_fails(dotenv_path, monkeypatch):
++    dotenv_path.write_text("a=b\n")
++    real_tempfile = dotenv.main.tempfile.NamedTemporaryFile
++
++    class FailingClose:
++        def __init__(self, *args, **kwargs):
++            self.file = real_tempfile(*args, **kwargs)
++            self.name = self.file.name
++
++        def __enter__(self):
++            return self.file.__enter__()
++
++        def __exit__(self, *exc):
++            self.file.__exit__(*exc)
++            raise OSError("disk full")
++
++    monkeypatch.setattr(dotenv.main.tempfile, "NamedTemporaryFile", FailingClose)
++
++    with pytest.raises(OSError, match="disk full"):
++        dotenv.set_key(dotenv_path, "a", "c")
++
++    assert dotenv_path.read_text() == "a=b\n"
++    assert sorted(p.name for p in dotenv_path.parent.iterdir()) == [".env"]
++
++
++@mock.patch.dict(os.environ, {"HOME_X": "real"}, clear=True)
++@pytest.mark.parametrize("override", [True, False])
++def test_resolve_variables_key_without_value_does_not_hide_others(override):
++    stream = io.StringIO("HOME_X\nA=${HOME_X}\nNOPE\nB=${NOPE:-default}\nC=${NOPE}\n")
++
++    result = DotEnv(None, stream=stream, override=override).dict()
++
++    assert result == {
++        "HOME_X": None,
++        "A": "real",
++        "NOPE": None,
++        "B": "default",
++        "C": "",
++    }
++
++
++@mock.patch.dict(os.environ, {"A": "env"}, clear=True)
++def test_resolve_variables_later_none_value_unsets_file_value():
++    stream = io.StringIO("B=1\nB\nC=${B:-d}\n")
++
++    result = dotenv.dotenv_values(stream=stream)
++
++    assert result == {"B": None, "C": "d"}
++
++
++def test_dotenv_values_many_keys_is_not_quadratic():
++    import time
++
++    content = "".join(f"K{i}=v{i}\n" for i in range(20000))
++
++    start = time.perf_counter()
++    result = dotenv.dotenv_values(stream=io.StringIO(content))
++    elapsed = time.perf_counter() - start
++
++    assert len(result) == 20000
++    # Copying `os.environ` and all previous values for each line used to take
++    # tens of seconds here.
++    assert elapsed < 5
++
++
++def test_find_dotenv_without_file_backed_caller_uses_cwd(tmp_path):
++    app_dir = tmp_path / "app"
++    app_dir.mkdir()
++    (app_dir / "__main__.py").write_text(
++        "from dotenv import find_dotenv\nprint(find_dotenv())\n"
++    )
++    archive = tmp_path / "app.pyz"
++    subprocess.run(
++        [sys.executable, "-m", "zipapp", str(app_dir), "-o", str(archive)],
++        check=True,
++    )
++    work_dir = tmp_path / "work"
++    work_dir.mkdir()
++    (work_dir / ".env").write_text("A=x\n")
++
++    result = subprocess.run(
++        [sys.executable, str(archive)],
++        capture_output=True,
++        text=True,
++        cwd=work_dir,
++    )
++
++    assert result.returncode == 0, result.stderr
++    assert result.stdout == f"{work_dir / '.env'}\n"
+diff --git a/tests/test_parser.py b/tests/test_parser.py
+index 4ec5a5a..011c8b0 100644
+--- a/tests/test_parser.py
++++ b/tests/test_parser.py
+@@ -580,3 +580,35 @@ def test_parse_stream(test_input, expected):
+     result = parse_stream(io.StringIO(test_input))
+ 
+     assert list(result) == expected
++
++
++@pytest.mark.parametrize(
++    "test_input,expected",
++    [
++        # An escaped backslash right before the closing quote must not escape it.
++        ('a="C:\\\\"\nb="x"\n', [("a", "C:\\"), ("b", "x")]),
++        ("a='C:\\\\'\nb='x'\n", [("a", "C:\\"), ("b", "x")]),
++        ('a="x\\\\" # c "y"\n', [("a", "x\\")]),
++        ('a="a\\\\\\"b"\n', [("a", 'a\\"b')]),
++        # Unescaped trailing backslash keeps working as before.
++        ('a="abc\\"\n', [("a", "abc\\")]),
++        ("a='C:\\dir\\'\n", [("a", "C:\\dir\\")]),
++    ],
++)
++def test_parse_stream_escaped_backslash_before_closing_quote(test_input, expected):
++    result = [
++        (b.key, b.value) for b in parse_stream(io.StringIO(test_input)) if b.key
++    ]
++
++    assert result == expected
++
++
++def test_parse_stream_crlf_error_lines_keep_line_numbers():
++    result = list(parse_stream(io.StringIO("a b c\r\nd=1\r\ne f g\r\nh=2\r\n")))
++
++    assert result == [
++        Binding(None, None, Original("a b c\r\n", 1), error=True),
++        Binding("d", "1", Original("d=1\r\n", 2), error=False),
++        Binding(None, None, Original("e f g\r\n", 3), error=True),
++        Binding("h", "2", Original("h=2\r\n", 4), error=False),
++    ]

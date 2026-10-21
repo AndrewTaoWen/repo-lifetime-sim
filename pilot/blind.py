@@ -12,9 +12,9 @@ import argparse, json, os, shutil, subprocess, sys, xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from screen import sh, git, package_dirs, tests_dir  # noqa: E402
+from screen import sh, git, package_dirs, tests_dir, generated_files  # noqa: E402
 
-ENV_EXTRA = {"SETUPTOOLS_SCM_PRETEND_VERSION": "0.0.0"}
+ENV_EXTRA = {"SETUPTOOLS_SCM_PRETEND_VERSION": os.environ.get("SETUPTOOLS_SCM_PRETEND_VERSION", "0.0.0")}
 
 
 def junit_results(path):
@@ -57,15 +57,21 @@ def prep(a):
 
 def run_future(work, repo, scr, py, place):
     """Rebuild the future tree in `work`, put package code there with place(dst, p), run the tests."""
+    gen = {p: generated_files(repo, scr["head"], work, p) for p in scr["packages"]} if work.exists() else {}
     for p in list(work.iterdir()):
         shutil.rmtree(p) if p.is_dir() else p.unlink()
     sh(f"git -C {repo} archive {scr['head']} | tar -x -C {work}")
     for p in scr["packages"]:
         target = work / p
+        keep = gen.get(p, {})
         shutil.rmtree(target, ignore_errors=True) if target.is_dir() else target.unlink(missing_ok=True)
         place(target, p)
+        for rel, data in keep.items():  # install-time generated files (e.g. version.py) missing from archives
+            if not (work / rel).exists():
+                (work / rel).parent.mkdir(parents=True, exist_ok=True)
+                (work / rel).write_bytes(data)
     junit = work / "junit.xml"
-    sh([str(py), "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o", "addopts=",
+    sh([str(py), "-m", "pytest", "-q", "-p", "no:cacheprovider", "-p", "no:randomly", "-o", "addopts=",
         "--continue-on-collection-errors", f"--junitxml={junit}", scr["tests"]], cwd=work, timeout=2400)
     return junit_results(junit) if junit.exists() else {}
 

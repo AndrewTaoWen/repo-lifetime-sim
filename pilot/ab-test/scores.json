@@ -1,0 +1,284 @@
+{
+ "python-dotenv-r1": {
+  "repo": "theskumar/python-dotenv",
+  "target": 33,
+  "fixed": 6,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_main::test_set_key[-a-b\\\\'c-expected15-a='b\\\\\\\\\\\\'c'\\n]",
+   "tests.test_main::test_set_key[-a-b\\\\-expected14-a='b\\\\\\\\'\\n]",
+   "tests.test_main::test_set_key_round_trips[C:\\\\Users\\\\]",
+   "tests.test_main::test_set_key_round_trips[back\\\\]",
+   "tests.test_parser::test_parse_stream[a=\"b\\\\\\\\\"\\nc=\"d\"-expected36]",
+   "tests.test_parser::test_parse_stream[a='b\\\\\\\\'\\nc='d'-expected35]"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "6 files changed, 335 insertions(+), 48 deletions(-)"
+ },
+ "python-dotenv-r2": {
+  "repo": "theskumar/python-dotenv",
+  "target": 33,
+  "fixed": 3,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_main::test_set_key[-a-b\\\\'c-expected15-a='b\\\\\\\\\\\\'c'\\n]",
+   "tests.test_main::test_set_key[-a-b\\\\-expected14-a='b\\\\\\\\'\\n]",
+   "tests.test_main::test_set_key[-a-b\\\\c-expected13-a='b\\\\\\\\c'\\n]"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "4 files changed, 181 insertions(+), 32 deletions(-)"
+ },
+ "python-dotenv-r3": {
+  "repo": "theskumar/python-dotenv",
+  "target": 33,
+  "fixed": 16,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_cli::test_get_empty_string_value",
+   "tests.test_main::test_dotenv_values_empty_value_with_inline_comment[KEY=  # comment-expected1]",
+   "tests.test_main::test_dotenv_values_empty_value_with_inline_comment[KEY= # comment-expected0]",
+   "tests.test_main::test_dotenv_values_empty_value_with_inline_comment[KEY= # comment\\nOTHER=val-expected7]",
+   "tests.test_main::test_dotenv_values_empty_value_with_inline_comment[KEY=\\t# comment-expected6]",
+   "tests.test_main::test_set_key[-a-b\\\\'c-expected15-a='b\\\\\\\\\\\\'c'\\n]",
+   "tests.test_main::test_set_key[-a-b\\\\-expected14-a='b\\\\\\\\'\\n]",
+   "tests.test_main::test_set_key[-a-b\\\\c-expected13-a='b\\\\\\\\c'\\n]",
+   "tests.test_main::test_set_key_round_trips[C:\\\\Users\\\\]",
+   "tests.test_main::test_set_key_round_trips[back\\\\]",
+   "tests.test_parser::test_parse_stream[a=  # b-expected12]",
+   "tests.test_parser::test_parse_stream[a= #b-expected11]",
+   "tests.test_parser::test_parse_stream[a= #c\\nd=e-expected16]",
+   "tests.test_parser::test_parse_stream[a=\"b\\\\\\\\\"\\nc=\"d\"-expected36]",
+   "tests.test_parser::test_parse_stream[a='b\\\\\\\\'\\nc='d'-expected35]",
+   "tests.test_parser::test_parse_stream[a=\\t#c-expected15]"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "8 files changed, 200 insertions(+), 29 deletions(-)"
+ },
+ "python-dotenv-r4": {
+  "repo": "theskumar/python-dotenv",
+  "target": 33,
+  "fixed": 7,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_cli::test_get_empty_string_value",
+   "tests.test_main::test_set_key[-a-b\\\\'c-expected15-a='b\\\\\\\\\\\\'c'\\n]",
+   "tests.test_main::test_set_key[-a-b\\\\-expected14-a='b\\\\\\\\'\\n]",
+   "tests.test_main::test_set_key_round_trips[C:\\\\Users\\\\]",
+   "tests.test_main::test_set_key_round_trips[back\\\\]",
+   "tests.test_parser::test_parse_stream[a=\"b\\\\\\\\\"\\nc=\"d\"-expected36]",
+   "tests.test_parser::test_parse_stream[a='b\\\\\\\\'\\nc='d'-expected35]"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "8 files changed, 197 insertions(+), 49 deletions(-)"
+ },
+ "cattrs-r1": {
+  "repo": "python-attrs/cattrs",
+  "target": 44,
+  "fixed": 5,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_gen_dict::test_renaming_to_key_with_special_characters[a'] or 1 or ['b]",
+   "tests.test_gen_dict::test_renaming_to_key_with_special_characters[it's]",
+   "tests.test_typeddicts::test_key_with_single_quote_roundtrip[False]",
+   "tests.test_typeddicts::test_key_with_single_quote_roundtrip[True]",
+   "tests.test_unstructure_collections::test_counter_unstructure_applies_key_hook"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "17 files changed, 560 insertions(+), 110 deletions(-)"
+ },
+ "cattrs-r2": {
+  "repo": "python-attrs/cattrs",
+  "target": 44,
+  "fixed": 26,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_disambiguators::test_literal_field_explicit_overrides",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[BaseConverter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[BaseConverter-True]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[Converter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[Converter-True]",
+   "tests.test_gen_dict::test_renaming_to_key_with_special_characters[a'] or 1 or ['b]",
+   "tests.test_gen_dict::test_renaming_to_key_with_special_characters[it's]",
+   "tests.test_typeddicts::test_key_with_single_quote_roundtrip[False]",
+   "tests.test_typeddicts::test_key_with_single_quote_roundtrip[True]",
+   "tests.test_unstructure_collections::test_counter_unstructure_applies_key_hook"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "14 files changed, 675 insertions(+), 150 deletions(-)"
+ },
+ "cattrs-r3": {
+  "repo": "python-attrs/cattrs",
+  "target": 44,
+  "fixed": 6,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_gen_dict::test_renaming_to_key_with_special_characters[a'] or 1 or ['b]",
+   "tests.test_gen_dict::test_renaming_to_key_with_special_characters[it's]",
+   "tests.test_typeddicts::test_key_with_single_quote_roundtrip[False]",
+   "tests.test_typeddicts::test_key_with_single_quote_roundtrip[True]",
+   "tests.test_unstructure_collections::test_counter_unstructure_applies_key_hook",
+   "tests.test_v::test_extra_keys_are_sorted"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "13 files changed, 668 insertions(+), 105 deletions(-)"
+ },
+ "cattrs-r4": {
+  "repo": "python-attrs/cattrs",
+  "target": 44,
+  "fixed": 5,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_gen_dict::test_renaming_to_key_with_special_characters[a'] or 1 or ['b]",
+   "tests.test_gen_dict::test_renaming_to_key_with_special_characters[it's]",
+   "tests.test_typeddicts::test_key_with_single_quote_roundtrip[False]",
+   "tests.test_typeddicts::test_key_with_single_quote_roundtrip[True]",
+   "tests.test_unstructure_collections::test_counter_unstructure_applies_key_hook"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "18 files changed, 611 insertions(+), 106 deletions(-)"
+ },
+ "pydantic-settings-r1": {
+  "repo": "pydantic/pydantic-settings",
+  "target": 42,
+  "fixed": 1,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_docs::test_docs_examples[docs/index.md:1468-1505]"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 2,
+  "diff": "7 files changed, 296 insertions(+), 23 deletions(-)"
+ },
+ "pydantic-settings-r2": {
+  "repo": "pydantic/pydantic-settings",
+  "target": 42,
+  "fixed": 1,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_source_yaml::test_yaml_config_section_empty_section"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "9 files changed, 227 insertions(+), 21 deletions(-)"
+ },
+ "pydantic-settings-r4": {
+  "repo": "pydantic/pydantic-settings",
+  "target": 42,
+  "fixed": 1,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_source_yaml::test_yaml_config_section_empty_section"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "9 files changed, 318 insertions(+), 27 deletions(-)"
+ },
+ "pydantic-settings-r3": {
+  "repo": "pydantic/pydantic-settings",
+  "target": 42,
+  "fixed": 2,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_docs::test_docs_examples[docs/index.md:1160-1189]",
+   "tests.test_source_yaml::test_yaml_config_section_empty_section"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "9 files changed, 294 insertions(+), 35 deletions(-)"
+ },
+ "werkzeug-r1": {
+  "repo": "pallets/werkzeug",
+  "target": 54,
+  "fixed": 6,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_routing.TestNoDomainMatching::test_build_relative",
+   "tests.test_routing::test_converter[float negative zero]",
+   "tests.test_routing::test_converter[float no exp large]",
+   "tests.test_routing::test_converter[float range]",
+   "tests.test_urls::test_uri_empty_auth[http://:p@d.test]",
+   "tests.test_urls::test_uri_port_0"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "36 files changed, 769 insertions(+), 69 deletions(-)"
+ },
+ "werkzeug-r2": {
+  "repo": "pallets/werkzeug",
+  "target": 54,
+  "fixed": 4,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_routing.TestNoDomainMatching::test_build_relative",
+   "tests.test_routing::test_converter[float negative zero]",
+   "tests.test_routing::test_converter[float no exp large]",
+   "tests.test_routing::test_converter[float range]"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "18 files changed, 452 insertions(+), 44 deletions(-)"
+ },
+ "werkzeug-r3": {
+  "repo": "pallets/werkzeug",
+  "target": 54,
+  "fixed": 7,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_routing::test_converter[float negative zero]",
+   "tests.test_routing::test_converter[float no exp large]",
+   "tests.test_routing::test_converter[float range]",
+   "tests.test_urls::test_uri_empty_auth[http://:@d.test]",
+   "tests.test_urls::test_uri_empty_auth[http://:p@d.test]",
+   "tests.test_urls::test_uri_empty_auth[http://u:@d.test]",
+   "tests.test_urls::test_uri_port_0"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "18 files changed, 686 insertions(+), 70 deletions(-)"
+ },
+ "werkzeug-r4": {
+  "repo": "pallets/werkzeug",
+  "target": 54,
+  "fixed": 10,
+  "regressions": 0,
+  "fixed_tests": [
+   "tests.test_http.TestRange::test_range_parsing",
+   "tests.test_routing.TestNoDomainMatching::test_build_relative",
+   "tests.test_routing::test_converter[float negative zero]",
+   "tests.test_routing::test_converter[float no exp large]",
+   "tests.test_routing::test_converter[float range]",
+   "tests.test_routing::test_part_converter_order",
+   "tests.test_urls::test_uri_empty_auth[http://:@d.test]",
+   "tests.test_urls::test_uri_empty_auth[http://:p@d.test]",
+   "tests.test_urls::test_uri_empty_auth[http://u:@d.test]",
+   "tests.test_urls::test_uri_port_0"
+  ],
+  "regressed_tests": [],
+  "agent_commits": 1,
+  "diff": "22 files changed, 863 insertions(+), 92 deletions(-)"
+ }
+}

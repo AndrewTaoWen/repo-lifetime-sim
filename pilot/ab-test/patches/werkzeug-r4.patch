@@ -1,0 +1,1521 @@
+diff --git a/src/werkzeug/datastructures/accept.py b/src/werkzeug/datastructures/accept.py
+index 8f09594..de10f53 100644
+--- a/src/werkzeug/datastructures/accept.py
++++ b/src/werkzeug/datastructures/accept.py
+@@ -352,6 +352,9 @@ class LanguageAccept(Accept):
+         :param matches: A list of supported languages to find a match.
+         :param default: The value that is returned if none match.
+         """
++        # The matches are iterated multiple times, materialize an iterator.
++        matches = list(matches)
++
+         # Look for an exact match first. If a client accepts "en-US",
+         # "en-US" is a valid match at this point.
+         result = super().best_match(matches)
+@@ -375,10 +378,10 @@ class LanguageAccept(Accept):
+         fallback_matches = [_locale_delim_re.split(item, 1)[0] for item in matches]
+         result = super().best_match(fallback_matches)
+ 
+-        # Return a value from the original match list. Find the first
+-        # original value that starts with the matched primary tag.
++        # Return the value from the original match list that corresponds to the
++        # matched primary tag. Don't use a prefix check, "en" would find "eng".
+         if result is not None:
+-            return next(item for item in matches if item.startswith(result))
++            return matches[fallback_matches.index(result)]
+ 
+         return default
+ 
+diff --git a/src/werkzeug/datastructures/auth.py b/src/werkzeug/datastructures/auth.py
+index 4c26cd6..82960bf 100644
+--- a/src/werkzeug/datastructures/auth.py
++++ b/src/werkzeug/datastructures/auth.py
+@@ -65,6 +65,12 @@ class Authorization:
+         """
+ 
+     def __getattr__(self, name: str) -> str | None:
++        # Don't treat special attributes as parameters, and avoid infinite
++        # recursion if accessed before "parameters" is set, such as during
++        # copy or unpickling.
++        if name.startswith("__") or name == "parameters":
++            raise AttributeError(name)
++
+         return self.parameters.get(name)
+ 
+     def __getitem__(self, name: str) -> str | None:
+@@ -190,7 +196,7 @@ class WWWAuthenticate:
+ 
+     @type.setter
+     def type(self, value: str) -> None:
+-        self._type = value
++        self._type = value.lower()
+         self._trigger_on_update()
+ 
+     @property
+@@ -240,10 +246,34 @@ class WWWAuthenticate:
+             self._trigger_on_update()
+ 
+     def __getattr__(self, name: str) -> str | None:
++        # Don't treat special or internal attributes as parameters, and avoid
++        # infinite recursion if accessed before the instance is initialized.
++        if name.startswith("__") or name in {
++            "_type",
++            "_parameters",
++            "_token",
++            "_on_update",
++        }:
++            raise AttributeError(name)
++
+         return self[name]
+ 
++    def __reduce__(self) -> tuple[t.Any, ...]:
++        # The parameters dict holds a callback to this instance, recreate it
++        # rather than copying it. The on_update callback is not preserved.
++        return type(self), (self._type, dict(self._parameters), self._token)
++
+     def __setattr__(self, name: str, value: str | None) -> None:
+-        if name in {"_type", "_parameters", "_token", "_on_update"}:
++        if name in {
++            "_type",
++            "_parameters",
++            "_token",
++            "_on_update",
++            "type",
++            "parameters",
++            "token",
++        }:
++            # Internal attributes, and the properties with setters.
+             super().__setattr__(name, value)
+         else:
+             self[name] = value
+diff --git a/src/werkzeug/datastructures/csp.py b/src/werkzeug/datastructures/csp.py
+index 56827d3..4c59774 100644
+--- a/src/werkzeug/datastructures/csp.py
++++ b/src/werkzeug/datastructures/csp.py
+@@ -14,7 +14,7 @@ def csp_property(key: str, deprecated: str | None = None) -> t.Any:
+     return property(
+         lambda x: x._get_value(key, deprecated=deprecated),
+         lambda x, v: x._set_value(key, v, deprecated=deprecated),
+-        lambda x: x._del_value(key, deprecated, deprecated=deprecated),
++        lambda x: x._del_value(key, deprecated=deprecated),
+         f"The ``{key}`` directive.",
+     )
+ 
+@@ -157,7 +157,9 @@ class ContentSecurityPolicy(CallbackDict[str, str]):
+ 
+     def to_header(self) -> str:
+         """Convert to a ``Content-Security-Policy`` header value."""
+-        return "; ".join(f"{key} {value}" for key, value in self.items())
++        return "; ".join(
++            f"{key} {value}" if value else key for key, value in self.items()
++        )
+ 
+     def __str__(self) -> str:
+         return self.to_header()
+diff --git a/src/werkzeug/datastructures/file_storage.py b/src/werkzeug/datastructures/file_storage.py
+index 4ef2f23..d80aae9 100644
+--- a/src/werkzeug/datastructures/file_storage.py
++++ b/src/werkzeug/datastructures/file_storage.py
+@@ -8,6 +8,7 @@ from io import BytesIO
+ from os import fsdecode
+ from os import fspath
+ 
++from .._internal import _missing
+ from .._internal import _plain_int
+ from ..http import parse_options_header
+ from .headers import Headers
+@@ -44,8 +45,12 @@ class FileStorage:
+             headers["Content-Length"] = str(content_length)
+ 
+     def _parse_content_type(self) -> None:
+-        if not hasattr(self, "_parsed_content_type"):
+-            self._parsed_content_type = parse_options_header(self.content_type)
++        content_type = self.content_type
++
++        # Parse again if the header was changed after it was last parsed.
++        if getattr(self, "_parsed_content_type_source", _missing) != content_type:
++            self._parsed_content_type = parse_options_header(content_type)
++            self._parsed_content_type_source = content_type
+ 
+     @property
+     def content_type(self) -> str | None:
+@@ -132,6 +137,11 @@ class FileStorage:
+         return bool(self.filename)
+ 
+     def __getattr__(self, name: str) -> t.Any:
++        # Avoid infinite recursion if accessed before "stream" is set, such as
++        # during copy or unpickling, and don't proxy special attributes.
++        if name == "stream" or (name.startswith("__") and name.endswith("__")):
++            raise AttributeError(name)
++
+         try:
+             return getattr(self.stream, name)
+         except AttributeError:
+@@ -222,6 +232,11 @@ def _guess_filename(stream: t.IO[t.Any], filename: str | None) -> str | None:
+ 
+     filename = getattr(stream, "name", None)
+ 
++    # A stream's name may be something other than a path, such as the int file
++    # descriptor of a temporary file.
++    if not isinstance(filename, (str, bytes, os.PathLike)):
++        return None
++
+     if filename is not None:
+         filename = fsdecode(filename)
+ 
+diff --git a/src/werkzeug/datastructures/headers.py b/src/werkzeug/datastructures/headers.py
+index 9f5b1c5..9e129e3 100644
+--- a/src/werkzeug/datastructures/headers.py
++++ b/src/werkzeug/datastructures/headers.py
+@@ -158,7 +158,7 @@ class Headers:
+ 
+         try:
+             return type(rv)
+-        except ValueError:
++        except (ValueError, TypeError):
+             return default
+ 
+     @t.overload
+@@ -194,7 +194,7 @@ class Headers:
+                 if k.lower() == ikey:
+                     try:
+                         result.append(type(v))
+-                    except ValueError:
++                    except (ValueError, TypeError):
+                         continue
+ 
+             return result
+@@ -359,7 +359,7 @@ class Headers:
+             value = _options_header_vkw(value, kwargs)
+ 
+         value_str = _str_header_value(value)
+-        self._list.append((key, value_str))
++        self._list.append((_str_header_key(key), value_str))
+ 
+     def add_header(self, key: str, value: t.Any, /, **kwargs: t.Any) -> None:
+         """Add a new header tuple to the list.
+@@ -392,6 +392,7 @@ class Headers:
+             value = _options_header_vkw(value, kwargs)
+ 
+         value_str = _str_header_value(value)
++        key = _str_header_key(key)
+ 
+         if not self._list:
+             self._list.append((key, value_str))
+@@ -421,11 +422,14 @@ class Headers:
+ 
+         .. versionadded:: 1.0
+         """
++        # Materialize the values first, an iterator would always be truthy and
++        # could be empty.
++        values = list(values)
++
+         if values:
+-            values_iter = iter(values)
+-            self.set(key, next(values_iter))
++            self.set(key, values[0])
+ 
+-            for value in values_iter:
++            for value in values[1:]:
+                 self.add(key, value)
+         else:
+             self.remove(key)
+@@ -483,9 +487,15 @@ class Headers:
+         if isinstance(key, str):
+             self.set(key, value)
+         elif isinstance(key, int):
+-            self._list[key] = value[0], _str_header_value(value[1])  # type: ignore[index]
++            self._list[key] = (
++                _str_header_key(value[0]),  # type: ignore[index]
++                _str_header_value(value[1]),  # type: ignore[index]
++            )
+         else:
+-            self._list[key] = [(k, _str_header_value(v)) for k, v in value]  # type: ignore[str-unpack]
++            self._list[key] = [
++                (_str_header_key(k), _str_header_value(v))
++                for k, v in value  # type: ignore[str-unpack]
++            ]
+ 
+     def update(
+         self,
+@@ -601,6 +611,13 @@ def _str_header_value(value: t.Any) -> str:
+     return value  # type: ignore[no-any-return]
+ 
+ 
++def _str_header_key(key: t.Any) -> t.Any:
++    if isinstance(key, str) and _newline_re.search(key) is not None:
++        raise ValueError("Header names must not contain newline characters.")
++
++    return key
++
++
+ class EnvironHeaders(ImmutableHeadersMixin, Headers):  # type: ignore[misc]
+     """Read only version of the headers from a WSGI environment.  This
+     provides the same interface as `Headers` and is constructed from
+diff --git a/src/werkzeug/datastructures/mixins.py b/src/werkzeug/datastructures/mixins.py
+index 8e00bda..77a6e47 100644
+--- a/src/werkzeug/datastructures/mixins.py
++++ b/src/werkzeug/datastructures/mixins.py
+@@ -54,6 +54,9 @@ class ImmutableListMixin:
+     def append(self, item: t.Any) -> t.NoReturn:
+         _immutable_error(self)
+ 
++    def clear(self) -> t.NoReturn:
++        _immutable_error(self)
++
+     def remove(self, item: t.Any) -> t.NoReturn:
+         _immutable_error(self)
+ 
+diff --git a/src/werkzeug/datastructures/range.py b/src/werkzeug/datastructures/range.py
+index 6a017e3..87beed8 100644
+--- a/src/werkzeug/datastructures/range.py
++++ b/src/werkzeug/datastructures/range.py
+@@ -48,7 +48,8 @@ class IfRange:
+ 
+         value, weak = unquote_etag(value)
+ 
+-        if weak:
++        # A weak ETag must not be used, and a quote is not valid in an ETag.
++        if weak or '"' in value:
+             return cls()
+ 
+         return cls(etag=value)
+@@ -105,7 +106,8 @@ class Range:
+         if end is None:
+             end = length
+             if start < 0:
+-                start += length
++                # A suffix range longer than the content selects all of it.
++                start = max(start + length, 0)
+         if is_byte_range_valid(start, end, length):
+             return start, min(end, length)
+         return None
+@@ -149,6 +151,11 @@ class Range:
+                 except ValueError:
+                     return None
+ 
++                if begin == 0:
++                    # "-0" selects zero bytes, which is not satisfiable. Without
++                    # this check it would be the same as "0-", the whole content.
++                    return None
++
+                 end = None
+                 last_end = -1
+ 
+diff --git a/src/werkzeug/datastructures/structures.py b/src/werkzeug/datastructures/structures.py
+index 988a9b1..65457eb 100644
+--- a/src/werkzeug/datastructures/structures.py
++++ b/src/werkzeug/datastructures/structures.py
+@@ -363,7 +363,8 @@ class MultiDict(TypeConversionDict[K, V]):
+             if multi:
+                 for value in values:
+                     yield key, value
+-            else:
++            elif values:
++                # A key may have an empty list after setlist or setlistdefault.
+                 yield key, values[0]
+ 
+     def lists(self) -> cabc.Iterable[tuple[K, list[V]]]:
+@@ -379,7 +380,8 @@ class MultiDict(TypeConversionDict[K, V]):
+         values: list[V]
+ 
+         for values in super().values():  # type: ignore[assignment]
+-            yield values[0]
++            if values:
++                yield values[0]
+ 
+     def listvalues(self) -> cabc.Iterable[list[V]]:
+         """Return an iterator of all values associated with a key.  Zipping
+@@ -680,6 +682,12 @@ class CombinedMultiDict(ImmutableMultiDictMixin[K, V], MultiDict[K, V]):  # type
+         """
+         return MultiDict(self)
+ 
++    def deepcopy(self, memo: t.Any = None) -> te.Self:
++        """Return a deep copy of this object, with deep copies of each
++        wrapped dict.
++        """
++        return self.__class__([deepcopy(d, memo) for d in self.dicts])
++
+     def __len__(self) -> int:
+         return len(self._keys_impl())
+ 
+@@ -768,10 +776,18 @@ class HeaderSet(cabc.MutableSet[str]):
+     """
+ 
+     def __init__(self, headers: cabc.Iterable[str] | None = None) -> None:
+-        self._headers = list(headers or ())
+-        self._set = {x.lower() for x in self._headers}
++        self._headers: list[str] = []
++        self._set: set[str] = set()
+         self._on_update: cabc.Callable[[HeaderSet], None] | None = None
+ 
++        # Drop case-insensitive duplicates, so the list and set stay in sync.
++        for header in headers or ():
++            key = header.lower()
++
++            if key not in self._set:
++                self._headers.append(header)
++                self._set.add(key)
++
+     def add(self, header: str) -> None:
+         """Add a new header to the set."""
+         self.update((header,))
+@@ -790,8 +806,8 @@ class HeaderSet(cabc.MutableSet[str]):
+         if key not in self._set:
+             raise KeyError(header)
+         self._set.remove(key)
+-        for idx, key in enumerate(self._headers):
+-            if key.lower() == header:
++        for idx, item in enumerate(self._headers):
++            if item.lower() == key:
+                 del self._headers[idx]
+                 break
+         if self._on_update is not None:
+@@ -891,9 +907,20 @@ class HeaderSet(cabc.MutableSet[str]):
+ 
+     def __setitem__(self: te.Self, idx: t.SupportsIndex, value: str) -> None:
+         old = self._headers[idx]
+-        self._set.remove(old.lower())
+-        self._headers[idx] = value
+-        self._set.add(value.lower())
++        key = value.lower()
++
++        if key != old.lower() and key in self._set:
++            # The value is already present at another index. Replace this item
++            # and remove the other one, so the list doesn't contain duplicates.
++            other = self.find(value)
++            self._headers[idx] = value
++            del self._headers[other]
++            self._set.remove(old.lower())
++        else:
++            self._set.remove(old.lower())
++            self._headers[idx] = value
++            self._set.add(key)
++
+         if self._on_update is not None:
+             self._on_update(self)
+ 
+diff --git a/src/werkzeug/exceptions.py b/src/werkzeug/exceptions.py
+index 595a7c4..8b0ba5f 100644
+--- a/src/werkzeug/exceptions.py
++++ b/src/werkzeug/exceptions.py
+@@ -677,7 +677,8 @@ class _RetryAfter(HTTPException):
+     ) -> list[tuple[str, str]]:
+         headers = super().get_headers(environ, scope)
+ 
+-        if self.retry_after:
++        # 0 seconds is a valid value, only skip None.
++        if self.retry_after is not None:
+             if isinstance(self.retry_after, datetime):
+                 from .http import http_date
+ 
+diff --git a/src/werkzeug/http.py b/src/werkzeug/http.py
+index b87641f..c0baf97 100644
+--- a/src/werkzeug/http.py
++++ b/src/werkzeug/http.py
+@@ -316,7 +316,7 @@ def dump_options_header(header: str | None, options: t.Mapping[str, t.Any]) -> s
+         if value is None:
+             continue
+ 
+-        if key[-1] == "*":
++        if key.endswith("*"):
+             segments.append(f"{key}={value}")
+         else:
+             segments.append(f"{key}={quote_header_value(value)}")
+@@ -362,7 +362,7 @@ def dump_header(iterable: dict[str, t.Any] | t.Iterable[t.Any]) -> str:
+         for key, value in iterable.items():
+             if value is None:
+                 items.append(key)
+-            elif key[-1] == "*":
++            elif key.endswith("*"):
+                 items.append(f"{key}={value}")
+             else:
+                 items.append(f"{key}={quote_header_value(value)}")
+@@ -617,41 +617,46 @@ def parse_options_header(value: str | None) -> tuple[str, dict[str, str]]:
+         # empty (invalid) value, or value without options
+         return value, {}
+ 
+-    # Collect all valid key=value parts without processing the value.
++    # Collect all valid key=value parts without processing the value. Track a
++    # position in the string rather than slicing it, which would be quadratic.
+     parts: list[tuple[str, str]] = []
++    pos = 0
++    length = len(rest)
+ 
+     while True:
+-        if (m := _parameter_key_re.match(rest)) is not None:
++        if (m := _parameter_key_re.match(rest, pos)) is not None:
+             pk = m.group(1).lower()
+-            rest = rest[m.end() :]
++            pos = m.end()
+ 
+             # Value may be a token.
+-            if (m := _parameter_token_value_re.match(rest)) is not None:
++            if (m := _parameter_token_value_re.match(rest, pos)) is not None:
+                 parts.append((pk, m.group()))
+ 
+             # Value may be a quoted string, find the closing quote.
+-            elif rest[:1] == '"':
+-                pos = 1
+-                length = len(rest)
++            elif rest[pos : pos + 1] == '"':
++                qpos = pos + 1
+ 
+-                while pos < length:
+-                    if rest[pos : pos + 2] in {"\\\\", '\\"'}:
++                while qpos < length:
++                    if rest[qpos : qpos + 2] in {"\\\\", '\\"'}:
+                         # Consume escaped slashes and quotes.
+-                        pos += 2
+-                    elif rest[pos] == '"':
++                        qpos += 2
++                    elif rest[qpos] == '"':
+                         # Stop at an unescaped quote.
+-                        parts.append((pk, rest[: pos + 1]))
+-                        rest = rest[pos + 1 :]
++                        parts.append((pk, rest[pos : qpos + 1]))
++                        pos = qpos + 1
+                         break
+                     else:
+                         # Consume any other character.
+-                        pos += 1
++                        qpos += 1
+ 
+         # Find the next section delimited by `;`, if any.
+-        if (end := rest.find(";")) == -1:
++        if (end := rest.find(";", pos)) == -1:
+             break
+ 
+-        rest = rest[end + 1 :].lstrip()
++        pos = end + 1
++
++        while pos < length and rest[pos].isspace():
++            pos += 1
+ 
+     options: dict[str, str] = {}
+     encoding: str | None = None
+@@ -1299,7 +1304,11 @@ def parse_cookie(
+         cookie = header
+ 
+     if cookie:
+-        cookie = cookie.encode("latin1").decode()
++        try:
++            cookie = cookie.encode("latin1").decode(errors="replace")
++        except UnicodeEncodeError:
++            # The value was not a WSGI (latin-1) string, it is already decoded.
++            pass
+ 
+     parse_kwargs: dict[str, t.Any] = {}
+ 
+diff --git a/src/werkzeug/routing/converters.py b/src/werkzeug/routing/converters.py
+index 348f888..2e1f4cf 100644
+--- a/src/werkzeug/routing/converters.py
++++ b/src/werkzeug/routing/converters.py
+@@ -3,6 +3,7 @@ from __future__ import annotations
+ import re
+ import typing as t
+ import uuid
++from decimal import Decimal
+ from urllib.parse import quote
+ 
+ if t.TYPE_CHECKING:
+@@ -230,8 +231,15 @@ class FloatConverter(NumberConverter):
+         super().__init__(map, min=min, max=max, signed=signed)  # type: ignore
+ 
+     def to_url(self, value: t.Any) -> str:
+-        # f format ensures no scientific notation, but forces trailing zeroes
+-        return f"{self.num_convert(value):f}".rstrip("0")
++        # Use the shortest repr that round trips, then format it without
++        # scientific notation. The "f" format would round to 6 decimal places.
++        value_str = format(Decimal(repr(self.num_convert(value))), "f")
++
++        # The regex requires a decimal point with at least one digit after it.
++        if "." not in value_str:
++            value_str = f"{value_str}.0"
++
++        return value_str
+ 
+ 
+ class UUIDConverter(BaseConverter):
+diff --git a/src/werkzeug/routing/map.py b/src/werkzeug/routing/map.py
+index e4f3aae..87d831f 100644
+--- a/src/werkzeug/routing/map.py
++++ b/src/werkzeug/routing/map.py
+@@ -960,13 +960,12 @@ class MapAdapter:
+ 
+         # Return a plain path if neither host or subdomain matching is enabled,
+         # or if they are enabled and the current host matches.
+-        if (
+-            not force_external
+-            and (self.map.subdomain_matching or self.map.host_matching)
+-            and (
+-                (self.map.subdomain_matching and domain_part == self.subdomain)
+-                or (self.map.host_matching and host == self.server_name)
+-            )
++        if not force_external and (
++            # Neither subdomain or host matching is used, all rules are on the
++            # current host.
++            (not self.map.subdomain_matching and not self.map.host_matching)
++            or (self.map.subdomain_matching and domain_part == self.subdomain)
++            or (self.map.host_matching and host == self.server_name)
+         ):
+             return f"{self.script_name.rstrip('/')}/{path.lstrip('/')}"
+ 
+diff --git a/src/werkzeug/routing/matcher.py b/src/werkzeug/routing/matcher.py
+index 4a864ae..b7e8f20 100644
+--- a/src/werkzeug/routing/matcher.py
++++ b/src/werkzeug/routing/matcher.py
+@@ -142,14 +142,14 @@ class StateMachineMatcher:
+                         if suffix == "/":
+                             remaining = [""]
+ 
++                    # Sort by the converter's number, not the group name as a
++                    # string, which would sort "__werkzeug_10" before "_2".
+                     converter_groups = sorted(
+-                        match.groupdict().items(), key=lambda entry: entry[0]
+-                    )
+-                    groups = [
+-                        value
+-                        for key, value in converter_groups
++                        (int(key[11:]), value)
++                        for key, value in match.groupdict().items()
+                         if key[:11] == "__werkzeug_"
+-                    ]
++                    )
++                    groups = [value for _, value in converter_groups]
+                     rv = _match(new_state, remaining, values + groups)
+                     if rv is not None:
+                         return rv
+diff --git a/src/werkzeug/routing/rules.py b/src/werkzeug/routing/rules.py
+index 2ffffe7..0aad491 100644
+--- a/src/werkzeug/routing/rules.py
++++ b/src/werkzeug/routing/rules.py
+@@ -71,9 +71,9 @@ _converter_args_re = re.compile(
+     ((?P<name>\w+)\s*=\s*)?
+     (?P<value>
+         True|False|
+-        \d+.\d+|
+-        \d+.|
+-        \d+|
++        -?\d+.\d+|
++        -?\d+.|
++        -?\d+|
+         [\w\d_.]+|
+         [urUR]?(?P<stringval>"[^"]*?"|'[^']*')
+     )\s*,
+@@ -282,6 +282,11 @@ class RuleTemplateFactory(RuleFactory):
+                 new_endpoint = rule.endpoint
+                 if isinstance(new_endpoint, str):
+                     new_endpoint = Template(new_endpoint).substitute(self.context)
++                new_host = rule.host
++
++                if new_host is not None:
++                    new_host = Template(new_host).substitute(self.context)
++
+                 yield Rule(
+                     Template(rule.rule).substitute(self.context),
+                     new_defaults,
+@@ -290,6 +295,11 @@ class RuleTemplateFactory(RuleFactory):
+                     rule.build_only,
+                     new_endpoint,
+                     rule.strict_slashes,
++                    merge_slashes=rule.merge_slashes,
++                    redirect_to=rule.redirect_to,
++                    alias=rule.alias,
++                    host=new_host,
++                    websocket=rule.websocket,
+                 )
+ 
+ 
+@@ -546,9 +556,11 @@ class Rule(RuleFactory):
+             build_only=self.build_only,
+             endpoint=self.endpoint,
+             strict_slashes=self.strict_slashes,
++            merge_slashes=self.merge_slashes,
+             redirect_to=self.redirect_to,
+             alias=self.alias,
+             host=self.host,
++            websocket=self.websocket,
+         )
+ 
+     def get_rules(self, map: Map) -> t.Iterator[Rule]:
+diff --git a/src/werkzeug/sansio/multipart.py b/src/werkzeug/sansio/multipart.py
+index 1918926..b5dc4c4 100644
+--- a/src/werkzeug/sansio/multipart.py
++++ b/src/werkzeug/sansio/multipart.py
+@@ -292,6 +292,22 @@ class MultipartDecoder:
+         return min(last_nl, last_cr)
+ 
+ 
++def _escape_name(value: str) -> bytes:
++    """Escape a field name or filename for a quoted ``Content-Disposition``
++    parameter. Quotes and newlines are percent encoded the same way the HTML
++    standard does for form submission, and backslashes are escaped so that a
++    trailing backslash doesn't escape the closing quote. The decoder unescapes
++    ``\\\\`` and ``%22``.
++    """
++    return (
++        value.replace("\\", "\\\\")
++        .replace('"', "%22")
++        .replace("\r", "%0D")
++        .replace("\n", "%0A")
++        .encode()
++    )
++
++
+ class MultipartEncoder:
+     def __init__(self, boundary: bytes) -> None:
+         self.boundary = boundary
+@@ -307,9 +323,11 @@ class MultipartEncoder:
+             State.DATA,
+         }:
+             data = b"\r\n--" + self.boundary + b"\r\n"
+-            data += b'Content-Disposition: form-data; name="%s"' % event.name.encode()
++            data += b'Content-Disposition: form-data; name="%s"' % _escape_name(
++                event.name
++            )
+             if isinstance(event, File):
+-                data += b'; filename="%s"' % event.filename.encode()
++                data += b'; filename="%s"' % _escape_name(event.filename)
+             data += b"\r\n"
+             for name, value in t.cast(Field, event).headers:
+                 if name.lower() != "content-disposition":
+diff --git a/src/werkzeug/sansio/request.py b/src/werkzeug/sansio/request.py
+index bc3313f..17a1297 100644
+--- a/src/werkzeug/sansio/request.py
++++ b/src/werkzeug/sansio/request.py
+@@ -22,6 +22,7 @@ from ..http import parse_options_header
+ from ..http import SecFetchDest
+ from ..http import SecFetchMode
+ from ..http import SecFetchSite
++from ..urls import _codec_error_url_quote  # noqa: F401 # registers error handler
+ from ..user_agent import UserAgent
+ from ..utils import cached_property
+ from ..utils import header_property
+@@ -159,7 +160,8 @@ class Request:
+             Invalid bytes remain percent encoded.
+         """
+         items = parse_qsl(
+-            self.query_string.decode(),
++            # Invalid UTF-8 bytes are percent encoded rather than failing.
++            self.query_string.decode("utf-8", "werkzeug.url_quote"),
+             keep_blank_values=True,
+             errors="werkzeug.url_quote",
+         )
+@@ -210,7 +212,8 @@ class Request:
+     @cached_property
+     def full_path(self) -> str:
+         """Requested path, including the query string."""
+-        return f"{self.path}?{self.query_string.decode()}"
++        query = self.query_string.decode("utf-8", "werkzeug.url_quote")
++        return f"{self.path}?{query}"
+ 
+     @property
+     def is_secure(self) -> bool:
+diff --git a/src/werkzeug/sansio/utils.py b/src/werkzeug/sansio/utils.py
+index 567e596..1b0b7f2 100644
+--- a/src/werkzeug/sansio/utils.py
++++ b/src/werkzeug/sansio/utils.py
+@@ -7,6 +7,7 @@ from urllib.parse import quote
+ from .._internal import _plain_int
+ from ..datastructures import HeaderSet
+ from ..exceptions import SecurityError
++from ..urls import _encode_idna
+ from ..urls import uri_to_iri
+ 
+ _host_re = re.compile(
+@@ -49,7 +50,8 @@ def host_is_trusted(
+     if (match := _host_re.fullmatch(hostname)) is None:
+         return False
+ 
+-    hostname = match.group("hostname")
++    # Host names are case-insensitive.
++    hostname = match.group("hostname").lower()
+ 
+     if not trusted_list:
+         return True
+@@ -65,9 +67,10 @@ def host_is_trusted(
+             suffix_match = False
+ 
+         try:
+-            ref = ref.encode("idna").decode("ascii")
+-        except UnicodeEncodeError:
+-            return False
++            ref = _encode_idna(ref).lower()
++        except UnicodeError:
++            # This name can't match any valid host, check the next one.
++            continue
+ 
+         if ref == hostname or (suffix_match and hostname.endswith(f".{ref}")):
+             return True
+diff --git a/src/werkzeug/test.py b/src/werkzeug/test.py
+index c5a6579..bba55b1 100644
+--- a/src/werkzeug/test.py
++++ b/src/werkzeug/test.py
+@@ -112,7 +112,9 @@ def stream_encode_multipart(
+                     and mimetypes.guess_type(filename)[0]
+                     or "application/octet-stream"
+                 )
+-            headers = value.headers
++            # Copy the headers, rather than modifying the given object. A plain
++            # file object doesn't have headers.
++            headers = Headers(getattr(value, "headers", None))
+             headers.update([("Content-Type", content_type)])
+             if filename is None:
+                 write_binary(encoder.send_event(Field(name=key, headers=headers)))
+@@ -747,7 +749,9 @@ class EnvironBuilder:
+             combined_headers[f"HTTP_{key.upper().replace('-', '_')}"].append(value)
+ 
+         for key, values in combined_headers.items():
+-            result[key] = ", ".join(values)
++            # Cookie headers are combined with a semicolon, not a comma.
++            sep = "; " if key == "HTTP_COOKIE" else ", "
++            result[key] = sep.join(values)
+ 
+         if self.environ_overrides:
+             result.update(self.environ_overrides)
+@@ -1434,8 +1438,9 @@ class Cookie:
+             decoded_key=decoded_key,
+             decoded_value=decoded_value,
+             expires=parse_date(params.get("expires")),
+-            max_age=int(params["max-age"] or 0) if "max-age" in params else None,
+-            domain=params.get("domain") or server_name,
++            max_age=_parse_max_age(params["max-age"]) if "max-age" in params else None,
++            # A leading dot is ignored, and domains are case-insensitive.
++            domain=(params.get("domain") or "").lstrip(".").lower() or server_name,
+             origin_only="domain" not in params,
+             path=params.get("path") or path.rpartition("/")[0] or "/",
+             secure="secure" in params,
+@@ -1449,6 +1454,17 @@ class Cookie:
+ 
+     @property
+     def _should_delete(self) -> bool:
+-        return self.max_age == 0 or (
+-            self.expires is not None and self.expires.timestamp() == 0
+-        )
++        # Max-Age takes precedence over Expires. A value of zero or less, or a
++        # date in the past, expires the cookie immediately.
++        if self.max_age is not None:
++            return self.max_age <= 0
++
++        return self.expires is not None and self.expires.timestamp() <= time()
++
++
++def _parse_max_age(value: str | None) -> int | None:
++    try:
++        return int(value or 0)
++    except ValueError:
++        # An invalid Max-Age is ignored.
++        return None
+diff --git a/src/werkzeug/urls.py b/src/werkzeug/urls.py
+index 5bffe39..a5dea09 100644
+--- a/src/werkzeug/urls.py
++++ b/src/werkzeug/urls.py
+@@ -95,13 +95,13 @@ def uri_to_iri(uri: str) -> str:
+     if ":" in netloc:
+         netloc = f"[{netloc}]"
+ 
+-    if parts.port:
++    if parts.port is not None:
+         netloc = f"{netloc}:{parts.port}"
+ 
+-    if parts.username:
++    if parts.username is not None:
+         auth = _unquote_user(parts.username)
+ 
+-        if parts.password:
++        if parts.password is not None:
+             password = _unquote_user(parts.password)
+             auth = f"{auth}:{password}"
+ 
+@@ -143,20 +143,20 @@ def iri_to_uri(iri: str) -> str:
+     fragment = quote(parts.fragment, safe="%!#$&'()*+,/:;=?@")
+ 
+     if parts.hostname:
+-        netloc = parts.hostname.encode("idna").decode("ascii")
++        netloc = _encode_idna(parts.hostname)
+     else:
+         netloc = ""
+ 
+     if ":" in netloc:
+         netloc = f"[{netloc}]"
+ 
+-    if parts.port:
++    if parts.port is not None:
+         netloc = f"{netloc}:{parts.port}"
+ 
+-    if parts.username:
++    if parts.username is not None:
+         auth = quote(parts.username, safe="%!$&'()*+,;=")
+ 
+-        if parts.password:
++        if parts.password is not None:
+             password = quote(parts.password, safe="%!$&'()*+,;=")
+             auth = f"{auth}:{password}"
+ 
+@@ -172,6 +172,31 @@ if "itms-services" not in urllib.parse.uses_netloc:
+     urllib.parse.uses_netloc.append("itms-services")
+ 
+ 
++def _encode_idna(domain: str) -> str:
++    try:
++        # An ASCII domain doesn't need encoding. The IDNA codec would reject some
++        # valid ASCII names, such as labels longer than 63 characters.
++        return domain.encode("ascii").decode("ascii")
++    except UnicodeEncodeError:
++        pass
++
++    try:
++        return domain.encode("idna").decode("ascii")
++    except UnicodeError:
++        pass
++
++    # Encode each label separately, leaving ASCII labels unchanged.
++    parts = []
++
++    for part in domain.split("."):
++        try:
++            parts.append(part.encode("ascii").decode("ascii"))
++        except UnicodeEncodeError:
++            parts.append(part.encode("idna").decode("ascii"))
++
++    return ".".join(parts)
++
++
+ def _decode_idna(domain: str) -> str:
+     try:
+         data = domain.encode("ascii")
+diff --git a/src/werkzeug/utils.py b/src/werkzeug/utils.py
+index 51e90fa..0100ee1 100644
+--- a/src/werkzeug/utils.py
++++ b/src/werkzeug/utils.py
+@@ -17,6 +17,7 @@ from markupsafe import escape
+ 
+ from ._internal import _DictAccessorProperty
+ from ._internal import _missing
++from ._internal import _wsgi_decoding_dance
+ from ._internal import _TAccessorValue
+ from .datastructures import Headers
+ from .exceptions import NotFound
+@@ -108,7 +109,8 @@ class cached_property(property, t.Generic[_T]):
+ 
+     def __delete__(self, obj: object) -> None:
+         if hasattr(obj, "__dict__"):
+-            del obj.__dict__[self.__name__]
++            # Deleting a value that was never cached is not an error.
++            obj.__dict__.pop(self.__name__, None)
+         else:
+             setattr(obj, self.slot_name, _missing)
+ 
+@@ -146,6 +148,15 @@ class header_property(_DictAccessorProperty[_TAccessorValue]):
+     def lookup(self, obj: Request | Response) -> Headers:  # type: ignore[override]
+         return obj.headers
+ 
++    def __set__(self, instance: t.Any, value: _TAccessorValue) -> None:
++        if value is None and not self.read_only:
++            # Setting None removes the header, rather than setting the string
++            # "None" or passing None to the dump function.
++            self.__delete__(instance)
++            return
++
++        super().__set__(instance, value)
++
+ 
+ # https://cgit.freedesktop.org/xdg/shared-mime-info/tree/freedesktop.org.xml.in
+ # https://www.iana.org/assignments/media-types/media-types.xhtml
+@@ -311,12 +322,21 @@ def append_slash_redirect(environ: WSGIEnvironment, code: int = 308) -> Response
+         The default status code is 308 instead of 301. This preserves
+         the request method and body.
+     """
+-    tail = environ["PATH_INFO"].rpartition("/")[2]
++    tail = _wsgi_decoding_dance(environ["PATH_INFO"]).rpartition("/")[2]
+ 
+     if not tail:
+         new_path = "./"
+     else:
+-        new_path = f"{tail}/"
++        # The decoded segment may contain characters such as "?", "#", or "%"
++        # that would change the meaning of the relative URL, quote them.
++        # safe = https://url.spec.whatwg.org/#url-path-segment-string
++        tail = quote(tail, safe="!$&'()*+,:;=@")
++
++        if ":" in tail:
++            # A colon in the first segment would be parsed as a scheme.
++            new_path = f"./{tail}/"
++        else:
++            new_path = f"{tail}/"
+ 
+     query_string = environ.get("QUERY_STRING")
+ 
+diff --git a/src/werkzeug/wsgi.py b/src/werkzeug/wsgi.py
+index 8aa1b44..09ed213 100644
+--- a/src/werkzeug/wsgi.py
++++ b/src/werkzeug/wsgi.py
+@@ -559,7 +559,7 @@ class LimitedStream(io.RawIOBase):
+                     return 0
+ 
+                 if out_size:
+-                    b[:out_size] = temp_b
++                    b[:out_size] = temp_b[:out_size]
+         else:
+             # WSGI requires that stream.read is available.
+             try:
+diff --git a/tests/test_regressions.py b/tests/test_regressions.py
+new file mode 100644
+index 0000000..a48818e
+--- /dev/null
++++ b/tests/test_regressions.py
+@@ -0,0 +1,553 @@
++"""Regression tests for edge cases in various parts of the library."""
++
++from __future__ import annotations
++
++import copy
++import io
++import pickle
++import tempfile
++from datetime import datetime
++from datetime import timezone
++
++import pytest
++
++from werkzeug import datastructures as ds
++from werkzeug import exceptions
++from werkzeug import http
++from werkzeug import routing as r
++from werkzeug import urls
++from werkzeug import utils
++from werkzeug.sansio.utils import host_is_trusted
++from werkzeug.test import Client
++from werkzeug.test import create_environ
++from werkzeug.test import EnvironBuilder
++from werkzeug.test import stream_encode_multipart
++from werkzeug.wrappers import Request
++from werkzeug.wrappers import Response
++from werkzeug.wsgi import LimitedStream
++
++
++# http
++
++
++@pytest.mark.parametrize(
++    ("header", "expect"),
++    [
++        ({"HTTP_COOKIE": "a=\xe9; b=2"}, {"a": "�", "b": "2"}),
++        ("a=☃; b=2", {"a": "☃", "b": "2"}),
++    ],
++)
++def test_parse_cookie_invalid_encoding(header, expect):
++    assert http.parse_cookie(header).to_dict() == expect
++
++
++def test_dump_header_empty_key():
++    assert http.dump_options_header("a", {"": "b"}) == "a; =b"
++    assert http.dump_header({"": "b"}) == "=b"
++
++
++def test_parse_options_header_many_parameters():
++    value = "a" + "; k=v" * 50_000 + '; last="x;y"'
++    assert http.parse_options_header(value) == ("a", {"k": "v", "last": "x;y"})
++
++
++# structures
++
++
++def test_immutable_list_clear():
++    value = ds.ImmutableList([1, 2])
++
++    with pytest.raises(TypeError):
++        value.clear()
++
++    assert value == [1, 2]
++
++
++def test_multidict_empty_list_values():
++    d = ds.MultiDict()
++    d.setlist("a", [])
++    d.setlistdefault("b")
++    d.add("c", 1)
++    assert list(d.items()) == [("c", 1)]
++    assert list(d.values()) == [1]
++    assert d.to_dict() == {"c": 1}
++
++
++def test_headerset_remove_case_insensitive():
++    hs = ds.HeaderSet(["Foo", "bar"])
++    hs.remove("Foo")
++    assert list(hs) == ["bar"]
++    assert len(hs) == 1
++    hs.discard("BAR")
++    assert list(hs) == []
++
++
++def test_headerset_no_duplicates():
++    hs = ds.HeaderSet(["a", "A", "b"])
++    assert list(hs) == ["a", "b"]
++    assert len(hs) == 2
++    assert ds.HeaderSet.from_header("a, a").to_header() == "a"
++
++    hs[1] = "A"
++    assert list(hs) == ["A"]
++    assert len(hs) == 1
++    hs.remove("a")
++    assert not hs
++
++
++def test_combined_multidict_deepcopy():
++    inner = ds.MultiDict({"a": [1]})
++    c = ds.CombinedMultiDict([inner])
++    c2 = copy.deepcopy(c)
++    assert isinstance(c2, ds.CombinedMultiDict)
++    assert c2["a"] == 1
++    assert c2.dicts[0] is not inner
++
++
++# headers
++
++
++@pytest.mark.parametrize("values", [iter([]), (x for x in []), []])
++def test_headers_setlist_empty_iterator(values):
++    h = ds.Headers([("a", "1"), ("b", "2")])
++    h.setlist("a", values)
++    assert h.to_wsgi_list() == [("b", "2")]
++
++
++def test_headers_setlist_iterator():
++    h = ds.Headers()
++    h.setlist("a", iter(["1", "2"]))
++    assert h.getlist("a") == ["1", "2"]
++
++
++@pytest.mark.parametrize("key", ["X\r\nEvil", "X\nEvil", "X\rEvil"])
++def test_headers_key_newline(key):
++    h = ds.Headers()
++
++    with pytest.raises(ValueError):
++        h.add(key, "v")
++
++    with pytest.raises(ValueError):
++        h.set(key, "v")
++
++    with pytest.raises(ValueError):
++        h[0:0] = [(key, "v")]
++
++
++def test_headers_get_type_error():
++    h = ds.Headers([("a", "x")])
++
++    def convert(value):
++        raise TypeError
++
++    assert h.get("a", "d", type=convert) == "d"
++    assert h.getlist("a", type=convert) == []
++
++
++# accept
++
++
++def test_language_accept_generator():
++    a = ds.LanguageAccept([("en", 1)])
++    assert a.best_match(x for x in ["de", "en-US"]) == "en-US"
++
++
++def test_language_accept_fallback_not_prefix():
++    a = ds.LanguageAccept([("en", 1)])
++    assert a.best_match(["eng", "en-US"]) == "en-US"
++
++
++# auth
++
++
++def test_authorization_copy_pickle():
++    a = ds.Authorization("basic", {"username": "u", "password": "p"})
++    assert copy.copy(a) == a
++    assert copy.deepcopy(a) == a
++    assert pickle.loads(pickle.dumps(a)) == a
++
++
++def test_www_authenticate_copy_pickle():
++    w = ds.WWWAuthenticate("digest", {"realm": "x"})
++    c = copy.deepcopy(w)
++    assert c == w
++    c["realm"] = "y"
++    assert w.realm == "x"
++    assert copy.copy(w) == w
++    assert pickle.loads(pickle.dumps(w)) == w
++
++
++def test_www_authenticate_property_setters():
++    w = ds.WWWAuthenticate("bearer")
++    w.token = "abc"
++    assert w.parameters == {}
++    assert w.to_header() == "Bearer abc"
++    w.type = "Digest"
++    w.token = None
++    w.parameters = {"realm": "r"}
++    assert w.type == "digest"
++    assert w.to_header() == 'Digest realm="r"'
++    updates = []
++    w._on_update = updates.append
++    w.token = "t"
++    assert updates == [w]
++
++
++# csp
++
++
++def test_csp_delete_property():
++    csp = ds.ContentSecurityPolicy()
++    csp.default_src = "'self'"
++    del csp.default_src
++    assert "default-src" not in csp
++    del csp.default_src
++
++
++def test_csp_empty_value_to_header():
++    csp = ds.ContentSecurityPolicy([("upgrade-insecure-requests", "")])
++    assert csp.to_header() == "upgrade-insecure-requests"
++
++
++# range
++
++
++def test_range_suffix_longer_than_content():
++    rng = ds.Range.from_header("bytes=-1000")
++    assert rng.range_for_length(500) == (0, 500)
++    assert rng.to_content_range_header(500) == "bytes 0-499/500"
++
++
++def test_range_suffix_zero():
++    assert ds.Range.from_header("bytes=-0") is None
++
++
++def test_make_conditional_suffix_longer_than_content():
++    env = create_environ(headers={"Range": "bytes=-1000"})
++    resp = Response(b"x" * 10)
++    resp.make_conditional(env, accept_ranges=True, complete_length=10)
++    assert resp.status_code == 206
++    assert resp.get_data() == b"x" * 10
++
++
++# file storage
++
++
++def test_file_storage_copy():
++    fs = ds.FileStorage(io.BytesIO(b"x"), "a.txt")
++    assert copy.copy(fs).filename == "a.txt"
++    assert copy.deepcopy(fs).read() == b"x"
++
++
++def test_file_storage_fd_name():
++    with tempfile.TemporaryFile() as f:
++        fs = ds.FileStorage(f)
++        assert fs.filename is None or isinstance(fs.filename, str)
++
++
++def test_file_storage_mimetype_after_header_change():
++    fs = ds.FileStorage(io.BytesIO(), "a.txt", content_type="text/plain")
++    assert fs.mimetype == "text/plain"
++    fs.headers["Content-Type"] = "image/png; a=b"
++    assert fs.mimetype == "image/png"
++    assert fs.mimetype_params == {"a": "b"}
++
++
++# urls
++
++
++@pytest.mark.parametrize(
++    "url",
++    [
++        "http://h:0/",
++        "http://u:@h/",
++        "http://:pw@h/",
++        "http://u:p@h:8080/",
++    ],
++)
++def test_iri_uri_keep_userinfo_port(url):
++    assert urls.iri_to_uri(url) == url
++    assert urls.uri_to_iri(url) == url
++
++
++@pytest.mark.parametrize(
++    "url", ["http://" + "a" * 70 + ".example/", "http://a..b/", "http://a_b.example/"]
++)
++def test_iri_to_uri_ascii_host_not_idna_validated(url):
++    assert urls.iri_to_uri(url) == url
++
++
++def test_iri_to_uri_mixed_host():
++    assert (
++        urls.iri_to_uri("http://☃." + "a" * 70 + "/")
++        == "http://xn--n3h." + "a" * 70 + "/"
++    )
++
++
++# utils
++
++
++def test_cached_property_delete_uncached():
++    class A:
++        @utils.cached_property
++        def value(self):
++            return 1
++
++    a = A()
++    del a.value
++    assert a.value == 1
++    del a.value
++
++
++@pytest.mark.parametrize(
++    ("path", "location"),
++    [
++        ("/a/javascript:alert(1)", "./javascript:alert(1)/"),
++        ("/a/x%3Fy", "x%3Fy/"),
++        ("/a/x%23y", "x%23y/"),
++        ("/a/100%25", "100%25/"),
++        ("/a/caf%C3%A9", "caf%C3%A9/"),
++    ],
++)
++def test_append_slash_redirect_quotes(path, location):
++    rv = utils.append_slash_redirect(create_environ(path))
++    assert rv.headers["Location"] == location
++
++
++def test_header_property_none_removes_header():
++    resp = Response()
++    resp.last_modified = 5
++    resp.last_modified = None
++    resp.location = "/a"
++    resp.location = None
++    resp.content_length = 1
++    resp.content_length = None
++    resp.access_control_allow_methods = ["GET"]
++    resp.access_control_allow_methods = None
++
++    for name in [
++        "Last-Modified",
++        "Location",
++        "Content-Length",
++        "Access-Control-Allow-Methods",
++    ]:
++        assert name not in resp.headers
++
++
++# wsgi
++
++
++class _ShortReads(io.RawIOBase):
++    def __init__(self, data: bytes) -> None:
++        self.data = data
++
++    def readable(self) -> bool:
++        return True
++
++    def readinto(self, b):  # type: ignore[no-untyped-def]
++        n = min(len(b), 3, len(self.data))
++        b[:n] = self.data[:n]
++        self.data = self.data[n:]
++        return n
++
++
++def test_limited_stream_short_readinto_memoryview():
++    stream = LimitedStream(_ShortReads(b"abcdefghij"), 10)
++    buf = memoryview(bytearray(100))
++    assert stream.readinto(buf) == 3
++    assert bytes(buf[:3]) == b"abc"
++    assert stream.read() == b"defghij"
++
++
++def test_host_is_trusted_case_insensitive():
++    assert host_is_trusted("Example.COM", ["example.com"])
++    assert host_is_trusted("a.EXAMPLE.com:8080", [".Example.com"])
++    assert host_is_trusted("b.com", ["a" * 70 + ".com", "b.com"])
++
++
++# request
++
++
++def test_request_args_invalid_utf8():
++    env = create_environ()
++    env["QUERY_STRING"] = "q=\xe9&a=1"
++    req = Request(env)
++    assert req.args.to_dict() == {"q": "%E9", "a": "1"}
++    assert req.full_path == "/?q=%E9&a=1"
++
++
++# multipart
++
++
++@pytest.mark.parametrize(
++    "name", ['a"b.txt', "a\\b.txt", "end\\", '\\"', "☃.txt"]
++)
++def test_multipart_special_names_round_trip(name):
++    env = EnvironBuilder(
++        method="POST",
++        data={name: "value", "file": (io.BytesIO(b"data"), name)},
++    ).get_environ()
++
++    with Request(env) as req:
++        assert req.form[name] == "value"
++        assert req.files["file"].filename == name
++
++
++def test_multipart_newline_in_name_does_not_inject_header():
++    env = EnvironBuilder(
++        method="POST",
++        data={"file": (io.BytesIO(b"data"), "a\r\nX-Evil: 1\r\n.txt")},
++    ).get_environ()
++
++    with Request(env) as req:
++        fs = req.files["file"]
++        assert "X-Evil" not in fs.headers
++        assert fs.read() == b"data"
++
++
++def test_stream_encode_multipart_plain_file():
++    f = io.BytesIO(b"x")
++    f.name = "a.txt"  # type: ignore[attr-defined]
++    stream, length, boundary = stream_encode_multipart({"f": f})
++    assert b'filename="a.txt"' in stream.getvalue()
++
++
++def test_stream_encode_multipart_does_not_modify_headers():
++    fs = ds.FileStorage(io.BytesIO(b"x"), "a.txt")
++    stream_encode_multipart({"f": fs})
++    assert "Content-Type" not in fs.headers
++
++
++# routing
++
++
++@pytest.mark.parametrize(
++    "value", [1.0, 1e-7, 123456789.12345679, 1e20, 2.5e-10, 0.1 + 0.2]
++)
++def test_float_converter_round_trip(value):
++    m = r.Map([r.Rule("/<float:x>", endpoint="f")])
++    a = m.bind("localhost")
++    url = a.build("f", {"x": value})
++    assert "e" not in url
++    assert a.match(url) == ("f", {"x": value})
++
++
++def test_converter_negative_arguments():
++    m = r.Map([r.Rule("/<int(signed=True, min=-10, max=-2):x>", endpoint="i")])
++    a = m.bind("localhost")
++    assert a.match("/-5") == ("i", {"x": -5})
++
++    with pytest.raises(exceptions.NotFound):
++        a.match("/-11")
++
++
++def test_rule_factories_keep_options():
++    def check(rule: r.Rule) -> None:
++        assert rule.websocket
++        assert rule.merge_slashes is False
++
++    base = r.Rule("/ws", endpoint="ws", websocket=True, merge_slashes=False)
++    check(base.empty())
++
++    m = r.Map([r.Submount("/x", [base.empty()])])
++    check(next(m.iter_rules()))
++
++    template = r.RuleTemplate(
++        [r.Rule("/$n", endpoint="$n", websocket=True, merge_slashes=False)]
++    )
++    m = r.Map([template(n="y")])
++    check(next(m.iter_rules()))
++
++
++def test_rule_template_keeps_redirect_alias_host():
++    template = r.RuleTemplate(
++        [r.Rule("/$n", endpoint="$n", redirect_to="/b", alias=True, host="$n.test")]
++    )
++    rule = next(r.Map([template(n="y")], host_matching=True).iter_rules())
++    assert rule.redirect_to == "/b"
++    assert rule.alias
++    assert rule.host == "y.test"
++
++
++def test_build_relative_without_subdomain_matching():
++    m = r.Map([r.Rule("/a", endpoint="a")], subdomain_matching=False)
++    a = m.bind("example.com")
++    assert a.build("a") == "/a"
++    assert a.build("a", force_external=True) == "http://example.com/a"
++
++
++def test_match_many_converters_in_part():
++    names = [f"v{i}" for i in range(12)]
++    m = r.Map([r.Rule("/" + "-".join(f"<int:{n}>" for n in names), endpoint="x")])
++    _, values = m.bind("localhost").match("/" + "-".join(map(str, range(12))))
++    assert values == {n: i for i, n in enumerate(names)}
++
++
++# exceptions
++
++
++@pytest.mark.parametrize(
++    "cls", [exceptions.TooManyRequests, exceptions.ServiceUnavailable]
++)
++def test_retry_after_zero(cls):
++    headers = dict(cls(retry_after=0).get_headers())
++    assert headers["Retry-After"] == "0"
++
++
++# test client cookies
++
++
++def _cookie_app(header):
++    @Request.application
++    def app(request):
++        if request.path == "/set":
++            return Response(headers=[("Set-Cookie", header)])
++
++        return Response(request.headers.get("Cookie", ""))
++
++    return app
++
++
++def test_client_cookie_leading_dot_domain():
++    client = Client(_cookie_app("a=b; Domain=.Example.com; Path=/"))
++    client.get("/set", base_url="http://www.example.com")
++    assert client.get("/", base_url="http://sub.example.com").text == "a=b"
++    assert client.get("/", base_url="http://example.com").text == "a=b"
++
++
++@pytest.mark.parametrize(
++    "params",
++    [
++        "Max-Age=-1",
++        "Expires=Thu, 01 Jan 2004 00:00:00 GMT",
++    ],
++)
++def test_client_cookie_expired_deleted(params):
++    client = Client(_cookie_app(f"a=b; Path=/; {params}"))
++    client.set_cookie("a", "old")
++    client.get("/set")
++    assert client.get_cookie("a") is None
++
++
++def test_client_cookie_invalid_max_age():
++    client = Client(_cookie_app("a=b; Path=/; Max-Age=x"))
++    client.get("/set")
++    assert client.get_cookie("a").value == "b"
++
++
++def test_client_cookie_future_expires():
++    expires = http.http_date(datetime(2999, 1, 1, tzinfo=timezone.utc))
++    client = Client(_cookie_app(f"a=b; Path=/; Expires={expires}"))
++    client.get("/set")
++    assert client.get_cookie("a").value == "b"
++
++
++def test_environ_builder_multiple_cookie_headers():
++    env = EnvironBuilder(headers=[("Cookie", "a=1"), ("Cookie", "b=2")]).get_environ()
++    assert Request(env).cookies.to_dict() == {"a": "1", "b": "2"}
++
++
++def test_if_range_invalid_etag():
++    value = ds.IfRange.from_header('a"b')
++    assert value.etag is None
++    assert value.to_header() == ""

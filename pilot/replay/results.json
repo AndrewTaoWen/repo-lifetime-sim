@@ -1,0 +1,1955 @@
+{
+ "python-dotenv-r1": {
+  "upstream_commits": 17,
+  "collisions": 6,
+  "collision_package": 5,
+  "final_package_hunks": 7,
+  "final_other_hunks": 2,
+  "final_files": [
+   "src/dotenv/cli.py",
+   "src/dotenv/main.py",
+   "src/dotenv/parser.py",
+   "tests/test_cli.py",
+   "tests/test_main.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "f7b18d9c72",
+    "subject": "fix: round-trip backslashes through set_key (#680)",
+    "new_hunks": 2,
+    "files": [
+     "src/dotenv/main.py",
+     "src/dotenv/parser.py"
+    ]
+   },
+   {
+    "commit": "f5485a61ee",
+    "subject": "fix: parse empty unquoted value with inline comment as empty string",
+    "new_hunks": 1,
+    "files": [
+     "tests/test_main.py"
+    ]
+   },
+   {
+    "commit": "e0310e5bb3",
+    "subject": "fix: honor --no-override when expanding variables in dotenv run (#698)",
+    "new_hunks": 2,
+    "files": [
+     "src/dotenv/cli.py",
+     "tests/test_cli.py"
+    ]
+   },
+   {
+    "commit": "6a49d6d88f",
+    "subject": "fix: name the .env path in set_key and unset_key write errors (#711)",
+    "new_hunks": 2,
+    "files": [
+     "src/dotenv/main.py"
+    ]
+   },
+   {
+    "commit": "6bdf86adb2",
+    "subject": "fix: don't leak or mask errors when rewrite cleanup fails on Windows (#686)",
+    "new_hunks": 1,
+    "files": [
+     "src/dotenv/main.py"
+    ]
+   },
+   {
+    "commit": "791414804e",
+    "subject": "fix: expand ~ in dotenv_path and the CLI --file option (#615)",
+    "new_hunks": 1,
+    "files": [
+     "src/dotenv/cli.py"
+    ]
+   }
+  ],
+  "diff": "6 files changed, 335 insertions(+), 48 deletions(-)",
+  "broken": [
+   "tests.test_cli::test_list[None-x='a b c'-x=a b c\\n]",
+   "tests.test_cli::test_list[export-x='a b c'-export x='a b c'\\n]",
+   "tests.test_cli::test_list[json-x='a b c'-{\\n  \"x\": \"a b c\"\\n}\\n]",
+   "tests.test_cli::test_list[shell-x=\"'a b c'\"-x=''\"'\"'a b c'\"'\"''\\n]",
+   "tests.test_cli::test_list[shell-x='\"a b c\"'-x='\"a b c\"'\\n]",
+   "tests.test_cli::test_list[shell-x='a b c'-x='a b c'\\n]",
+   "tests.test_cli::test_list[shell-x='a\\nb\\nc'-x='a\\nb\\nc'\\n]",
+   "tests.test_cli::test_list[simple-x=\"'a b c'\"-x='a b c'\\n]",
+   "tests.test_cli::test_list[simple-x='\"a b c\"'-x=\"a b c\"\\n]",
+   "tests.test_cli::test_list[simple-x='a b c'-x=a b c\\n]",
+   "tests.test_cli::test_set_export[dotenv_path0-true-a-x-export a='x'\\n]",
+   "tests.test_cli::test_set_export[dotenv_path1-false-a-x-a='x'\\n]",
+   "tests.test_cli::test_set_quote_options[always-a-x-a='x'\\n]",
+   "tests.test_cli::test_set_quote_options[auto-a-$-a='$'\\n]",
+   "tests.test_cli::test_set_quote_options[auto-a-x y-a='x y'\\n]",
+   "tests.test_cli::test_set_quote_options[auto-a-x-a=x\\n]",
+   "tests.test_cli::test_set_quote_options[never-a-x-a=x\\n]",
+   "tests.test_cli::test_unset_existing_value",
+   "tests.test_main::test_dotenv_path_expands_user[set_key-Path]",
+   "tests.test_main::test_dotenv_path_expands_user[set_key-str]",
+   "tests.test_main::test_dotenv_path_expands_user[unset_key-Path]",
+   "tests.test_main::test_dotenv_path_expands_user[unset_key-str]",
+   "tests.test_main::test_dotenv_values_string_io[env10-a='${b}'-True-expected10]",
+   "tests.test_main::test_dotenv_values_string_io[env9-a=\"${b}\"-True-expected9]",
+   "tests.test_main::test_load_dotenv_redefine_var_used_in_file_no_override",
+   "tests.test_main::test_load_dotenv_redefine_var_used_in_file_with_override",
+   "tests.test_main::test_rewrite_closes_file_handle_on_lstat_failure",
+   "tests.test_main::test_rewrite_read_only_file_leaves_no_temp_file[set_key]",
+   "tests.test_main::test_rewrite_read_only_file_leaves_no_temp_file[unset_key]",
+   "tests.test_main::test_rewrite_reports_original_error_when_cleanup_fails",
+   "tests.test_main::test_set_key[-a-\"b\"-expected3-a='\"b\"'\\n]",
+   "tests.test_main::test_set_key[-a-'b'-expected2-a='\\\\'b\\\\''\\n]",
+   "tests.test_main::test_set_key[-a--expected0-a=''\\n]",
+   "tests.test_main::test_set_key[-a-b\"c-expected5-a='b\"c'\\n]",
+   "tests.test_main::test_set_key[-a-b'c-expected4-a='b\\\\'c'\\n]",
+   "tests.test_main::test_set_key[-a-b-expected1-a='b'\\n]",
+   "tests.test_main::test_set_key[-a-b\\\\'c-expected15-a='b\\\\\\\\\\\\'c'\\n]",
+   "tests.test_main::test_set_key[-a-b\\\\-expected14-a='b\\\\\\\\'\\n]",
+   "tests.test_main::test_set_key[-a-b\\\\c-expected13-a='b\\\\\\\\c'\\n]",
+   "tests.test_main::test_set_key[a=b-a-c-expected6-a='c'\\n]",
+   "tests.test_main::test_set_key[a=b-c-d-expected12-a=b\\nc='d'\\n]",
+   "tests.test_main::test_set_key[a=b\\n-a-c-expected7-a='c'\\n]",
+   "tests.test_main::test_set_key[a=b\\n-c-d-expected11-a=b\\nc='d'\\n]",
+   "tests.test_main::test_set_key[a=b\\n\\n-a-c-expected8-a='c'\\n\\n]",
+   "tests.test_main::test_set_key[a=b\\nc=d-a-e-expected9-a='e'\\nc=d]",
+   "tests.test_main::test_set_key[a=b\\nc=d\\ne=f-c-g-expected10-a=b\\nc='g'\\ne=f]",
+   "tests.test_main::test_set_key_encoding",
+   "tests.test_main::test_set_key_follow_symlinks",
+   "tests.test_main::test_set_key_no_file",
+   "tests.test_main::test_set_key_preserves_file_mode",
+   "tests.test_main::test_set_key_round_trips[C:\\\\Users\\\\]",
+   "tests.test_main::test_set_key_round_trips[C:\\\\Users]",
+   "tests.test_main::test_set_key_round_trips[\\\\d+]",
+   "tests.test_main::test_set_key_round_trips[]",
+   "tests.test_main::test_set_key_round_trips[a\\\\'b]",
+   "tests.test_main::test_set_key_round_trips[a\\\\nb]",
+   "tests.test_main::test_set_key_round_trips[back\\\\]",
+   "tests.test_main::test_set_key_round_trips[it's]",
+   "tests.test_main::test_set_key_round_trips[plain]",
+   "tests.test_main::test_set_key_round_trips[say \"hi\"]",
+   "tests.test_main::test_set_key_symlink_to_existing_file",
+   "tests.test_main::test_set_key_symlink_to_missing_file",
+   "tests.test_main::test_unset_encoding",
+   "tests.test_main::test_unset_key_follow_symlinks",
+   "tests.test_main::test_unset_key_symlink_to_existing_file",
+   "tests.test_main::test_unset_no_value",
+   "tests.test_main::test_unset_with_value",
+   "tests.test_parser::test_parse_stream[# comment\\na=\"b\\nc\"\\nd=e\\n-expected50]",
+   "tests.test_parser::test_parse_stream[a=\"\\nb=c-expected49]",
+   "tests.test_parser::test_parse_stream[a=\"\\xe0\"-expected39]",
+   "tests.test_parser::test_parse_stream[a=\"b c \"-expected23]",
+   "tests.test_parser::test_parse_stream[a=\"b\\\\\"c\"-expected31]",
+   "tests.test_parser::test_parse_stream[a=\"b\\\\\\\\\"\\nc=\"d\"-expected36]",
+   "tests.test_parser::test_parse_stream[a=\"b\\\\\\\\c\"-expected34]",
+   "tests.test_parser::test_parse_stream[a=\"b\\\\nc\"-expected29]",
+   "tests.test_parser::test_parse_stream[a=\"b\\nc\"-expected26]",
+   "tests.test_parser::test_parse_stream[a=\"b\\nc\"-expected28]",
+   "tests.test_parser::test_parse_stream[a='b c '-expected22]",
+   "tests.test_parser::test_parse_stream[a='b\\\\'c'-expected32]",
+   "tests.test_parser::test_parse_stream[a='b\\\\\\\\'\\nc='d'-expected35]",
+   "tests.test_parser::test_parse_stream[a='b\\\\\\\\\\\\'c'-expected37]",
+   "tests.test_parser::test_parse_stream[a='b\\\\\\\\c'-expected33]",
+   "tests.test_parser::test_parse_stream[a='b\\\\nc'-expected30]",
+   "tests.test_parser::test_parse_stream[a='b\\nc'-expected27]",
+   "tests.test_parser::test_parse_stream[uglyKey[%$=\"S3cr3t_P4ssw#rD\" #\\na=b-expected53]"
+  ]
+ },
+ "python-dotenv-r2": {
+  "upstream_commits": 17,
+  "collisions": 4,
+  "collision_package": 2,
+  "final_package_hunks": 2,
+  "final_other_hunks": 2,
+  "final_files": [
+   "src/dotenv/main.py",
+   "tests/test_cli.py",
+   "tests/test_main.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "f7b18d9c72",
+    "subject": "fix: round-trip backslashes through set_key (#680)",
+    "new_hunks": 1,
+    "files": [
+     "src/dotenv/main.py"
+    ]
+   },
+   {
+    "commit": "f5485a61ee",
+    "subject": "fix: parse empty unquoted value with inline comment as empty string",
+    "new_hunks": 1,
+    "files": [
+     "tests/test_main.py"
+    ]
+   },
+   {
+    "commit": "e0310e5bb3",
+    "subject": "fix: honor --no-override when expanding variables in dotenv run (#698)",
+    "new_hunks": 1,
+    "files": [
+     "tests/test_cli.py"
+    ]
+   },
+   {
+    "commit": "6a49d6d88f",
+    "subject": "fix: name the .env path in set_key and unset_key write errors (#711)",
+    "new_hunks": 1,
+    "files": [
+     "src/dotenv/main.py"
+    ]
+   }
+  ],
+  "diff": "4 files changed, 181 insertions(+), 32 deletions(-)",
+  "broken": []
+ },
+ "python-dotenv-r3": {
+  "upstream_commits": 17,
+  "collisions": 5,
+  "collision_package": 4,
+  "final_package_hunks": 6,
+  "final_other_hunks": 2,
+  "final_files": [
+   "src/dotenv/cli.py",
+   "src/dotenv/main.py",
+   "src/dotenv/parser.py",
+   "tests/test_cli.py",
+   "tests/test_main.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "f7b18d9c72",
+    "subject": "fix: round-trip backslashes through set_key (#680)",
+    "new_hunks": 2,
+    "files": [
+     "src/dotenv/main.py",
+     "src/dotenv/parser.py"
+    ]
+   },
+   {
+    "commit": "f5485a61ee",
+    "subject": "fix: parse empty unquoted value with inline comment as empty string",
+    "new_hunks": 2,
+    "files": [
+     "src/dotenv/parser.py",
+     "tests/test_main.py"
+    ]
+   },
+   {
+    "commit": "e0310e5bb3",
+    "subject": "fix: honor --no-override when expanding variables in dotenv run (#698)",
+    "new_hunks": 1,
+    "files": [
+     "tests/test_cli.py"
+    ]
+   },
+   {
+    "commit": "f215c0274d",
+    "subject": "fix: dotenv get exits 0 for empty string values (#700)",
+    "new_hunks": 1,
+    "files": [
+     "src/dotenv/cli.py"
+    ]
+   },
+   {
+    "commit": "6a49d6d88f",
+    "subject": "fix: name the .env path in set_key and unset_key write errors (#711)",
+    "new_hunks": 2,
+    "files": [
+     "src/dotenv/main.py"
+    ]
+   }
+  ],
+  "diff": "8 files changed, 200 insertions(+), 29 deletions(-)",
+  "broken": []
+ },
+ "python-dotenv-r4": {
+  "upstream_commits": 17,
+  "collisions": 4,
+  "collision_package": 4,
+  "final_package_hunks": 5,
+  "final_other_hunks": 1,
+  "final_files": [
+   "src/dotenv/cli.py",
+   "src/dotenv/main.py",
+   "src/dotenv/parser.py",
+   "tests/test_main.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "f7b18d9c72",
+    "subject": "fix: round-trip backslashes through set_key (#680)",
+    "new_hunks": 2,
+    "files": [
+     "src/dotenv/main.py",
+     "src/dotenv/parser.py"
+    ]
+   },
+   {
+    "commit": "f5485a61ee",
+    "subject": "fix: parse empty unquoted value with inline comment as empty string",
+    "new_hunks": 2,
+    "files": [
+     "src/dotenv/parser.py",
+     "tests/test_main.py"
+    ]
+   },
+   {
+    "commit": "e0310e5bb3",
+    "subject": "fix: honor --no-override when expanding variables in dotenv run (#698)",
+    "new_hunks": 1,
+    "files": [
+     "src/dotenv/cli.py"
+    ]
+   },
+   {
+    "commit": "f215c0274d",
+    "subject": "fix: dotenv get exits 0 for empty string values (#700)",
+    "new_hunks": 1,
+    "files": [
+     "src/dotenv/cli.py"
+    ]
+   }
+  ],
+  "diff": "8 files changed, 197 insertions(+), 49 deletions(-)",
+  "broken": [
+   "tests.test_zip_imports::test_load_dotenv_gracefully_handles_zip_imports_when_no_env_file",
+   "tests.test_zip_imports::test_load_dotenv_outside_zip_file_when_called_in_zipfile"
+  ]
+ },
+ "cattrs-r1": {
+  "upstream_commits": 34,
+  "collisions": 9,
+  "collision_package": 8,
+  "final_package_hunks": 11,
+  "final_other_hunks": 1,
+  "final_files": [
+   "HISTORY.md",
+   "src/cattrs/cols.py",
+   "src/cattrs/disambiguators.py",
+   "src/cattrs/gen/__init__.py",
+   "src/cattrs/gen/typeddicts.py",
+   "src/cattrs/preconf/msgspec.py",
+   "src/cattrs/v.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "d142672779",
+    "subject": "Document type alias union passthrough support",
+    "new_hunks": 1,
+    "files": [
+     "HISTORY.md"
+    ]
+   },
+   {
+    "commit": "3d070824b3",
+    "subject": "Fix msgspec optimizations on 3.14",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/preconf/msgspec.py"
+    ]
+   },
+   {
+    "commit": "eddffc415c",
+    "subject": "Fix typos in comments and documentation",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/cols.py"
+    ]
+   },
+   {
+    "commit": "a6c0900533",
+    "subject": "Disambiguate unions independent of member class order",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/disambiguators.py"
+    ]
+   },
+   {
+    "commit": "02c3ead21d",
+    "subject": "Unpack the single type arg for Counter keys when unstructuring",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/gen/__init__.py"
+    ]
+   },
+   {
+    "commit": "f2e42f3c69",
+    "subject": "Improve TypedDict key quoting",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/gen/typeddicts.py"
+    ]
+   },
+   {
+    "commit": "3d57d6b4af",
+    "subject": "Escape override rename keys when generating structure/unstructure code",
+    "new_hunks": 3,
+    "files": [
+     "src/cattrs/gen/__init__.py"
+    ]
+   },
+   {
+    "commit": "bc34a466a8",
+    "subject": "Sort extra keys when formatting ForbiddenExtraKeysError (#776)",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/v.py"
+    ]
+   },
+   {
+    "commit": "b618aab7d9",
+    "subject": "Honor renamed literal fields in union disambiguation",
+    "new_hunks": 2,
+    "files": [
+     "src/cattrs/disambiguators.py"
+    ]
+   }
+  ],
+  "diff": "17 files changed, 560 insertions(+), 110 deletions(-)",
+  "broken": [
+   "tests.strategies.test_include_subclasses::test_circular_reference[with-subclasses]",
+   "tests.strategies.test_include_subclasses::test_dataclasses[False]",
+   "tests.strategies.test_include_subclasses::test_dataclasses[True]",
+   "tests.strategies.test_include_subclasses::test_dataclasses_slots[False]",
+   "tests.strategies.test_include_subclasses::test_dataclasses_slots[True]",
+   "tests.strategies.test_include_subclasses::test_omit_if_default_with_discriminator_override[None]",
+   "tests.strategies.test_include_subclasses::test_overrides[wo-union-strategy-child1-only]",
+   "tests.strategies.test_include_subclasses::test_overrides[wo-union-strategy-child2-only]",
+   "tests.strategies.test_include_subclasses::test_overrides[wo-union-strategy-grandchild-only]",
+   "tests.strategies.test_include_subclasses::test_overrides[wo-union-strategy-parent-only]",
+   "tests.strategies.test_include_subclasses::test_parents_with_generics[False]",
+   "tests.strategies.test_include_subclasses::test_parents_with_generics[True]",
+   "tests.strategies.test_include_subclasses::test_structure_as_union",
+   "tests.strategies.test_include_subclasses::test_structuring_unstructuring_unknown_subclass",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-child1-only]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-child2-only]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-grandchild-only]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-non-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-non-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-non-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-non-union-container]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-parent-only]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-union-container]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[wo-subclasses-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[wo-subclasses-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[wo-subclasses-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[wo-subclasses-union-container]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_subclasses_argument",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-child1-only]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-child2-only]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-grandchild-only]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-non-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-non-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-non-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-non-union-container]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-parent-only]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-union-container]",
+   "tests.test_baseconverter::test_310_union_field_roundtrip_dict",
+   "tests.test_baseconverter::test_union_field_roundtrip_dict",
+   "tests.test_disambiguators::test_converter_no_literals[BaseConverter-False]",
+   "tests.test_disambiguators::test_converter_no_literals[BaseConverter-True]",
+   "tests.test_disambiguators::test_converter_no_literals[Converter-False]",
+   "tests.test_disambiguators::test_converter_no_literals[Converter-True]",
+   "tests.test_disambiguators::test_dataclasses[BaseConverter-False]",
+   "tests.test_disambiguators::test_dataclasses[BaseConverter-True]",
+   "tests.test_disambiguators::test_dataclasses[Converter-False]",
+   "tests.test_disambiguators::test_dataclasses[Converter-True]",
+   "tests.test_disambiguators::test_dataclasses_literals[BaseConverter-False]",
+   "tests.test_disambiguators::test_dataclasses_literals[BaseConverter-True]",
+   "tests.test_disambiguators::test_dataclasses_literals[Converter-False]",
+   "tests.test_disambiguators::test_dataclasses_literals[Converter-True]",
+   "tests.test_disambiguators::test_default_no_literals",
+   "tests.test_disambiguators::test_default_none",
+   "tests.test_disambiguators::test_disambiguate_from_discriminated_enum",
+   "tests.test_disambiguators::test_disambiguation",
+   "tests.test_disambiguators::test_disambiguation_is_order_independent",
+   "tests.test_disambiguators::test_edge_errors",
+   "tests.test_disambiguators::test_fallback",
+   "tests.test_disambiguators::test_field_renaming[BaseConverter-False]",
+   "tests.test_disambiguators::test_field_renaming[BaseConverter-True]",
+   "tests.test_disambiguators::test_field_renaming[Converter-False]",
+   "tests.test_disambiguators::test_field_renaming[Converter-True]",
+   "tests.test_disambiguators::test_input_not_mapping",
+   "tests.test_disambiguators::test_literal_field_explicit_overrides",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_attributes[BaseConverter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_attributes[BaseConverter-True]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_attributes[Converter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_attributes[Converter-True]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[BaseConverter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[BaseConverter-True]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[Converter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[Converter-True]",
+   "tests.test_generics::test_roundtrip_generic_with_union",
+   "tests.test_generics::test_structure_deque_of_generic_unions[BaseConverter-False]",
+   "tests.test_generics::test_structure_deque_of_generic_unions[BaseConverter-True]",
+   "tests.test_generics::test_structure_deque_of_generic_unions[Converter-False]",
+   "tests.test_generics::test_structure_deque_of_generic_unions[Converter-True]",
+   "tests.test_generics::test_structure_list_of_generic_unions[BaseConverter-False]",
+   "tests.test_generics::test_structure_list_of_generic_unions[BaseConverter-True]",
+   "tests.test_generics::test_structure_list_of_generic_unions[Converter-False]",
+   "tests.test_generics::test_structure_list_of_generic_unions[Converter-True]",
+   "tests.test_generics::test_structure_unions_of_generics[BaseConverter-False]",
+   "tests.test_generics::test_structure_unions_of_generics[BaseConverter-True]",
+   "tests.test_generics::test_structure_unions_of_generics[Converter-False]",
+   "tests.test_generics::test_structure_unions_of_generics[Converter-True]",
+   "tests.test_structure::test_structure_union_edge_case",
+   "tests.test_structure_attrs::test_structure_multitier_discriminator_union[BaseConverter]",
+   "tests.test_structure_attrs::test_structure_multitier_discriminator_union[Converter]",
+   "tests.test_structure_attrs::test_structure_union",
+   "tests.test_structure_attrs::test_structure_union_none"
+  ]
+ },
+ "cattrs-r2": {
+  "upstream_commits": 34,
+  "collisions": 9,
+  "collision_package": 9,
+  "final_package_hunks": 14,
+  "final_other_hunks": 0,
+  "final_files": [
+   "src/cattrs/cols.py",
+   "src/cattrs/disambiguators.py",
+   "src/cattrs/gen/__init__.py",
+   "src/cattrs/gen/typeddicts.py",
+   "src/cattrs/preconf/msgspec.py",
+   "src/cattrs/v.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "3d070824b3",
+    "subject": "Fix msgspec optimizations on 3.14",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/preconf/msgspec.py"
+    ]
+   },
+   {
+    "commit": "eddffc415c",
+    "subject": "Fix typos in comments and documentation",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/cols.py"
+    ]
+   },
+   {
+    "commit": "a6c0900533",
+    "subject": "Disambiguate unions independent of member class order",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/disambiguators.py"
+    ]
+   },
+   {
+    "commit": "02c3ead21d",
+    "subject": "Unpack the single type arg for Counter keys when unstructuring",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/gen/__init__.py"
+    ]
+   },
+   {
+    "commit": "f2e42f3c69",
+    "subject": "Improve TypedDict key quoting",
+    "new_hunks": 3,
+    "files": [
+     "src/cattrs/gen/typeddicts.py"
+    ]
+   },
+   {
+    "commit": "3d57d6b4af",
+    "subject": "Escape override rename keys when generating structure/unstructure code",
+    "new_hunks": 3,
+    "files": [
+     "src/cattrs/gen/__init__.py"
+    ]
+   },
+   {
+    "commit": "bc34a466a8",
+    "subject": "Sort extra keys when formatting ForbiddenExtraKeysError (#776)",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/v.py"
+    ]
+   },
+   {
+    "commit": "5411365229",
+    "subject": "Support Python 3.15 frozendict mappings",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/preconf/msgspec.py"
+    ]
+   },
+   {
+    "commit": "b618aab7d9",
+    "subject": "Honor renamed literal fields in union disambiguation",
+    "new_hunks": 2,
+    "files": [
+     "src/cattrs/disambiguators.py"
+    ]
+   }
+  ],
+  "diff": "14 files changed, 675 insertions(+), 150 deletions(-)",
+  "broken": [
+   "tests.strategies.test_include_subclasses::test_circular_reference[with-subclasses]",
+   "tests.strategies.test_include_subclasses::test_dataclasses[False]",
+   "tests.strategies.test_include_subclasses::test_dataclasses[True]",
+   "tests.strategies.test_include_subclasses::test_dataclasses_slots[False]",
+   "tests.strategies.test_include_subclasses::test_dataclasses_slots[True]",
+   "tests.strategies.test_include_subclasses::test_omit_if_default_with_discriminator_override[None]",
+   "tests.strategies.test_include_subclasses::test_overrides[wo-union-strategy-child1-only]",
+   "tests.strategies.test_include_subclasses::test_overrides[wo-union-strategy-child2-only]",
+   "tests.strategies.test_include_subclasses::test_overrides[wo-union-strategy-grandchild-only]",
+   "tests.strategies.test_include_subclasses::test_overrides[wo-union-strategy-parent-only]",
+   "tests.strategies.test_include_subclasses::test_parents_with_generics[False]",
+   "tests.strategies.test_include_subclasses::test_parents_with_generics[True]",
+   "tests.strategies.test_include_subclasses::test_structure_as_union",
+   "tests.strategies.test_include_subclasses::test_structuring_unstructuring_unknown_subclass",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-child1-only]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-child2-only]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-grandchild-only]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-non-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-non-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-non-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-non-union-container]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-parent-only]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[with-subclasses-union-container]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[wo-subclasses-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[wo-subclasses-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[wo-subclasses-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_inheritance[wo-subclasses-union-container]",
+   "tests.strategies.test_include_subclasses::test_structuring_with_subclasses_argument",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-child1-only]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-child2-only]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-grandchild-only]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-non-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-non-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-non-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-non-union-container]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-parent-only]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-union-compose-child]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-union-compose-grandchild]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-union-compose-parent]",
+   "tests.strategies.test_include_subclasses::test_unstructuring_with_inheritance[with-subclasses-union-container]",
+   "tests.test_baseconverter::test_310_union_field_roundtrip_dict",
+   "tests.test_baseconverter::test_union_field_roundtrip_dict",
+   "tests.test_disambiguators::test_converter_no_literals[BaseConverter-False]",
+   "tests.test_disambiguators::test_converter_no_literals[BaseConverter-True]",
+   "tests.test_disambiguators::test_converter_no_literals[Converter-False]",
+   "tests.test_disambiguators::test_converter_no_literals[Converter-True]",
+   "tests.test_disambiguators::test_dataclasses[BaseConverter-False]",
+   "tests.test_disambiguators::test_dataclasses[BaseConverter-True]",
+   "tests.test_disambiguators::test_dataclasses[Converter-False]",
+   "tests.test_disambiguators::test_dataclasses[Converter-True]",
+   "tests.test_disambiguators::test_dataclasses_literals[BaseConverter-False]",
+   "tests.test_disambiguators::test_dataclasses_literals[BaseConverter-True]",
+   "tests.test_disambiguators::test_dataclasses_literals[Converter-False]",
+   "tests.test_disambiguators::test_dataclasses_literals[Converter-True]",
+   "tests.test_disambiguators::test_default_no_literals",
+   "tests.test_disambiguators::test_default_none",
+   "tests.test_disambiguators::test_disambiguate_from_discriminated_enum",
+   "tests.test_disambiguators::test_disambiguation",
+   "tests.test_disambiguators::test_disambiguation_is_order_independent",
+   "tests.test_disambiguators::test_edge_errors",
+   "tests.test_disambiguators::test_fallback",
+   "tests.test_disambiguators::test_field_renaming[BaseConverter-False]",
+   "tests.test_disambiguators::test_field_renaming[BaseConverter-True]",
+   "tests.test_disambiguators::test_field_renaming[Converter-False]",
+   "tests.test_disambiguators::test_field_renaming[Converter-True]",
+   "tests.test_disambiguators::test_input_not_mapping",
+   "tests.test_disambiguators::test_literal_field_explicit_overrides",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-False-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[BaseConverter-True-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-False-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True--dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True--define]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True-type-dataclass]",
+   "tests.test_disambiguators::test_literal_field_renaming[Converter-True-type-define]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_attributes[BaseConverter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_attributes[BaseConverter-True]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_attributes[Converter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_attributes[Converter-True]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[BaseConverter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[BaseConverter-True]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[Converter-False]",
+   "tests.test_disambiguators::test_literal_field_renaming_different_keys[Converter-True]",
+   "tests.test_generics::test_roundtrip_generic_with_union",
+   "tests.test_generics::test_structure_deque_of_generic_unions[BaseConverter-False]",
+   "tests.test_generics::test_structure_deque_of_generic_unions[BaseConverter-True]",
+   "tests.test_generics::test_structure_deque_of_generic_unions[Converter-False]",
+   "tests.test_generics::test_structure_deque_of_generic_unions[Converter-True]",
+   "tests.test_generics::test_structure_list_of_generic_unions[BaseConverter-False]",
+   "tests.test_generics::test_structure_list_of_generic_unions[BaseConverter-True]",
+   "tests.test_generics::test_structure_list_of_generic_unions[Converter-False]",
+   "tests.test_generics::test_structure_list_of_generic_unions[Converter-True]",
+   "tests.test_generics::test_structure_unions_of_generics[BaseConverter-False]",
+   "tests.test_generics::test_structure_unions_of_generics[BaseConverter-True]",
+   "tests.test_generics::test_structure_unions_of_generics[Converter-False]",
+   "tests.test_generics::test_structure_unions_of_generics[Converter-True]",
+   "tests.test_structure::test_structure_union_edge_case",
+   "tests.test_structure_attrs::test_structure_multitier_discriminator_union[BaseConverter]",
+   "tests.test_structure_attrs::test_structure_multitier_discriminator_union[Converter]",
+   "tests.test_structure_attrs::test_structure_union",
+   "tests.test_structure_attrs::test_structure_union_none"
+  ]
+ },
+ "cattrs-r3": {
+  "upstream_commits": 34,
+  "collisions": 5,
+  "collision_package": 5,
+  "final_package_hunks": 10,
+  "final_other_hunks": 0,
+  "final_files": [
+   "src/cattrs/cols.py",
+   "src/cattrs/gen/__init__.py",
+   "src/cattrs/gen/typeddicts.py",
+   "src/cattrs/v.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "eddffc415c",
+    "subject": "Fix typos in comments and documentation",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/cols.py"
+    ]
+   },
+   {
+    "commit": "02c3ead21d",
+    "subject": "Unpack the single type arg for Counter keys when unstructuring",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/gen/__init__.py"
+    ]
+   },
+   {
+    "commit": "f2e42f3c69",
+    "subject": "Improve TypedDict key quoting",
+    "new_hunks": 4,
+    "files": [
+     "src/cattrs/gen/typeddicts.py"
+    ]
+   },
+   {
+    "commit": "3d57d6b4af",
+    "subject": "Escape override rename keys when generating structure/unstructure code",
+    "new_hunks": 3,
+    "files": [
+     "src/cattrs/gen/__init__.py"
+    ]
+   },
+   {
+    "commit": "bc34a466a8",
+    "subject": "Sort extra keys when formatting ForbiddenExtraKeysError (#776)",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/v.py"
+    ]
+   }
+  ],
+  "diff": "13 files changed, 668 insertions(+), 105 deletions(-)",
+  "broken": []
+ },
+ "cattrs-r4": {
+  "upstream_commits": 34,
+  "collisions": 7,
+  "collision_package": 6,
+  "final_package_hunks": 8,
+  "final_other_hunks": 1,
+  "final_files": [
+   "HISTORY.md",
+   "src/cattrs/cols.py",
+   "src/cattrs/disambiguators.py",
+   "src/cattrs/gen/__init__.py",
+   "src/cattrs/gen/typeddicts.py",
+   "src/cattrs/v.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "d142672779",
+    "subject": "Document type alias union passthrough support",
+    "new_hunks": 1,
+    "files": [
+     "HISTORY.md"
+    ]
+   },
+   {
+    "commit": "eddffc415c",
+    "subject": "Fix typos in comments and documentation",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/cols.py"
+    ]
+   },
+   {
+    "commit": "a6c0900533",
+    "subject": "Disambiguate unions independent of member class order",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/disambiguators.py"
+    ]
+   },
+   {
+    "commit": "02c3ead21d",
+    "subject": "Unpack the single type arg for Counter keys when unstructuring",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/gen/__init__.py"
+    ]
+   },
+   {
+    "commit": "f2e42f3c69",
+    "subject": "Improve TypedDict key quoting",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/gen/typeddicts.py"
+    ]
+   },
+   {
+    "commit": "3d57d6b4af",
+    "subject": "Escape override rename keys when generating structure/unstructure code",
+    "new_hunks": 3,
+    "files": [
+     "src/cattrs/gen/__init__.py"
+    ]
+   },
+   {
+    "commit": "bc34a466a8",
+    "subject": "Sort extra keys when formatting ForbiddenExtraKeysError (#776)",
+    "new_hunks": 1,
+    "files": [
+     "src/cattrs/v.py"
+    ]
+   }
+  ],
+  "diff": "18 files changed, 611 insertions(+), 106 deletions(-)",
+  "broken": []
+ },
+ "werkzeug-r1": {
+  "upstream_commits": 59,
+  "collisions": 18,
+  "collision_package": 15,
+  "final_package_hunks": 29,
+  "final_other_hunks": 5,
+  "final_files": [
+   "src/werkzeug/datastructures/accept.py",
+   "src/werkzeug/datastructures/auth.py",
+   "src/werkzeug/datastructures/cache_control.py",
+   "src/werkzeug/datastructures/file_storage.py",
+   "src/werkzeug/datastructures/range.py",
+   "src/werkzeug/datastructures/structures.py",
+   "src/werkzeug/exceptions.py",
+   "src/werkzeug/formparser.py",
+   "src/werkzeug/http.py",
+   "src/werkzeug/middleware/proxy_fix.py",
+   "src/werkzeug/middleware/shared_data.py",
+   "src/werkzeug/routing/converters.py",
+   "src/werkzeug/routing/map.py",
+   "src/werkzeug/sansio/request.py",
+   "src/werkzeug/sansio/response.py",
+   "src/werkzeug/sansio/utils.py",
+   "src/werkzeug/serving.py",
+   "src/werkzeug/urls.py",
+   "src/werkzeug/wsgi.py",
+   "tests/sansio/test_utils.py",
+   "tests/test_datastructures.py",
+   "tests/test_exceptions.py",
+   "tests/test_http.py",
+   "tests/test_urls.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "9aede751e2",
+    "subject": "fix boolean logic for external url (#3215)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/routing/map.py"
+    ]
+   },
+   {
+    "commit": "a105941e29",
+    "subject": "Merge branch 'stable'",
+    "new_hunks": 3,
+    "files": [
+     "src/werkzeug/urls.py",
+     "tests/test_urls.py"
+    ]
+   },
+   {
+    "commit": "08887995ed",
+    "subject": "Merge branch 'stable'",
+    "new_hunks": 3,
+    "files": [
+     "src/werkzeug/http.py"
+    ]
+   },
+   {
+    "commit": "218a653fd9",
+    "subject": "make plain int parsing even stricter (#3235)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/serving.py"
+    ]
+   },
+   {
+    "commit": "ef518e429b",
+    "subject": "Merge remote-tracking branch 'origin/stable'",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/sansio/utils.py"
+    ]
+   },
+   {
+    "commit": "53633feffb",
+    "subject": "stricter int and float converters (#3243)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/routing/converters.py"
+    ]
+   },
+   {
+    "commit": "0005c79e09",
+    "subject": "Merge branch 'stable'",
+    "new_hunks": 4,
+    "files": [
+     "src/werkzeug/formparser.py",
+     "src/werkzeug/http.py",
+     "src/werkzeug/wsgi.py"
+    ]
+   },
+   {
+    "commit": "f5af329db2",
+    "subject": "deprecated data structures and mixins that are unused within Werkzeug (#3267)",
+    "new_hunks": 2,
+    "files": [
+     "src/werkzeug/datastructures/cache_control.py",
+     "src/werkzeug/sansio/request.py"
+    ]
+   },
+   {
+    "commit": "a33190bffb",
+    "subject": "refactor empty ContentRange and bool (#3270)",
+    "new_hunks": 1,
+    "files": [
+     "tests/test_http.py"
+    ]
+   },
+   {
+    "commit": "e27473b7f7",
+    "subject": "consistent behavior for header properties (#3279)",
+    "new_hunks": 4,
+    "files": [
+     "src/werkzeug/datastructures/auth.py",
+     "src/werkzeug/sansio/response.py"
+    ]
+   },
+   {
+    "commit": "6d03c6a3ff",
+    "subject": "clean up wrapper and datastructure docs and variables (#3286)",
+    "new_hunks": 5,
+    "files": [
+     "src/werkzeug/datastructures/accept.py",
+     "src/werkzeug/datastructures/range.py",
+     "src/werkzeug/datastructures/structures.py"
+    ]
+   },
+   {
+    "commit": "3635850560",
+    "subject": "add `ETag` structured header class (#3288)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/datastructures/range.py"
+    ]
+   },
+   {
+    "commit": "cdc9e2d2ff",
+    "subject": "deprecate `ETagSet` methods (#3292)",
+    "new_hunks": 1,
+    "files": [
+     "tests/test_datastructures.py"
+    ]
+   },
+   {
+    "commit": "4eabe333c6",
+    "subject": "target 4.0 (#3305)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/http.py"
+    ]
+   },
+   {
+    "commit": "f7e37f0bf5",
+    "subject": "drop python 3.10 (#3311)",
+    "new_hunks": 2,
+    "files": [
+     "src/werkzeug/datastructures/file_storage.py",
+     "src/werkzeug/middleware/shared_data.py"
+    ]
+   },
+   {
+    "commit": "ed82ed5e8c",
+    "subject": "deprecate separate low API functions (#3321)",
+    "new_hunks": 1,
+    "files": [
+     "tests/sansio/test_utils.py"
+    ]
+   },
+   {
+    "commit": "e734a078b1",
+    "subject": "use `wsgiref.types` (#3330)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/middleware/proxy_fix.py"
+    ]
+   },
+   {
+    "commit": "665e760ca6",
+    "subject": "refactor exceptions (#3333)",
+    "new_hunks": 2,
+    "files": [
+     "src/werkzeug/exceptions.py",
+     "tests/test_exceptions.py"
+    ]
+   }
+  ],
+  "diff": "36 files changed, 769 insertions(+), 69 deletions(-)",
+  "broken": [
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values0-matches0-None-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values1-matches1-None-en_US]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values10-matches10-None-aus]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values11-matches11-None-aus-EN]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values2-matches2-None-None]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values3-matches3-None-None]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values4-matches4-None-de]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values5-matches5-None-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values6-matches6-None-en-us]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values7-matches7-None-en-us]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values8-matches8-en-US-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values9-matches9-en-US-en-US]",
+   "tests.test_formparser.TestFormParser::test_limiting",
+   "tests.test_formparser.TestFormParser::test_urlencoded_no_max",
+   "tests.test_formparser.TestFormParser::test_urlencoded_silent_decode",
+   "tests.test_internal::test_wrapper_internals",
+   "tests.test_test::test_delete_requests_with_form",
+   "tests.test_test::test_follow_redirect_body[307-True]",
+   "tests.test_test::test_follow_redirect_body[308-True]",
+   "tests.test_test::test_multi_value_submit",
+   "tests.test_wrappers::test_access_route",
+   "tests.test_wrappers::test_base_request",
+   "tests.test_wrappers::test_data_descriptor_triggers_parsing",
+   "tests.test_wrappers::test_get_data_method_parsing_caching_behavior",
+   "tests.test_wrappers::test_stream_wrapping",
+   "tests.test_wrappers::test_values"
+  ]
+ },
+ "werkzeug-r2": {
+  "upstream_commits": 59,
+  "collisions": 9,
+  "collision_package": 9,
+  "final_package_hunks": 12,
+  "final_other_hunks": 0,
+  "final_files": [
+   "src/werkzeug/datastructures/accept.py",
+   "src/werkzeug/datastructures/cache_control.py",
+   "src/werkzeug/datastructures/range.py",
+   "src/werkzeug/datastructures/structures.py",
+   "src/werkzeug/formparser.py",
+   "src/werkzeug/routing/converters.py",
+   "src/werkzeug/routing/map.py",
+   "src/werkzeug/sansio/http.py",
+   "src/werkzeug/sansio/response.py",
+   "src/werkzeug/sansio/utils.py",
+   "src/werkzeug/utils.py",
+   "src/werkzeug/wsgi.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "9aede751e2",
+    "subject": "fix boolean logic for external url (#3215)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/routing/map.py"
+    ]
+   },
+   {
+    "commit": "ef518e429b",
+    "subject": "Merge remote-tracking branch 'origin/stable'",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/sansio/utils.py"
+    ]
+   },
+   {
+    "commit": "53633feffb",
+    "subject": "stricter int and float converters (#3243)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/routing/converters.py"
+    ]
+   },
+   {
+    "commit": "0005c79e09",
+    "subject": "Merge branch 'stable'",
+    "new_hunks": 2,
+    "files": [
+     "src/werkzeug/formparser.py",
+     "src/werkzeug/wsgi.py"
+    ]
+   },
+   {
+    "commit": "f5af329db2",
+    "subject": "deprecated data structures and mixins that are unused within Werkzeug (#3267)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/datastructures/cache_control.py"
+    ]
+   },
+   {
+    "commit": "e27473b7f7",
+    "subject": "consistent behavior for header properties (#3279)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/sansio/response.py"
+    ]
+   },
+   {
+    "commit": "bd957c8756",
+    "subject": "deprecate `header_property` (#3282)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/utils.py"
+    ]
+   },
+   {
+    "commit": "6d03c6a3ff",
+    "subject": "clean up wrapper and datastructure docs and variables (#3286)",
+    "new_hunks": 4,
+    "files": [
+     "src/werkzeug/datastructures/accept.py",
+     "src/werkzeug/datastructures/range.py",
+     "src/werkzeug/datastructures/structures.py"
+    ]
+   },
+   {
+    "commit": "3635850560",
+    "subject": "add `ETag` structured header class (#3288)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/sansio/http.py"
+    ]
+   }
+  ],
+  "diff": "18 files changed, 452 insertions(+), 44 deletions(-)",
+  "broken": [
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values0-matches0-None-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values1-matches1-None-en_US]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values10-matches10-None-aus]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values11-matches11-None-aus-EN]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values2-matches2-None-None]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values3-matches3-None-None]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values4-matches4-None-de]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values5-matches5-None-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values6-matches6-None-en-us]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values7-matches7-None-en-us]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values8-matches8-en-US-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values9-matches9-en-US-en-US]",
+   "tests.test_formparser.TestFormParser::test_limiting",
+   "tests.test_formparser.TestFormParser::test_urlencoded_no_max",
+   "tests.test_formparser.TestFormParser::test_urlencoded_silent_decode",
+   "tests.test_internal::test_wrapper_internals",
+   "tests.test_test::test_delete_requests_with_form",
+   "tests.test_test::test_follow_redirect_body[307-True]",
+   "tests.test_test::test_follow_redirect_body[308-True]",
+   "tests.test_test::test_multi_value_submit",
+   "tests.test_wrappers::test_base_request",
+   "tests.test_wrappers::test_data_descriptor_triggers_parsing",
+   "tests.test_wrappers::test_get_data_method_parsing_caching_behavior",
+   "tests.test_wrappers::test_stream_wrapping",
+   "tests.test_wrappers::test_values"
+  ]
+ },
+ "werkzeug-r3": {
+  "upstream_commits": 59,
+  "collisions": 12,
+  "collision_package": 12,
+  "final_package_hunks": 23,
+  "final_other_hunks": 0,
+  "final_files": [
+   "src/werkzeug/datastructures/accept.py",
+   "src/werkzeug/datastructures/auth.py",
+   "src/werkzeug/datastructures/file_storage.py",
+   "src/werkzeug/datastructures/range.py",
+   "src/werkzeug/datastructures/structures.py",
+   "src/werkzeug/exceptions.py",
+   "src/werkzeug/http.py",
+   "src/werkzeug/routing/converters.py",
+   "src/werkzeug/sansio/utils.py",
+   "src/werkzeug/urls.py",
+   "src/werkzeug/utils.py",
+   "src/werkzeug/wsgi.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "a105941e29",
+    "subject": "Merge branch 'stable'",
+    "new_hunks": 2,
+    "files": [
+     "src/werkzeug/urls.py"
+    ]
+   },
+   {
+    "commit": "08887995ed",
+    "subject": "Merge branch 'stable'",
+    "new_hunks": 2,
+    "files": [
+     "src/werkzeug/http.py"
+    ]
+   },
+   {
+    "commit": "ef518e429b",
+    "subject": "Merge remote-tracking branch 'origin/stable'",
+    "new_hunks": 2,
+    "files": [
+     "src/werkzeug/routing/converters.py",
+     "src/werkzeug/sansio/utils.py"
+    ]
+   },
+   {
+    "commit": "53633feffb",
+    "subject": "stricter int and float converters (#3243)",
+    "new_hunks": 3,
+    "files": [
+     "src/werkzeug/routing/converters.py"
+    ]
+   },
+   {
+    "commit": "0005c79e09",
+    "subject": "Merge branch 'stable'",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/wsgi.py"
+    ]
+   },
+   {
+    "commit": "a33190bffb",
+    "subject": "refactor empty ContentRange and bool (#3270)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/datastructures/range.py"
+    ]
+   },
+   {
+    "commit": "87bd23357d",
+    "subject": "property cleanup (#3278)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/utils.py"
+    ]
+   },
+   {
+    "commit": "e27473b7f7",
+    "subject": "consistent behavior for header properties (#3279)",
+    "new_hunks": 2,
+    "files": [
+     "src/werkzeug/datastructures/auth.py"
+    ]
+   },
+   {
+    "commit": "6d03c6a3ff",
+    "subject": "clean up wrapper and datastructure docs and variables (#3286)",
+    "new_hunks": 7,
+    "files": [
+     "src/werkzeug/datastructures/accept.py",
+     "src/werkzeug/datastructures/file_storage.py",
+     "src/werkzeug/datastructures/range.py",
+     "src/werkzeug/datastructures/structures.py"
+    ]
+   },
+   {
+    "commit": "015697636f",
+    "subject": "add error code to bare type ignore",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/exceptions.py"
+    ]
+   },
+   {
+    "commit": "f7e37f0bf5",
+    "subject": "drop python 3.10 (#3311)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/datastructures/file_storage.py"
+    ]
+   },
+   {
+    "commit": "665e760ca6",
+    "subject": "refactor exceptions (#3333)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/exceptions.py"
+    ]
+   }
+  ],
+  "diff": "18 files changed, 686 insertions(+), 70 deletions(-)",
+  "broken": [
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values0-matches0-None-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values1-matches1-None-en_US]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values10-matches10-None-aus]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values11-matches11-None-aus-EN]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values2-matches2-None-None]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values3-matches3-None-None]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values4-matches4-None-de]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values5-matches5-None-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values6-matches6-None-en-us]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values7-matches7-None-en-us]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values8-matches8-en-US-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values9-matches9-en-US-en-US]"
+  ]
+ },
+ "werkzeug-r4": {
+  "upstream_commits": 59,
+  "collisions": 13,
+  "collision_package": 13,
+  "final_package_hunks": 24,
+  "final_other_hunks": 0,
+  "final_files": [
+   "src/werkzeug/datastructures/accept.py",
+   "src/werkzeug/datastructures/auth.py",
+   "src/werkzeug/datastructures/csp.py",
+   "src/werkzeug/datastructures/file_storage.py",
+   "src/werkzeug/datastructures/range.py",
+   "src/werkzeug/datastructures/structures.py",
+   "src/werkzeug/exceptions.py",
+   "src/werkzeug/http.py",
+   "src/werkzeug/routing/converters.py",
+   "src/werkzeug/routing/map.py",
+   "src/werkzeug/routing/matcher.py",
+   "src/werkzeug/sansio/request.py",
+   "src/werkzeug/sansio/utils.py",
+   "src/werkzeug/utils.py",
+   "src/werkzeug/wsgi.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "9aede751e2",
+    "subject": "fix boolean logic for external url (#3215)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/routing/map.py"
+    ]
+   },
+   {
+    "commit": "08887995ed",
+    "subject": "Merge branch 'stable'",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/http.py"
+    ]
+   },
+   {
+    "commit": "ef518e429b",
+    "subject": "Merge remote-tracking branch 'origin/stable'",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/sansio/utils.py"
+    ]
+   },
+   {
+    "commit": "53633feffb",
+    "subject": "stricter int and float converters (#3243)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/routing/converters.py"
+    ]
+   },
+   {
+    "commit": "0005c79e09",
+    "subject": "Merge branch 'stable'",
+    "new_hunks": 3,
+    "files": [
+     "src/werkzeug/datastructures/range.py",
+     "src/werkzeug/routing/matcher.py",
+     "src/werkzeug/wsgi.py"
+    ]
+   },
+   {
+    "commit": "f97c305673",
+    "subject": "deprecate UserAgent (#3273)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/sansio/request.py"
+    ]
+   },
+   {
+    "commit": "87bd23357d",
+    "subject": "property cleanup (#3278)",
+    "new_hunks": 2,
+    "files": [
+     "src/werkzeug/utils.py"
+    ]
+   },
+   {
+    "commit": "e27473b7f7",
+    "subject": "consistent behavior for header properties (#3279)",
+    "new_hunks": 3,
+    "files": [
+     "src/werkzeug/datastructures/auth.py"
+    ]
+   },
+   {
+    "commit": "bd957c8756",
+    "subject": "deprecate `header_property` (#3282)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/utils.py"
+    ]
+   },
+   {
+    "commit": "6d03c6a3ff",
+    "subject": "clean up wrapper and datastructure docs and variables (#3286)",
+    "new_hunks": 8,
+    "files": [
+     "src/werkzeug/datastructures/accept.py",
+     "src/werkzeug/datastructures/csp.py",
+     "src/werkzeug/datastructures/file_storage.py",
+     "src/werkzeug/datastructures/range.py",
+     "src/werkzeug/datastructures/structures.py"
+    ]
+   },
+   {
+    "commit": "3635850560",
+    "subject": "add `ETag` structured header class (#3288)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/datastructures/range.py"
+    ]
+   },
+   {
+    "commit": "f7e37f0bf5",
+    "subject": "drop python 3.10 (#3311)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/datastructures/file_storage.py"
+    ]
+   },
+   {
+    "commit": "665e760ca6",
+    "subject": "refactor exceptions (#3333)",
+    "new_hunks": 1,
+    "files": [
+     "src/werkzeug/exceptions.py"
+    ]
+   }
+  ],
+  "diff": "22 files changed, 863 insertions(+), 92 deletions(-)",
+  "broken": [
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values0-matches0-None-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values1-matches1-None-en_US]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values10-matches10-None-aus]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values11-matches11-None-aus-EN]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values2-matches2-None-None]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values3-matches3-None-None]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values4-matches4-None-de]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values5-matches5-None-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values6-matches6-None-en-us]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values7-matches7-None-en-us]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values8-matches8-en-US-en]",
+   "tests.test_datastructures.TestLanguageAccept::test_best_match_fallback[values9-matches9-en-US-en-US]",
+   "tests.test_utils::test_append_slash_redirect[False-/-http://example.org/-http://example.org/]",
+   "tests.test_utils::test_append_slash_redirect[False-/-http://example.org/app-http://example.org/app/]",
+   "tests.test_utils::test_append_slash_redirect[False-/foo-http://example.org/app-http://example.org/app/foo/]",
+   "tests.test_utils::test_append_slash_redirect[False-/foo/-http://example.org/-http://example.org/foo/]",
+   "tests.test_utils::test_append_slash_redirect[False-/foo/-http://example.org/app-http://example.org/app/foo/]",
+   "tests.test_utils::test_append_slash_redirect[False-/foo/bar-http://example.org/-http://example.org/foo/bar/]",
+   "tests.test_utils::test_append_slash_redirect[False-/foo/bar-http://example.org/app-http://example.org/app/foo/bar/]",
+   "tests.test_utils::test_append_slash_redirect[False-/foo?baz-http://example.org/-http://example.org/foo/?baz]",
+   "tests.test_utils::test_append_slash_redirect[False-foo-http://example.org/app-http://example.org/app/foo/]",
+   "tests.test_utils::test_append_slash_redirect[True-/-http://example.org/-http://example.org/]",
+   "tests.test_utils::test_append_slash_redirect[True-/-http://example.org/app-http://example.org/app/]",
+   "tests.test_utils::test_append_slash_redirect[True-/foo-http://example.org/app-http://example.org/app/foo/]",
+   "tests.test_utils::test_append_slash_redirect[True-/foo/-http://example.org/-http://example.org/foo/]",
+   "tests.test_utils::test_append_slash_redirect[True-/foo/-http://example.org/app-http://example.org/app/foo/]",
+   "tests.test_utils::test_append_slash_redirect[True-/foo/bar-http://example.org/-http://example.org/foo/bar/]",
+   "tests.test_utils::test_append_slash_redirect[True-/foo/bar-http://example.org/app-http://example.org/app/foo/bar/]",
+   "tests.test_utils::test_append_slash_redirect[True-/foo?baz-http://example.org/-http://example.org/foo/?baz]",
+   "tests.test_utils::test_append_slash_redirect[True-foo-http://example.org/app-http://example.org/app/foo/]"
+  ]
+ },
+ "pydantic-settings-r1": {
+  "upstream_commits": 115,
+  "collisions": 8,
+  "collision_package": 8,
+  "final_package_hunks": 11,
+  "final_other_hunks": 0,
+  "final_files": [
+   "pydantic_settings/main.py",
+   "pydantic_settings/sources/base.py",
+   "pydantic_settings/sources/providers/dotenv.py",
+   "pydantic_settings/sources/providers/nested_secrets.py",
+   "pydantic_settings/sources/utils.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "e1e0eceac9",
+    "subject": "Prevent NestedSecretsSettingsSource from following symlinks outside secrets_dir (#889)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/providers/nested_secrets.py"
+    ]
+   },
+   {
+    "commit": "8af81c8d0f",
+    "subject": "Warn when using fields not fully resolved at instantiation (#901)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/main.py"
+    ]
+   },
+   {
+    "commit": "281a96f5ea",
+    "subject": "Apply case-insensitive field matching to optional nested models (#903) (#905)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/base.py"
+    ]
+   },
+   {
+    "commit": "d234eafb26",
+    "subject": "fix: strip a case-normalized env_prefix from dotenv extras (#959)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/dotenv.py"
+    ]
+   },
+   {
+    "commit": "a85e7ffc62",
+    "subject": "Only skip partial updates for discriminated unions selecting another type (#997)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/base.py"
+    ]
+   },
+   {
+    "commit": "cca2bc3ba2",
+    "subject": "Apply case-insensitive field matching to nested pydantic dataclasses (#1010)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/base.py"
+    ]
+   },
+   {
+    "commit": "f0dd3824b3",
+    "subject": "Support pydantic 2.14 (#1029)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/main.py"
+    ]
+   },
+   {
+    "commit": "3b405d42a4",
+    "subject": "Read field names when `validate_by_alias=False` on pydantic 2.14 (#1022)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/utils.py"
+    ]
+   }
+  ],
+  "diff": "7 files changed, 296 insertions(+), 23 deletions(-)",
+  "broken": [
+   "tests.test_docs::test_docs_examples[docs/index.md:1001-1010]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1028-1034]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1066-1108]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1116-1148]",
+   "tests.test_docs::test_docs_examples[docs/index.md:113-137]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1160-1189]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1202-1219]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1225-1247]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1253-1285]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1320-1376]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1389-1434]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1445-1464]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1468-1505]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1531-1544]",
+   "tests.test_docs::test_docs_examples[docs/index.md:155-176]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1550-1582]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1590-1620]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1626-1662]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1671-1700]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1711-1733]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1745-1797]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1805-1862]",
+   "tests.test_docs::test_docs_examples[docs/index.md:185-193]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1869-1883]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1899-1924]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1931-1946]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1961-1987]",
+   "tests.test_docs::test_docs_examples[docs/index.md:1995-2011]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2017-2043]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2049-2084]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2095-2135]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2143-2168]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2183-2202]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2209-2238]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2248-2265]",
+   "tests.test_docs::test_docs_examples[docs/index.md:225-252]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2269-2295]",
+   "tests.test_docs::test_docs_examples[docs/index.md:23-83]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2304-2333]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2419-2427]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2471-2516]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2527-2572]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2589-2634]",
+   "tests.test_docs::test_docs_examples[docs/index.md:259-288]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2711-2752]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2768-2809]",
+   "tests.test_docs::test_docs_examples[docs/index.md:297-312]",
+   "tests.test_docs::test_docs_examples[docs/index.md:2978-3026]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3061-3096]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3123-3153]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3165-3198]",
+   "tests.test_docs::test_docs_examples[docs/index.md:321-355]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3237-3270]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3303-3329]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3347-3385]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3407-3454]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3523-3546]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3555-3633]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3639-3663]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3669-3701]",
+   "tests.test_docs::test_docs_examples[docs/index.md:367-425]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3708-3737]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3747-3777]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3805-3830]",
+   "tests.test_docs::test_docs_examples[docs/index.md:3835-3864]",
+   "tests.test_docs::test_docs_examples[docs/index.md:431-472]",
+   "tests.test_docs::test_docs_examples[docs/index.md:482-490]",
+   "tests.test_docs::test_docs_examples[docs/index.md:501-532]",
+   "tests.test_docs::test_docs_examples[docs/index.md:591-622]",
+   "tests.test_docs::test_docs_examples[docs/index.md:645-677]",
+   "tests.test_docs::test_docs_examples[docs/index.md:687-728]",
+   "tests.test_docs::test_docs_examples[docs/index.md:735-751]",
+   "tests.test_docs::test_docs_examples[docs/index.md:756-777]",
+   "tests.test_docs::test_docs_examples[docs/index.md:787-816]",
+   "tests.test_docs::test_docs_examples[docs/index.md:820-842]",
+   "tests.test_docs::test_docs_examples[docs/index.md:847-872]",
+   "tests.test_docs::test_docs_examples[docs/index.md:883-926]",
+   "tests.test_docs::test_docs_examples[docs/index.md:975-981]"
+  ]
+ },
+ "pydantic-settings-r2": {
+  "upstream_commits": 115,
+  "collisions": 7,
+  "collision_package": 7,
+  "final_package_hunks": 9,
+  "final_other_hunks": 0,
+  "final_files": [
+   "pydantic_settings/sources/base.py",
+   "pydantic_settings/sources/providers/dotenv.py",
+   "pydantic_settings/sources/providers/nested_secrets.py",
+   "pydantic_settings/sources/providers/secrets.py",
+   "pydantic_settings/sources/providers/yaml.py",
+   "pydantic_settings/sources/utils.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "e1e0eceac9",
+    "subject": "Prevent NestedSecretsSettingsSource from following symlinks outside secrets_dir (#889)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/providers/nested_secrets.py"
+    ]
+   },
+   {
+    "commit": "8af81c8d0f",
+    "subject": "Warn when using fields not fully resolved at instantiation (#901)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/yaml.py"
+    ]
+   },
+   {
+    "commit": "d51a82296b",
+    "subject": "Support Traversable for json/toml/yaml config file sources (#299) (#902)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/base.py"
+    ]
+   },
+   {
+    "commit": "281a96f5ea",
+    "subject": "Apply case-insensitive field matching to optional nested models (#903) (#905)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/base.py"
+    ]
+   },
+   {
+    "commit": "798dcea2a2",
+    "subject": "Bump the python-packages group with 4 updates (#924)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/secrets.py"
+    ]
+   },
+   {
+    "commit": "d234eafb26",
+    "subject": "fix: strip a case-normalized env_prefix from dotenv extras (#959)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/dotenv.py"
+    ]
+   },
+   {
+    "commit": "73a7a54e98",
+    "subject": "Avoid mutating field metadata when resolving type aliases (#979)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/utils.py"
+    ]
+   }
+  ],
+  "diff": "9 files changed, 227 insertions(+), 21 deletions(-)",
+  "broken": []
+ },
+ "pydantic-settings-r3": {
+  "upstream_commits": 115,
+  "collisions": 11,
+  "collision_package": 11,
+  "final_package_hunks": 15,
+  "final_other_hunks": 0,
+  "final_files": [
+   "pydantic_settings/sources/base.py",
+   "pydantic_settings/sources/providers/cli.py",
+   "pydantic_settings/sources/providers/dotenv.py",
+   "pydantic_settings/sources/providers/nested_secrets.py",
+   "pydantic_settings/sources/providers/secrets.py",
+   "pydantic_settings/sources/providers/yaml.py",
+   "pydantic_settings/sources/utils.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "e1e0eceac9",
+    "subject": "Prevent NestedSecretsSettingsSource from following symlinks outside secrets_dir (#889)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/providers/nested_secrets.py"
+    ]
+   },
+   {
+    "commit": "8af81c8d0f",
+    "subject": "Warn when using fields not fully resolved at instantiation (#901)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/yaml.py"
+    ]
+   },
+   {
+    "commit": "281a96f5ea",
+    "subject": "Apply case-insensitive field matching to optional nested models (#903) (#905)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/base.py"
+    ]
+   },
+   {
+    "commit": "798dcea2a2",
+    "subject": "Bump the python-packages group with 4 updates (#924)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/providers/cli.py",
+     "pydantic_settings/sources/providers/secrets.py"
+    ]
+   },
+   {
+    "commit": "1ef0864699",
+    "subject": "Enable ruff's flake8-return (RET) rules (#951)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/cli.py"
+    ]
+   },
+   {
+    "commit": "d234eafb26",
+    "subject": "fix: strip a case-normalized env_prefix from dotenv extras (#959)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/dotenv.py"
+    ]
+   },
+   {
+    "commit": "73a7a54e98",
+    "subject": "Avoid mutating field metadata when resolving type aliases (#979)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/utils.py"
+    ]
+   },
+   {
+    "commit": "79eff6ab40",
+    "subject": "Preserve explicit None values in CLI serialization (#981)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/cli.py"
+    ]
+   },
+   {
+    "commit": "5927b44184",
+    "subject": "Fix empty JSON arrays in CLI list arguments (#994)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/cli.py"
+    ]
+   },
+   {
+    "commit": "bcb58241d9",
+    "subject": "Give each CliUnknownArgs field only its own parser leftovers (#1004)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/cli.py"
+    ]
+   },
+   {
+    "commit": "08b7dd06c4",
+    "subject": "Preserve empty containers in CLI serialization (#1008)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/providers/cli.py"
+    ]
+   }
+  ],
+  "diff": "9 files changed, 294 insertions(+), 35 deletions(-)",
+  "broken": [
+   "tests.test_docs::test_docs_examples[docs/index.md:1626-1662]",
+   "tests.test_source_cli::test_cli_serialize_aliased_list_no_decode[values1]",
+   "tests.test_source_cli::test_cli_serialize_container_values[env-lazy]",
+   "tests.test_source_cli::test_cli_serialize_container_values[json-lazy]",
+   "tests.test_source_cli::test_cli_serialize_styles",
+   "tests.test_source_cli::test_cli_serialize_variadic_styles[env-lazy]",
+   "tests.test_source_cli::test_cli_serialize_variadic_styles[json-lazy]"
+  ]
+ },
+ "pydantic-settings-r4": {
+  "upstream_commits": 115,
+  "collisions": 9,
+  "collision_package": 9,
+  "final_package_hunks": 11,
+  "final_other_hunks": 0,
+  "final_files": [
+   "pydantic_settings/sources/base.py",
+   "pydantic_settings/sources/providers/cli.py",
+   "pydantic_settings/sources/providers/dotenv.py",
+   "pydantic_settings/sources/providers/nested_secrets.py",
+   "pydantic_settings/sources/providers/secrets.py",
+   "pydantic_settings/sources/providers/yaml.py"
+  ],
+  "collision_detail": [
+   {
+    "commit": "e1e0eceac9",
+    "subject": "Prevent NestedSecretsSettingsSource from following symlinks outside secrets_dir (#889)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/providers/nested_secrets.py"
+    ]
+   },
+   {
+    "commit": "8af81c8d0f",
+    "subject": "Warn when using fields not fully resolved at instantiation (#901)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/yaml.py"
+    ]
+   },
+   {
+    "commit": "d51a82296b",
+    "subject": "Support Traversable for json/toml/yaml config file sources (#299) (#902)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/base.py"
+    ]
+   },
+   {
+    "commit": "281a96f5ea",
+    "subject": "Apply case-insensitive field matching to optional nested models (#903) (#905)",
+    "new_hunks": 2,
+    "files": [
+     "pydantic_settings/sources/base.py"
+    ]
+   },
+   {
+    "commit": "d2fdeda911",
+    "subject": "fix: read secret files as UTF-8 instead of the locale encoding (#917)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/secrets.py"
+    ]
+   },
+   {
+    "commit": "798dcea2a2",
+    "subject": "Bump the python-packages group with 4 updates (#924)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/secrets.py"
+    ]
+   },
+   {
+    "commit": "d234eafb26",
+    "subject": "fix: strip a case-normalized env_prefix from dotenv extras (#959)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/dotenv.py"
+    ]
+   },
+   {
+    "commit": "79eff6ab40",
+    "subject": "Preserve explicit None values in CLI serialization (#981)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/providers/cli.py"
+    ]
+   },
+   {
+    "commit": "a85e7ffc62",
+    "subject": "Only skip partial updates for discriminated unions selecting another type (#997)",
+    "new_hunks": 1,
+    "files": [
+     "pydantic_settings/sources/base.py"
+    ]
+   }
+  ],
+  "diff": "9 files changed, 318 insertions(+), 27 deletions(-)",
+  "broken": [
+   "tests.test_source_cli::test_cli_serialize_enum_values"
+  ]
+ }
+}

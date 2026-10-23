@@ -1,0 +1,192 @@
+<title>Werkzeug Change Impact</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: commit rail on the left, the selected change's impact on the right; stacks on phones. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1b2230; --muted: #5d6676; --line: #dde1e8;
+  --accent: #2856c7; --accent-soft: #e5ecfb;
+  --hit: #1f7a4d; --hit-soft: #e1f2e9; --miss: #b4362f; --miss-soft: #f8e3e1; --warn: #9a6a00; --warn-soft: #f6edd5;
+  --sans: "IBM Plex Sans", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151c; --panel: #181d26; --fg: #e3e7ee; --muted: #98a1b2; --line: #2a313d;
+  --accent: #7ea2ff; --accent-soft: #1f2a45;
+  --hit: #5fcf94; --hit-soft: #16301f; --miss: #f08a82; --miss-soft: #3a1d1b; --warn: #e3b552; --warn-soft: #33290f;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11151c; --panel: #181d26; --fg: #e3e7ee; --muted: #98a1b2; --line: #2a313d;
+  --accent: #7ea2ff; --accent-soft: #1f2a45;
+  --hit: #5fcf94; --hit-soft: #16301f; --miss: #f08a82; --miss-soft: #3a1d1b; --warn: #e3b552; --warn-soft: #33290f;
+  color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 12.5px; }
+.lede { color: var(--muted); max-width: 70ch; margin: 6px 0 0; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 18px 0; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.stat span { color: var(--muted); font-size: 12.5px; }
+.grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } .rail { max-height: 300px; } }
+.rail { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: auto; max-height: 78vh; }
+.rail-head { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }
+.rail-head input { flex: 1; min-width: 0; font: inherit; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.commit { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 2px 8px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line);
+  background: none; color: inherit; font: inherit; padding: 9px 12px; cursor: pointer; }
+.commit:hover { background: var(--accent-soft); }
+.commit[aria-current="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.commit:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.commit .s { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commit .m { color: var(--muted); font-size: 12px; grid-column: 1 / -1; display: flex; gap: 8px; }
+.pill { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.p-hit { background: var(--hit-soft); color: var(--hit); } .p-miss { background: var(--miss-soft); color: var(--miss); }
+.p-warn { background: var(--warn-soft); color: var(--warn); } .p-acc { background: var(--accent-soft); color: var(--accent); }
+.detail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+.card > h2 { margin-bottom: 10px; }
+.head h3 { margin: 0; font-size: 17px; font-weight: 600; text-wrap: balance; }
+.head .meta { color: var(--muted); font-size: 12.5px; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 700px) { .flow { grid-template-columns: minmax(0, 1fr); } }
+.col h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--muted); font-weight: 500; }
+.piece { border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; margin-bottom: 6px; background: var(--bg); }
+.piece .n { font-family: var(--mono); font-size: 12.5px; font-weight: 500; overflow-wrap: anywhere; }
+.piece ul { margin: 4px 0 0; padding-left: 16px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.piece li { overflow-wrap: anywhere; }
+.piece.changed { border-color: var(--accent); }
+.empty { color: var(--muted); font-size: 12.5px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: 12px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; border-radius: 3px; background: var(--line); position: relative; min-width: 60px; }
+.bar i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+.note { color: var(--muted); font-size: 12.5px; max-width: 75ch; }
+details summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+@media (prefers-reduced-motion: no-preference) { .commit { transition: background .12s; } }
+</style>
+
+<div class="wrap">
+  <h1>Werkzeug Change Impact</h1>
+  <p class="lede">Every werkzeug commit after the 2026-06-01 snapshot that touched library code. For each one, the map traced from the test suite predicts which pieces and tests the change affects; the right side compares that with what actually changed when the tests ran before and after.</p>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="grid">
+    <nav class="rail" aria-label="Commits">
+      <div class="rail-head"><input id="q" type="search" placeholder="Filter commits" aria-label="Filter commits"></div>
+      <div id="list"></div>
+    </nav>
+    <main class="detail" id="detail"><div class="card empty">Loading the map…</div></main>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "–";
+let DATA, cur = 0;
+
+function summary() {
+  const cs = DATA.commits, n = cs.length;
+  const sum = (k, f) => cs.reduce((s, c) => s + c.pred[k][f], 0);
+  const truth = cs.reduce((s, c) => s + c.truth, 0);
+  const suite = cs.reduce((s, c) => s + c.suite, 0);
+  const beh = cs.reduce((s, c) => s + (c.reasons["behaviour changed"] || 0), 0);
+  const stat = (b, s) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`;
+  $("#summary").innerHTML =
+    stat(n, "commits that changed library code") +
+    stat(pct(sum("function", "hit"), truth), "of affected tests caught by the function map") +
+    stat(pct(sum("function", "selected"), suite), "of the suite the function map selects") +
+    stat(pct(sum("stale", "hit"), truth), "caught by the map traced once at the snapshot") +
+    stat(beh, "tests whose path or result actually changed");
+}
+
+function list() {
+  const q = $("#q").value.toLowerCase();
+  $("#list").innerHTML = DATA.commits.map((c, i) => {
+    if (q && !(c.subject + " " + c.sha + " " + c.files.join(" ")).toLowerCase().includes(q)) return "";
+    const f = c.pred.function, miss = c.truth - f.hit;
+    return `<button class="commit" data-i="${i}" aria-current="${i === cur}">
+      <span class="s">${esc(c.subject)}</span><span class="mono" style="color:var(--muted)">${c.sha.slice(0, 7)}</span>
+      <span class="m"><span>${c.date}</span>
+        <span class="pill p-acc">${c.changed.length} fn</span>
+        <span class="pill ${c.truth ? "p-warn" : "p-acc"}">${c.truth} affected</span>
+        ${miss ? `<span class="pill p-miss">${miss} missed</span>` : ""}</span></button>`;
+  }).join("") || `<div class="empty" style="padding:12px">No commits match.</div>`;
+}
+
+function piece(p, kind) {
+  const items = kind === "changed" ? p.changed : p.callers;
+  const shown = items.slice(0, 8);
+  return `<div class="piece ${kind === "changed" ? "changed" : ""}"><div class="n">${esc(p.name)}</div>
+    <ul>${shown.map(x => `<li>${esc(x)}</li>`).join("")}${items.length > 8 ? `<li>… ${items.length - 8} more</li>` : ""}</ul></div>`;
+}
+
+function detail() {
+  const c = DATA.commits[cur];
+  const changedPieces = c.pieces.filter(p => p.changed.length);
+  const callerPieces = c.pieces.filter(p => p.callers.length);
+  const entry = c.pieces.filter(p => p.entry);
+  const f = c.pred.function;
+  const rows = ["line", "function", "file", "stale"].map(k => {
+    const p = c.pred[k];
+    const label = {line: "Changed lines", function: "Changed functions", file: "Changed files", stale: "Functions, snapshot map"}[k];
+    return `<tr><td>${label}</td><td class="num">${p.selected}</td><td class="num">${p.hit} / ${c.truth}</td>
+      <td class="num">${pct(p.hit, c.truth)}</td><td class="num">${p.selected ? pct(p.hit, p.selected) : "–"}</td>
+      <td><div class="bar"><i style="width:${c.suite ? 100 * p.selected / c.suite : 0}%"></i></div></td></tr>`;
+  }).join("");
+  const reasons = Object.entries(c.reasons).map(([k, v]) =>
+    `<span class="pill ${k === "behaviour changed" ? "p-warn" : k === "reaches new code only" ? "p-miss" : "p-acc"}">${v} ${esc(k)}</span>`).join(" ");
+  const tests = c.tests.slice(0, 40).map(t => `<tr><td class="mono" style="overflow-wrap:anywhere">${esc(t.file)}</td>
+    <td class="num">${t.predicted}</td><td class="num">${t.affected}</td>
+    <td class="num">${t.missed ? `<span class="pill p-miss">${t.missed}</span>` : "0"}</td></tr>`).join("");
+  $("#detail").innerHTML = `
+    <section class="card head"><h3>${esc(c.subject)}</h3>
+      <div class="meta"><span class="mono">${c.sha}</span><span>${c.date}</span><span>${c.files.map(esc).join(", ")}</span></div>
+      <div class="legend" style="margin-top:10px">${reasons || `<span class="pill p-acc">no existing test affected</span>`}</div></section>
+
+    <section class="card"><h2>Pieces this change reaches</h2>
+      <div class="flow">
+        <div class="col"><h4>Changed (${c.changed.length} functions)</h4>${changedPieces.map(p => piece(p, "changed")).join("") || `<div class="empty">Module-level change only.</div>`}</div>
+        <div class="col"><h4>Callers, up to 3 levels</h4>${callerPieces.map(p => piece(p, "callers")).join("") || `<div class="empty">No traced callers inside werkzeug.</div>`}</div>
+        <div class="col"><h4>Called directly by tests</h4>${entry.map(p => `<div class="piece"><div class="n">${esc(p.name)}</div><ul><li>${p.entry} public entry point${p.entry > 1 ? "s" : ""}</li></ul></div>`).join("") || `<div class="empty">None of these functions is called straight from a test.</div>`}</div>
+      </div>
+      <p class="note">Pieces are modules. Callers come from the call graph traced at the snapshot, so code added after it is missing.</p></section>
+
+    <section class="card"><h2>Prediction vs what changed</h2>
+      <div class="scroll"><table><thead><tr><th>Predict from</th><th class="num">Tests selected</th><th class="num">Affected caught</th>
+        <th class="num">Recall</th><th class="num">Precision</th><th>Share of suite (${c.suite})</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="note">A test counts as affected if it runs a changed line before or after the change, reaches newly added code, takes a different path through unchanged code, or changes result. Tests that vary between two runs of the same code are left out.</p></section>
+
+    <section class="card"><h2>Tests by file</h2>
+      ${c.tests.length ? `<div class="scroll"><table><thead><tr><th>Test file</th><th class="num">Predicted</th><th class="num">Affected</th><th class="num">Missed</th></tr></thead><tbody>${tests}</tbody></table></div>` : `<div class="empty">The map selects no tests and none were affected.</div>`}
+      ${c.missed.length ? `<details style="margin-top:10px"><summary>${c.missed.length} affected tests the function map missed</summary><ul class="mono" style="font-size:12px">${c.missed.slice(0, 60).map(t => `<li style="overflow-wrap:anywhere">${esc(t)}</li>`).join("")}</ul></details>` : ""}
+      ${c.outcome_changed.length ? `<details style="margin-top:6px"><summary>${c.outcome_changed.length} tests whose result changed</summary><ul class="mono" style="font-size:12px">${c.outcome_changed.map(t => `<li style="overflow-wrap:anywhere">${esc(t)}</li>`).join("")}</ul></details>` : ""}
+    </section>`;
+}
+
+function select(i) {
+  cur = i; list(); detail();
+  try { history.replaceState(null, "", "#c" + DATA.commits[i].sha.slice(0, 7)); } catch (e) {}
+}
+
+$("#list").addEventListener("click", e => { const b = e.target.closest(".commit"); if (b) select(+b.dataset.i); });
+$("#q").addEventListener("input", list);
+
+fetch("data.json").then(r => r.json()).then(d => {
+  DATA = d;
+  const h = location.hash.slice(2);
+  const i = h ? DATA.commits.findIndex(c => c.sha.startsWith(h)) : -1;
+  // open on the first commit where something actually changed behaviour, else the first with affected tests
+  cur = i >= 0 ? i : Math.max(0, DATA.commits.findIndex(c => c.reasons["behaviour changed"]), 0);
+  if (i < 0 && !DATA.commits[cur].truth) cur = Math.max(0, DATA.commits.findIndex(c => c.truth));
+  summary(); list(); detail();
+}).catch(() => { $("#detail").innerHTML = `<div class="card empty">The impact data didn't load. Reload the page to try again.</div>`; });
+</script>

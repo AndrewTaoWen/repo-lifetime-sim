@@ -13,6 +13,48 @@ From that map it answers two questions:
 
 The viewer is [Werkzeug Change Impact](https://claude.ai/artifact/9AEvdA1qQ2EcVkbdqfVmjq), a private artifact: pick a commit to see the changed functions, their callers grouped by module, and the predicted tests next to the ones actually affected.
 
+## Everyday use: `repomap.py`
+
+Record once, then look up a change before (or after) you make it, without running the tests:
+
+```
+repomap.py record --package src/werkzeug          # traces the suite once; werkzeug: 33 s, memory in .repomap/
+repomap.py impact Range.range_for_length          # or path.py:LINE, or no argument for your uncommitted diff
+repomap.py refresh                                # after a change: re-trace only tests that run the changed files
+repomap.py status
+```
+
+```
+$ repomap.py impact src/werkzeug/datastructures/range.py:110
+Impact of named targets  (992 tests in memory, looked up in 0.12s)
+
+Changed:
+  werkzeug/datastructures/range.py:Range.range_for_length  (5 tests)
+
+Callers (pieces that depend on it):
+  direct  werkzeug.datastructures.range: Range.make_content_range, Range.to_content_range_header
+  direct  werkzeug.wrappers.response: Response._process_range_request
+    level 2  werkzeug.wrappers.response: Response.make_conditional
+
+Tests that run it: 5 of 992
+     5  tests/test_wrappers.py
+
+Run them:
+  python -m pytest -q tests/test_wrappers.py::test_range_request_basic …
+```
+
+The memory remembers the exact tree it traced (as a git commit under `refs/repomap/memory`, untracked files included), so `impact` with no arguments diffs your working tree against what was traced, not against HEAD. It also lists changed functions that no test runs: the memory can't say what depends on those.
+
+**Tried on werkzeug's real history.** The first 8 upstream commits after the snapshot that touched library code were applied one at a time as uncommitted edits. Each was looked up with `impact` and then folded in with `refresh`:
+
+- **Lookups** took 0.2 to 0.8 s each and named 16 to 335 of about 1,000 tests.
+- **Refreshes** re-ran 55 to 419 tests and took 2 to 16 s each, compared with 33 s for a full record.
+- **Accuracy after all 8 refreshes,** compared with a fresh full record of the same code:
+  - same tests and identical call graph (1,707 edges);
+  - identical line sets for 989 of 1,003 tests.
+
+  The other 14 differ only in setup work that runs once per process (a shared routing map built by whichever test needs it first, file objects closed when garbage is collected). Which test gets credited for that depends on test order. A full re-record now and then resets it.
+
 ## Change impact on werkzeug's real history
 
 There were 54 first-parent commits after the 2026-06-01 snapshot that touched `src/werkzeug`. For each commit C with parent P:
@@ -62,6 +104,7 @@ Both are places where werkzeug later fixed real bugs: float URLs for whole numbe
 ## Files
 
 - `repomap_trace.py`: the pytest plugin (`-p repomap_trace`, with `REPOMAP_ROOT`, `REPOMAP_OUT` and optional `REPOMAP_EDGES=1`).
+- `repomap.py`: the everyday command (`record`, `impact`, `refresh`, `status`).
 - `impact.py`: replays a repo's history and scores the predictors; `build_ui.py`: bundles results for the viewer; `query.py`: the agent-facing query tool.
 - `werkzeug/`:
   - `impact.json`: per-commit truth and predictions;

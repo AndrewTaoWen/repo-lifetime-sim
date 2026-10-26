@@ -39,7 +39,7 @@ def git(*a, check=True):
 
 def file_hash(p):
     try:
-        return hashlib.sha1(Path(p).read_bytes()).hexdigest()[:12]
+        return hashlib.sha1(Path(p).read_bytes(), usedforsecurity=False).hexdigest()[:12]
     except OSError:
         return None
 

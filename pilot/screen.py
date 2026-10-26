@@ -12,13 +12,28 @@ from pathlib import Path
 
 
 def sh(cmd, cwd=None, timeout=900, env=None):
-    r = subprocess.run(cmd, cwd=cwd, shell=isinstance(cmd, str), capture_output=True,
+    if isinstance(cmd, str):
+        raise TypeError("Pass an argument list; shell commands are not accepted")
+    r = subprocess.run(cmd, cwd=cwd, shell=False, capture_output=True,
                        text=True, timeout=timeout, env=env)
     return r.returncode, r.stdout + r.stderr
 
 
 def git(repo, *args):
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True).stdout
+
+
+def archive_tree(repo, rev, dst, package=None):
+    """Extract a git tree without interpreting paths or refs as shell syntax."""
+    import tempfile
+    commit = git(repo, "rev-parse", "--verify", "--end-of-options", f"{rev}^{{commit}}").strip()
+    command = ["git", "-C", str(repo), "archive", commit]
+    if package is not None:
+        command += ["--", str(package)]
+    with tempfile.TemporaryFile() as stream:
+        subprocess.run(command, stdout=stream, check=True)
+        stream.seek(0)
+        subprocess.run(["tar", "-x", "-C", str(dst)], stdin=stream, check=True)
 
 
 def package_dirs(tree: Path):
@@ -54,7 +69,7 @@ def run_pytest(d: Path, py: Path, tests: str, extra):
                     "--continue-on-collection-errors", f"--junitxml={junit}", *extra, tests], cwd=d, timeout=1200)
     results = {}
     if junit.exists():
-        import xml.etree.ElementTree as ET
+        import defusedxml.ElementTree as ET
         for tc in ET.parse(junit).getroot().iter("testcase"):
             nid = f"{tc.get('classname')}::{tc.get('name')}"
             kids = {c.tag for c in tc}
@@ -74,7 +89,7 @@ def screen(spec, clones: Path, out: Path, cutoff: str, extra, extra_deps=()):
     work = out / "work" / name
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
-    sh(f"git -C {repo} archive {head} | tar -x -C {work}")
+    archive_tree(repo, head, work)
     venv = out / "venvs" / name
     if not venv.exists():
         sh(["uv", "venv", "-q", "-p", "3.13", str(venv)])
@@ -101,7 +116,7 @@ def screen(spec, clones: Path, out: Path, cutoff: str, extra, extra_deps=()):
         target = work / p
         keep = generated_files(repo, head, work, p)
         shutil.rmtree(target, ignore_errors=True) if target.is_dir() else target.unlink(missing_ok=True)
-        sh(f"git -C {repo} archive {snap} {p} | tar -x -C {work}")
+        archive_tree(repo, snap, work, p)
         for rel, data in keep.items():  # generated at install time; the snapshot archive doesn't have them
             if not (work / rel).exists():
                 (work / rel).parent.mkdir(parents=True, exist_ok=True)

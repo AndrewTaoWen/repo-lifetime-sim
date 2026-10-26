@@ -8,11 +8,12 @@ score: blind.py score --root DIR --screen DIR  [run-dir-names...]
        For each run, swaps the run's package code into the future tree from the screen
        step (screen.py) and runs the future tests. Writes DIR/scores.json.
 """
-import argparse, json, os, shutil, subprocess, sys, xml.etree.ElementTree as ET
+import argparse, json, os, shutil, subprocess, sys
+import defusedxml.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from screen import sh, git, package_dirs, tests_dir, generated_files  # noqa: E402
+from screen import sh, git, package_dirs, tests_dir, generated_files, archive_tree  # noqa: E402
 
 ENV_EXTRA = {"SETUPTOOLS_SCM_PRETEND_VERSION": os.environ.get("SETUPTOOLS_SCM_PRETEND_VERSION", "0.0.0")}
 
@@ -35,7 +36,7 @@ def prep(a):
             d = a.root / f"{name}-r{k}"
             shutil.rmtree(d, ignore_errors=True)
             d.mkdir(parents=True)
-            sh(f"git -C {repo} archive {snap} | tar -x -C {d}")
+            archive_tree(repo, snap, d)
             venv = d / ".venv"
             env = {**os.environ, **ENV_EXTRA, "VIRTUAL_ENV": str(venv)}
             sh(["uv", "venv", "-q", "-p", "3.13", str(venv)])
@@ -49,7 +50,9 @@ def prep(a):
             cmd = f".venv/bin/python -m pytest -q -p no:cacheprovider -o addopts= {tdir}"
             code, out = sh(cmd, cwd=d, timeout=1800)
             (d / ".gitignore").write_text(".venv/\n__pycache__/\n*.egg-info/\njunit.xml\n")
-            sh("git init -q && git add -A && git -c user.name=x -c user.email=x@x commit -qm snapshot", cwd=d)
+            sh(["git", "init", "-q"], cwd=d)
+            sh(["git", "add", "-A"], cwd=d)
+            sh(["git", "-c", "user.name=x", "-c", "user.email=x@x", "commit", "-qm", "snapshot"], cwd=d)
             meta = dict(repo=spec, snapshot=snap, test_cmd=cmd, baseline=out.strip().splitlines()[-1][:200])
             (d / ".blind.json").write_text(json.dumps(meta, indent=1))
             print(f"{d.name}: {meta['baseline']}", flush=True)
@@ -60,7 +63,7 @@ def run_future(work, repo, scr, py, place):
     gen = {p: generated_files(repo, scr["head"], work, p) for p in scr["packages"]} if work.exists() else {}
     for p in list(work.iterdir()):
         shutil.rmtree(p) if p.is_dir() else p.unlink()
-    sh(f"git -C {repo} archive {scr['head']} | tar -x -C {work}")
+    archive_tree(repo, scr["head"], work)
     for p in scr["packages"]:
         target = work / p
         keep = gen.get(p, {})
@@ -91,8 +94,7 @@ def score(a):
         repo = clones / meta["repo"].replace("/", "_")
         py = a.screen / "venvs" / name / "bin" / "python"
         if name not in controls:  # future tests on the untouched snapshot code, for regressions
-            controls[name] = run_future(work, repo, scr, py, lambda dst, p: sh(
-                f"git -C {repo} archive {meta['snapshot']} {p} | tar -x -C {work}"))
+            controls[name] = run_future(work, repo, scr, py, lambda dst, p: archive_tree(repo, meta["snapshot"], work, p))
         control = controls[name]
 
         def copy_from_run(dst, p):
@@ -103,8 +105,8 @@ def score(a):
         fixed = sorted(t for t in target if res.get(t) == "pass")
         # regressions: future tests that pass on the untouched snapshot but fail after hardening
         regress = sorted(t for t, st in res.items() if st == "fail" and control.get(t) == "pass")
-        commits = int(sh(f"git -C {d} rev-list --count HEAD")[1].strip() or 0) - 1
-        stat = sh(f"git -C {d} diff --shortstat $(git -C {d} rev-list --max-parents=0 HEAD)")[1].strip()
+        commits = int(git(d, "rev-list", "--count", "HEAD").strip() or 0) - 1
+        stat = git(d, "diff", "--shortstat", git(d, "rev-list", "--max-parents=0", "HEAD").splitlines()[0]).strip()
         scores[run] = dict(repo=meta["repo"], target=len(target), fixed=len(fixed), regressions=len(regress),
                            fixed_tests=fixed, regressed_tests=regress[:50], agent_commits=commits, diff=stat)
         print(f"{run}: fixed {len(fixed)}/{len(target)}, regressions {len(regress)}, {stat}", flush=True)

@@ -3,7 +3,9 @@
 Load with:  REPOMAP_ROOT=src/werkzeug REPOMAP_OUT=map.json python -m pytest -p repomap_trace ...
 (the directory holding this file must be on PYTHONPATH).
 
-Uses sys.monitoring (Python 3.12+). For each test it records the package lines executed. Each line
+Uses sys.monitoring (Python 3.12+). For each test it records the package lines executed, including
+the lines run by class-, module- and session-scoped fixtures it uses (setup_class too): those run once,
+inside whichever test needs them first, but every test that uses them depends on them. Each line
 event is disabled after its first hit and re-armed at the next test, so the cost is one callback per
 distinct line per test. For every package function it keeps a bounded summary of argument and return
 values: types seen and whether empty / zero / negative / None / bool values ever appeared.
@@ -16,6 +18,8 @@ Output JSON:
 """
 import json, os, sys
 from collections import defaultdict
+
+import pytest
 
 mon = sys.monitoring
 TOOL = 4  # free tool id: leaves debugger, coverage and profiler slots to the code under test
@@ -62,6 +66,8 @@ class Recorder:
         self.calls = defaultdict(int)
         self.mine = {}
         self.edges = set()
+        self.shared = defaultdict(set)  # (fixture name, baseid) -> lines its setup ran
+        self.uses = {}  # nodeid -> shared fixtures the test depends on
 
     def is_mine(self, code):
         r = self.mine.get(code)
@@ -137,6 +143,8 @@ class Recorder:
     def end_test(self, nodeid, outcome):
         t = self.tests.setdefault(nodeid, {"outcome": "pass", "lines": set()})
         t["lines"] |= self.lines or set()
+        for key in self.uses.get(nodeid, ()):
+            t["lines"] |= self.shared.get(key, set())
         if outcome != "pass" and t["outcome"] == "pass":  # setup/teardown failures count too
             t["outcome"] = outcome
         self.lines = None
@@ -158,8 +166,30 @@ def pytest_configure(config):
     REC.start()
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     REC.begin_test()
+    info = getattr(item, "_fixtureinfo", None)
+    keys = []
+    for name in getattr(item, "fixturenames", ()):
+        defs = info.name2fixturedefs.get(name) if info else None
+        if defs and defs[-1].scope != "function":
+            keys.append((name, defs[-1].baseid))
+    REC.uses[item.nodeid] = keys
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_fixture_setup(fixturedef, request):
+    if fixturedef.scope == "function" or REC.lines is None:
+        yield
+        return
+    outer, REC.lines = REC.lines, set()
+    mon.restart_events()  # lines the test already hit must fire again to be credited to the fixture
+    try:
+        yield
+    finally:
+        REC.shared[(fixturedef.argname, fixturedef.baseid)] |= REC.lines
+        REC.lines = outer | REC.lines
 
 
 def pytest_runtest_logreport(report):

@@ -14,12 +14,18 @@
         merge them into the memory, so the next lookup is current without a full re-record.
   repomap.py status
         What the memory covers and which package files have changed since it was recorded.
+  repomap.py serve    [--port 8765] [--open] [--export FILE.html]
+        Open the map in a browser at a localhost link: modules and functions coloured by how many tests
+        run them, a function's callers, callees and recorded values, and the impact of your uncommitted
+        changes or of any functions you pick. --export writes the same page as one self-contained file.
 
 Run from the repo root. Needs Python 3.12+ in the interpreter that runs the tests.
 """
 import argparse, ast, hashlib, json, os, re, subprocess, sys, tempfile, time
 from collections import defaultdict
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlparse
 
 HERE = Path(__file__).resolve().parent
 MEM = Path(".repomap/memory.json")
@@ -236,26 +242,35 @@ def callers_of(m, keys, depth=2):
     return layers
 
 
-def impact(a):
+def compute_impact(m, targets=(), diff=None, use_diff=True, depth=2):
+    """The impact of named targets, or of the working-tree diff against the memory's snapshot (or REV)."""
     t0 = time.time()
-    m = load()
-    if a.targets and not a.diff_given:
-        keys, test_files = resolve(m, a.targets), set()
+    if targets:
+        keys, test_files = resolve(m, targets), set()
         source = "named targets"
     else:
-        keys, test_files = changed_targets(m, a.diff)
-        source = f"changes since {(a.diff or m.get('commit') or 'HEAD')[:10]}"
+        keys, test_files = changed_targets(m, diff)
+        source = f"changes since {(diff or m.get('commit') or 'HEAD')[:10]}"
     by_file = lines_index(m)
     per_key = tests_for(m, keys, by_file)
     tests = set().union(*per_key.values()) if per_key else set()
     for tf in test_files:
         tests |= {t for t in m["tests_map"] if t.startswith(tf)} or {tf}
-    layers = callers_of(m, {k for k in keys if not k.endswith(">")}, a.depth)
+    layers = callers_of(m, {k for k in keys if not k.endswith(">")}, depth)
     unknown = sorted(k for k in keys if not per_key.get(k) and not k.endswith(">"))
     stale = sorted(f for f, h in m["hashes"].items() if file_hash(f) != h)
-    res = dict(source=source, changed=sorted(keys), test_files=sorted(test_files),
-               callers=[sorted(l) for l in layers], tests=sorted(tests),
-               untested=unknown, files_changed_since_record=stale, seconds=round(time.time() - t0, 2))
+    return dict(source=source, changed=sorted(keys), changed_tests={k: len(v) for k, v in per_key.items()},
+                test_files=sorted(test_files), callers=[sorted(l) for l in layers], tests=sorted(tests),
+                untested=unknown, files_changed_since_record=stale, seconds=round(time.time() - t0, 2))
+
+
+def impact(a):
+    m = load()
+    res = compute_impact(m, a.targets if not a.diff_given else (), a.diff, depth=a.depth)
+    keys, test_files, tests, unknown, stale = (set(res["changed"]), res["test_files"], set(res["tests"]),
+                                               res["untested"], res["files_changed_since_record"])
+    layers, source = [set(l) for l in res["callers"]], res["source"]
+    per_key = {k: range(n) for k, n in res["changed_tests"].items()}
     if a.json:
         print(json.dumps(res, indent=1))
         return
@@ -341,6 +356,109 @@ def status(a):
     print(f"Library files changed since: {len(stale)}" + ("".join(f"\n  {f}" for f in stale)))
 
 
+# ---------- serve ----------
+
+def ui_data(m):
+    """Everything the map page needs, indexed so the browser can work out impact by itself
+    (same rules as `impact`: a function's tests are those that ran any line of it)."""
+    tests = sorted(m["tests_map"])
+    tix = {t: i for i, t in enumerate(tests)}
+    by_file = lines_index(m)
+    fns, fidx = [], {}
+    for path in sorted(m["hashes"]):
+        rel = path[len(m["prefix"]):]
+        src = old_source(m, path)
+        at_line = defaultdict(list)
+        fidx[f"{rel}:<module level>"] = len(fns)
+        fns.append([f"{rel}:<module level>", 0, 0, set()])
+        for s_, e, q in functions(src):
+            fidx[f"{rel}:{q}"] = len(fns)
+            for n in range(s_, e + 1):
+                at_line[n].append(len(fns))
+            fns.append([f"{rel}:{q}", s_, e, set()])
+        for t, n in by_file.get(rel, []):
+            fns[fidx[f"{rel}:<module level>"]][3].add(tix[t])
+            for i in at_line.get(n, ()):
+                fns[i][3].add(tix[t])
+    vals = {}
+    for k, f in m["functions"].items():
+        if k in fidx:
+            vals[fidx[k]] = {"calls": f["calls"], "args": f["args"], "returns": f["returns"], "raises": f["raises"]}
+    edges = sorted({(fidx[a], fidx[b]) for a, b in m["edges"] if a in fidx and b in fidx and a != b})
+    stale = sorted(f for f, h in m["hashes"].items() if file_hash(f) != h)
+    return dict(name=Path.cwd().name, package=m["package"], tests_dir=m["tests"], python=m["python"],
+                commit=(m.get("commit") or "")[:10], recorded=m.get("recorded"),
+                tests=[[t, m["tests_map"][t]["outcome"]] for t in tests],
+                fns=[[k, s_, e, sorted(t)] for k, s_, e, t in fns], vals=vals, edges=edges, stale=stale)
+
+
+def page_with(data, changes):
+    page = (HERE / "repomap_ui.html").read_text()
+    blob = json.dumps({"data": data, "changes": changes}, separators=(",", ":")).replace("</", "<\\/")
+    return page.replace('<script id="embedded" type="application/json"></script>',
+                        f'<script id="embedded" type="application/json">{blob}</script>')
+
+
+def serve(a):
+    if a.export:
+        m = load()
+        res = compute_impact(m)
+        Path(a.export).write_text(page_with(ui_data(m), res if res["changed"] or res["test_files"] else None))
+        print(f"Wrote {a.export} ({Path(a.export).stat().st_size // 1024} KB)")
+        return
+    cache = {}
+
+    def current():
+        mt = MEM.stat().st_mtime  # a refresh in another terminal shows up on the next reload
+        if cache.get("mt") != mt:
+            m = load()
+            cache.update(mt=mt, m=m, data=json.dumps(ui_data(m), separators=(",", ":")).encode())
+        return cache
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            path = urlparse(self.path).path
+            try:
+                if path == "/":
+                    body, kind = (HERE / "repomap_ui.html").read_bytes(), "text/html; charset=utf-8"
+                elif path == "/api/data":
+                    body, kind = current()["data"], "application/json"
+                elif path == "/api/changes":
+                    body, kind = json.dumps(compute_impact(current()["m"])).encode(), "application/json"
+                else:
+                    self.send_error(404)
+                    return
+            except Exception as e:  # keep serving; show the error in the page
+                body, kind = json.dumps({"error": str(e)}).encode(), "application/json"
+            self.send_response(200)
+            self.send_header("Content-Type", kind)
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    load()
+    for port in range(a.port, a.port + 20):
+        try:
+            srv = ThreadingHTTPServer((a.host, port), Handler)
+            break
+        except OSError:
+            continue
+    else:
+        sys.exit(f"No free port from {a.port} to {a.port + 19}.")
+    url = f"http://localhost:{port}"
+    print(f"repomap map of {Path.cwd().name}: {url}   (Ctrl-C to stop)", flush=True)
+    if a.open:
+        import webbrowser
+        webbrowser.open(url)
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -357,6 +475,11 @@ def main():
     f.add_argument("--diff", nargs="?", const=None, default=None)
     f.add_argument("--by-file", action="store_true", help="re-run whole test files instead of single tests")
     sub.add_parser("status")
+    v = sub.add_parser("serve")
+    v.add_argument("--port", type=int, default=8765)
+    v.add_argument("--host", default="127.0.0.1")
+    v.add_argument("--open", action="store_true", help="open the link in your browser")
+    v.add_argument("--export", metavar="FILE", help="write a self-contained HTML file instead of serving")
     a = ap.parse_args()
     if a.cmd == "record":
         if not a.package:
@@ -372,6 +495,8 @@ def main():
         impact(a)
     elif a.cmd == "refresh":
         refresh(a)
+    elif a.cmd == "serve":
+        serve(a)
     else:
         status(a)
 

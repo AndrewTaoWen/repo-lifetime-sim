@@ -1,0 +1,27 @@
+
+memory before the fixture fix: 200 mutants, 29 survived (no test noticed), 5 broke an import
+  detected (a selected test fails): 171 of 171
+  broken tests selected: 2135 of 2171 (98.3%); mutants with any broken test missed: 10
+  share of suite selected: median 0.6%, mean 3.8%
+    missed 4 of 42: werkzeug/routing/matcher.py:StateMachineMatcher.add (negate if)  e.g. tests.test_routing.TestHostMatching::test_match_host_prefix
+    missed 1 of 29: werkzeug/datastructures/cache_control.py:_CacheControl.from_header (return None)  e.g. tests.test_test::test_correct_open_invocation_on_redirect
+    missed 1 of 16: werkzeug/utils.py:get_content_type (return None)  e.g. tests.test_internal::test_plain_int[7B-10-None]
+    missed 1 of 12: werkzeug/wsgi.py:FileWrapper.__iter__ (return None)  e.g. tests.test_http.TestHTTPUtility::test_parse_options_header[v;a=b;c=d;-expect0]
+    missed 16 of 78: werkzeug/datastructures/structures.py:ImmutableDict.copy (return None)  e.g. tests.test_routing.TestDefaultSubdomain::test_match_no_subdomain
+    missed 1 of 207: werkzeug/sansio/response.py:Response._clean_status (return None)  e.g. tests.test_serving::test_ssl_dev_cert
+    missed 1 of 28: werkzeug/sansio/http.py:is_resource_modified (flip comparison)  e.g. tests.test_http.TestHTTPUtility::test_parse_options_header[v;a=b;c=d;-expect0]
+    missed 1 of 8: werkzeug/datastructures/headers.py:EnvironHeaders.__iter__ (flip comparison)  e.g. tests.test_debug.TestDebugHelpers::test_debug_help
+    missed 1 of 31: werkzeug/datastructures/etag.py:ETags.__init__ (swap and/or)  e.g. tests.test_exceptions::test_aborter_general[test17]
+    missed 9 of 14: werkzeug/routing/map.py:Map.__init__ (swap and/or)  e.g. tests.test_routing.TestHostMatching::test_build_same_host
+
+memory after the fixture fix: 200 mutants, 29 survived (no test noticed), 5 broke an import
+  detected (a selected test fails): 171 of 171
+  broken tests selected: 2164 of 2171 (99.7%); mutants with any broken test missed: 7
+  share of suite selected: median 0.6%, mean 3.9%
+    missed 1 of 29: werkzeug/datastructures/cache_control.py:_CacheControl.from_header (return None)  e.g. tests.test_test::test_correct_open_invocation_on_redirect
+    missed 1 of 16: werkzeug/utils.py:get_content_type (return None)  e.g. tests.test_internal::test_plain_int[7B-10-None]
+    missed 1 of 12: werkzeug/wsgi.py:FileWrapper.__iter__ (return None)  e.g. tests.test_http.TestHTTPUtility::test_parse_options_header[v;a=b;c=d;-expect0]
+    missed 1 of 207: werkzeug/sansio/response.py:Response._clean_status (return None)  e.g. tests.test_serving::test_ssl_dev_cert
+    missed 1 of 28: werkzeug/sansio/http.py:is_resource_modified (flip comparison)  e.g. tests.test_http.TestHTTPUtility::test_parse_options_header[v;a=b;c=d;-expect0]
+    missed 1 of 8: werkzeug/datastructures/headers.py:EnvironHeaders.__iter__ (flip comparison)  e.g. tests.test_debug.TestDebugHelpers::test_debug_help
+    missed 1 of 31: werkzeug/datastructures/etag.py:ETags.__init__ (swap and/or)  e.g. tests.test_exceptions::test_aborter_general[test17]

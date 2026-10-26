@@ -22,6 +22,7 @@ repomap.py record --package src/werkzeug          # traces the suite once; werkz
 repomap.py impact Range.range_for_length          # or path.py:LINE, or no argument for your uncommitted diff
 repomap.py refresh                                # after a change: re-trace only tests that run the changed files
 repomap.py status
+repomap.py serve                                  # the map in your browser at http://localhost:8765
 ```
 
 ```
@@ -55,6 +56,40 @@ The memory remembers the exact tree it traced (as a git commit under `refs/repom
 
   The other 14 differ only in setup work that runs once per process (a shared routing map built by whichever test needs it first, file objects closed when garbage is collected). Which test gets credited for that depends on test order. A full re-record now and then resets it.
 
+## The map in a browser: `repomap.py serve`
+
+`repomap.py serve` prints a localhost link (port 8765, or the next free one; `--open` opens it). The page reads only the memory and git, so it starts instantly and runs nothing:
+
+- **Map.** Every module is a box and every function a cell, shaded by how many tests run it. Hollow cells are functions no test runs.
+- **Impact.** The page opens on your uncommitted changes (the same diff `impact` uses). Changed functions turn orange, direct callers amber and callers of callers a lighter amber. The panel lists the callers by module, the tests that run the change, and a copyable pytest command. Shift-click any cell, or search for a function or `path.py:LINE`, to add it to the change and see what it would reach. A 1 to 4 control sets how far up the callers go.
+- **Function.** Clicking a cell shows its callers and callees, its tests, and the argument and return values the suite actually passed, with gaps such as "never empty".
+
+The page reloads the memory when it changes, so a `refresh` in another terminal shows up on the next diff. `serve --export map.html` writes the same page as one self-contained file with the current changes baked in. [Werkzeug Repo Map](https://claude.ai/artifact/RVd9ak5h1iP4Zhkck5CoPc) is such an export, with a one-line edit to `Range.range_for_length` as the uncommitted change.
+
+## How accurate is it? A mutation benchmark
+
+There is no standard accuracy benchmark for this in Python. The closest prior work is regression test selection for Java (Ekstazi, STARTS), which measures two things on real histories: safety (did the selection include every test whose result the change affects?) and how much of the suite it selected. We use the same two measures with two sources of truth that don't come from our tracer:
+
+1. **Real history** (next section): 85 tests whose result changed across 54 upstream werkzeug commits.
+2. **Injected bugs** (`mutbench.py`): 200 single-line faults, each in a random function the memory says some test runs. The fault types are a flipped comparison, swapped and/or, an int + 1, a negated `if`, or `return None`. For each one the whole suite runs, and the tests that break are compared with the tests `repomap.py impact <function>` selects. The broken tests are stored in full (`werkzeug/mutbench.json`), so any later memory can be scored again without re-running the suite (`mutbench.py --score mutbench.json MEMORY.json`).
+
+Results on werkzeug (200 faults, about 28 minutes):
+
+| | Memory before the fixture fix | Memory after the fixture fix |
+|---|---|---|
+| Faults that broke at least one test | 171 of 200 | 171 of 200 |
+| Faults where a selected test fails (the lookup would have caught it) | 171 of 171 | 171 of 171 |
+| Broken tests that were selected | 2,135 of 2,171 (98.3%) | 2,164 of 2,171 (99.7%) |
+| Share of the suite selected, median (mean) | 0.6% (3.8%) | 0.6% (3.9%) |
+
+- **Every fault was caught.** In all 171 faults that break something, at least one selected test fails, while the median lookup selects 6 of 1,003 tests. 29 faults broke nothing (12 of them `int + 1`); those say nothing about the lookup. 5 broke an import, which fails every test, selected ones included.
+- **The benchmark found a real gap, now fixed.** The first memory missed 36 broken tests, mostly in routing. Work done in class-, module- or session-scoped setup (`setup_class`, scoped fixtures) runs once, inside the first test that needs it, so the memory credited it to that test only. `TestHostMatching` builds its URL map once in `setup_class`, so a fault in `StateMachineMatcher.add` broke 4 tests the memory said never touched it. The tracer now credits a scoped fixture's lines to every test that uses it. That cut the misses to 7.
+- **The last 7 misses are test pollution, not dependencies.** Each missed test passes when run alone against its fault. It fails in the full run only because an earlier test, broken by the fault, left something behind (for example a file left open, which werkzeug's warnings-as-errors setting turns into a failure in a later, unrelated test). A per-test map can't predict these. For each of these 7 faults the selected tests still fail, so the fault is still caught.
+
+Full per-fault scores are in `werkzeug/mutbench-score.txt`.
+
+To make this a public benchmark: run `record` and `mutbench.py` on the other 11 pilot repos and publish the faults and broken tests per repo. Any test-impact tool can then be scored on the same faults and on the real-history set.
+
 ## Change impact on werkzeug's real history
 
 There were 54 first-parent commits after the 2026-06-01 snapshot that touched `src/werkzeug`. For each commit C with parent P:
@@ -85,6 +120,7 @@ What this says:
 
 - **The ground truth comes from the same tracer as the prediction.** "Ran a changed line" is close to the line predictor by construction. The independent checks are the 85 tests whose result changed and the 567 whose path changed; the function map caught all of both.
 - **Only existing tests are covered.** Tests that a commit adds can't be predicted from the parent's map. Effects that travel through data or configuration without changing any test's path or result are invisible here.
+- **The history numbers predate the fixture fix.** They were traced with the earlier plugin. The fix only adds tests to selections, so it can only raise their recall.
 - **One repo, pure Python.** Tracing cost was about 1.4x a normal test run without the call graph and 2x with it.
 
 ## Value summaries as agent memory
@@ -104,7 +140,8 @@ Both are places where werkzeug later fixed real bugs: float URLs for whole numbe
 ## Files
 
 - `repomap_trace.py`: the pytest plugin (`-p repomap_trace`, with `REPOMAP_ROOT`, `REPOMAP_OUT` and optional `REPOMAP_EDGES=1`).
-- `repomap.py`: the everyday command (`record`, `impact`, `refresh`, `status`).
+- `repomap.py`: the everyday command (`record`, `impact`, `refresh`, `status`, `serve`); `repomap_ui.html`: the page `serve` shows.
+- `mutbench.py`: the mutation benchmark; `werkzeug/mutbench.json` and `werkzeug/mutbench-score.txt`: its faults, broken tests and scores.
 - `impact.py`: replays a repo's history and scores the predictors; `build_ui.py`: bundles results for the viewer; `query.py`: the agent-facing query tool.
 - `werkzeug/`:
   - `impact.json`: per-commit truth and predictions;

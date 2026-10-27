@@ -11,11 +11,12 @@ Two signals per target test:
 The failure type wins when it says the API is missing; otherwise the commit subject decides;
 otherwise the test is "bug" when it fails by assertion and "unclear" when it errors some other way.
 """
-import argparse, json, re, subprocess, sys, xml.etree.ElementTree as ET
+import argparse, json, re, subprocess, sys
+import defusedxml.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from screen import sh, git  # noqa: E402
+from screen import sh, git, archive_tree  # noqa: E402
 
 MISSING_API = re.compile(
     r"has no attribute|cannot import name|No module named|is not defined|unexpected keyword argument|"
@@ -50,10 +51,10 @@ def label(name, screen, clones):
     work, py = screen / "work" / name, screen / "venvs" / name / "bin" / "python"
     for p in list(work.iterdir()):  # future tree with snapshot package code, as in blind.py's control run
         subprocess.run(["rm", "-rf", str(p)])
-    sh(f"git -C {repo} archive {scr['head']} | tar -x -C {work}")
+    archive_tree(repo, scr["head"], work)
     for p in scr["packages"]:
         subprocess.run(["rm", "-rf", str(work / p)])
-        sh(f"git -C {repo} archive {scr['snapshot']} {p} | tar -x -C {work}")
+        archive_tree(repo, scr["snapshot"], work, p)
     ids = set(scr["future_tests_failing_on_snapshot"])
     fails = failures(work, py, scr["tests"], ids)
     rows, commits = [], {}

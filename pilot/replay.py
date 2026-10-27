@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from blind import run_future  # noqa: E402
-from screen import sh  # noqa: E402
+from screen import sh, archive_tree  # noqa: E402
 
 
 def g(repo, *args, env=None, check=True, input=None):
@@ -82,9 +82,9 @@ def replay(run, screen, patches, tests):
     if tests:
         tree = g(repo, "merge-tree", "--write-tree", "-X", "theirs", f"--merge-base={snap}", agent, head).stdout.split()[0]
         work, py = screen / "work" / name, screen / "venvs" / name / "bin" / "python"
-        place = lambda dst, p: sh(f"git -C {repo} archive {tree} {p} | tar -x -C {work}")  # noqa: E731
+        place = lambda dst, p: archive_tree(repo, tree, work, p)  # noqa: E731
         merged = run_future(work, repo, scr, py, place)
-        upstream = run_future(work, repo, scr, py, lambda dst, p: sh(f"git -C {repo} archive {head} {p} | tar -x -C {work}"))
+        upstream = run_future(work, repo, scr, py, lambda dst, p: archive_tree(repo, head, work, p))
         res["broken"] = sorted(t for t, s in merged.items() if s == "fail" and upstream.get(t) == "pass")
     return res
 

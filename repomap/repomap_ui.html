@@ -13,20 +13,20 @@
   --bg: #f6f7f9; --panel: #ffffff; --fg: #1b2230; --muted: #5d6676; --line: #dde1e8;
   --accent: #2856c7; --accent-soft: #e5ecfb;
   --chg: #c2410c; --chg-soft: #fbe6da; --l1: #b7791f; --l1-soft: #f6ead2; --l2: #d6b25e;
-  --heat: #2856c7; --empty: #c7ccd5;
+  --heat: #2856c7; --empty: #c7ccd5; --add: #1f7a4d;
   --sans: "IBM Plex Sans", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #11151c; --panel: #181d26; --fg: #e3e7ee; --muted: #98a1b2; --line: #2a313d;
   --accent: #7ea2ff; --accent-soft: #1f2a45;
   --chg: #fb8b52; --chg-soft: #3b2216; --l1: #e3b552; --l1-soft: #33290f; --l2: #8f7a3f;
-  --heat: #7ea2ff; --empty: #3a4250;
+  --heat: #7ea2ff; --empty: #3a4250; --add: #5fcf94;
   color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #11151c; --panel: #181d26; --fg: #e3e7ee; --muted: #98a1b2; --line: #2a313d;
   --accent: #7ea2ff; --accent-soft: #1f2a45;
   --chg: #fb8b52; --chg-soft: #3b2216; --l1: #e3b552; --l1-soft: #33290f; --l2: #8f7a3f;
-  --heat: #7ea2ff; --empty: #3a4250;
+  --heat: #7ea2ff; --empty: #3a4250; --add: #5fcf94;
   color-scheme: dark }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--sans); }
@@ -120,6 +120,15 @@ table.vals td:first-child { font-family: var(--mono); white-space: nowrap; }
 .gap { color: var(--chg); font-size: 11.5px; }
 .tag { font-size: 11px; color: var(--muted); }
 .err { color: var(--chg); }
+.exlist { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.exlist button { font-size: 12.5px; padding: 4px 9px; }
+.exlist button.on { background: var(--accent-soft); border-color: var(--accent); }
+pre.diff { margin: 8px 0 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font: 11.5px/1.5 var(--mono); overflow-x: auto; }
+pre.diff .add { color: var(--add); } pre.diff .del { color: var(--chg); }
+.verdict { margin: 8px 0 0; font-size: 12.5px; }
+.st { font: 500 10.5px var(--sans); text-transform: uppercase; letter-spacing: .05em; padding: 1px 6px; border-radius: 3px; }
+.st.broke { background: var(--chg-soft); color: var(--chg); }
+.st.passed { background: var(--bg); color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .cell { transition: background-color .15s, opacity .15s; } }
 </style>
 </head>
@@ -145,6 +154,7 @@ table.vals td:first-child { font-family: var(--mono); white-space: nowrap; }
       <div id="pkgs"></div>
     </section>
     <aside>
+      <div class="card" id="examples-card" hidden></div>
       <div class="card" id="impact"></div>
       <div class="card" id="fn" hidden></div>
     </aside>
@@ -152,6 +162,7 @@ table.vals td:first-child { font-family: var(--mono); white-space: nowrap; }
 </div>
 <div class="tip" id="tip" hidden></div>
 <script id="embedded" type="application/json"></script>
+<script id="examples" type="application/json"></script>
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
@@ -184,7 +195,10 @@ async function boot() {
   document.title = `Repo Map · ${D.name}`;
   if (!live) { $("#mine").textContent = "Changes at export"; $("#mine").disabled = !changes; if (!changes) $("#mine").hidden = true; }
   drawMap();
-  if (changes) applyChanges(changes);
+  const exs = $("#examples").textContent.trim();
+  S.examples = exs ? JSON.parse(exs) : [];
+  if (S.examples.length) { $("#examples-card").hidden = false; useExample(0); }
+  else if (changes) applyChanges(changes);
   else if (live) await loadMine(true);
   render();
 }
@@ -278,6 +292,7 @@ function render() {
     : `<span><i style="background:var(--heat)"></i>run by tests (darker = more tests)</span><span><i style="box-shadow:inset 0 0 0 1px var(--empty)"></i>no test runs it</span><span>Click a cell to inspect it, shift-click to add it to a change</span>`;
   renderImpact(r, on);
   renderFn();
+  renderExamples();
 }
 
 function renderImpact(r, on) {
@@ -287,7 +302,7 @@ function renderImpact(r, on) {
     el.innerHTML = `<h2>Impact</h2><p class="note">${S.source === "mine" ? "No changes to library or test code since the memory was traced." : "Nothing picked yet."} Pick functions to see what depends on them and which tests run them: search above, shift-click cells, or ${live ? "press <b>My uncommitted changes</b>" : "load the changes saved with this page"}.</p>${staleNote}`;
     return;
   }
-  const label = (S.source === "mine" ? "Your uncommitted changes" : S.source === "export" ? "Changes when this page was exported" : "Picked functions") + (S.picked && S.source !== "picked" ? ", plus picked functions" : "");
+  const label = S.source === "example" ? `Example: ${esc(S.ex.title)}${S.picked ? ", plus picked functions" : ""}` : (S.source === "mine" ? "Your uncommitted changes" : S.source === "export" ? "Changes when this page was exported" : "Picked functions") + (S.picked && S.source !== "picked" ? ", plus picked functions" : "");
   const callers = r.layers.flat();
   const mods = new Set(callers.map(i => modName(F[i].k)));
   let h = `<h2>Impact</h2><div class="note">${label}</div>
@@ -297,7 +312,7 @@ function renderImpact(r, on) {
   h += `<div class="sec"><h5>Changed</h5>${r.targets.map(i => chip(i, "")).join("")}${S.testFiles.map(tf => `<span class="chip l2"><span class="nm">${esc(tf)}</span><span class="tag">test file</span></span>`).join("")}
     ${S.unknown.length ? `<p class="note">New code the memory hasn't traced yet: ${S.unknown.map(esc).join(", ")}</p>` : ""}</div>`;
   h += `<div class="sec"><h5>Callers <span class="depth" role="group" aria-label="Caller depth">${[1, 2, 3, 4].map(d => `<button data-depth="${d}" class="${d === S.depth ? "on" : ""}">${d}</button>`).join("")}</span></h5>`;
-  if (!r.layers.length) h += `<p class="note">No package code calls ${r.targets.length > 1 ? "these" : "this"}; only tests do.</p>`;
+  if (!r.layers.length) h += `<p class="note">Nothing in the package calls ${r.targets.length > 1 ? "these" : "this"}${r.untested.length ? "" : "; only tests do"}.</p>`;
   r.layers.forEach((l, d) => {
     const g = new Map();
     for (const i of l) { const m = modName(F[i].k); if (!g.has(m)) g.set(m, []); g.get(m).push(i); }
@@ -311,7 +326,12 @@ function renderImpact(r, on) {
   const byFile = new Map();
   for (const t of r.tests) { const f = D.tests[t][0].split("::")[0]; byFile.set(f, (byFile.get(f) || 0) + 1); }
   const files = [...byFile].sort((a, b) => b[1] - a[1]);
-  h += `<div class="sec"><h5>Tests that run it <span>${r.tests.length}</span></h5><ul class="plain">${files.slice(0, 12).map(([f, n]) => `<li><span>${esc(f)}</span><span>${n}</span></li>`).join("")}</ul>${files.length > 12 ? `<p class="note">+${files.length - 12} more files</p>` : ""}`;
+  if (S.source === "example" && !S.picked) {
+    const broke = new Set(S.ex.broke), sel = new Set(r.tests.map(t => D.tests[t][0]));
+    const missed = S.ex.broke.filter(t => !sel.has(t));
+    h += `<div class="sec"><h5>Tests that run it <span>${r.tests.length} of ${D.tests.length}</span></h5><ul class="plain">${[...sel].sort().map(t => `<li><span>${esc(t)}</span><span class="st ${broke.has(t) ? "broke" : "passed"}">${broke.has(t) ? "broke" : "passed"}</span></li>`).join("")}</ul>
+    <p class="verdict">${S.ex.broke.length === 0 ? "We made this edit and ran the whole suite: nothing broke." : `We made this edit and ran the whole suite: ${S.ex.broke.length} test${S.ex.broke.length > 1 ? "s" : ""} broke, ${missed.length ? `and ${missed.length} of them ${missed.length > 1 ? "were" : "was"} <b>not</b> selected: ${missed.map(esc).join(", ")}` : `all of ${S.ex.broke.length > 1 ? "them" : "it"} selected above`}.`}${r.tests.length > S.ex.broke.length ? ` The ones marked passed run the changed code but don't depend on the detail that changed.` : ""}</p>`;
+  } else h += `<div class="sec"><h5>Tests that run it <span>${r.tests.length}</span></h5><ul class="plain">${files.slice(0, 12).map(([f, n]) => `<li><span>${esc(f)}</span><span>${n}</span></li>`).join("")}</ul>${files.length > 12 ? `<p class="note">+${files.length - 12} more files</p>` : ""}`;
   if (r.untested.length) h += `<p class="warn">No test runs ${r.untested.map(i => `<code>${esc(short(F[i].k))}</code>`).join(", ")}, so nothing in the memory can say what depends on ${r.untested.length > 1 ? "them" : "it"} at run time.</p>`;
   if (r.tests.length) {
     const ids = [...new Set(r.tests.map(t => D.tests[t][0].split("[")[0]))].sort();
@@ -365,6 +385,21 @@ function renderFn() {
   el.innerHTML = h;
 }
 
+function renderExamples() {
+  const el = $("#examples-card");
+  if (!S.examples.length) return;
+  const ex = S.ex;
+  const diff = ex ? ex.diff.split("\n").filter(l => /^[-+@ ]/.test(l) && !/^(---|\+\+\+)/.test(l)).map(l => `<span class="${l[0] === "+" ? "add" : l[0] === "-" ? "del" : ""}">${esc(l)}</span>`).join("\n") : "";
+  el.innerHTML = `<h2>Examples</h2><div class="exlist">${S.examples.map((x, j) => `<button data-ex="${j}" class="${x === ex && S.source === "example" ? "on" : ""}">${esc(x.title)}</button>`).join("")}</div>
+  ${ex && S.source === "example" ? `<p class="note" style="margin:6px 0 0">${esc(ex.blurb)}</p><pre class="diff">${esc(ex.file)}\n${diff}</pre>` : `<p class="note">Pick an example edit to see what it reaches and which tests really broke.</p>`}`;
+}
+function useExample(j) {
+  const ex = S.examples[j];
+  S.ex = ex; S.source = "example"; S.picked = false; S.testFiles = []; S.unknown = [];
+  S.targets = new Set(ex.changed.map(k => byKey.get(k)).filter(i => i !== undefined));
+  S.sel = null;
+}
+
 function select(i) {
   S.sel = i; render();
   const fn = $("#fn"), side = $("aside");
@@ -373,7 +408,7 @@ function select(i) {
 }
 function toggleTarget(i) {
   S.targets.has(i) ? S.targets.delete(i) : S.targets.add(i);
-  if (S.source === "mine" || S.source === "export") S.picked = true; else S.source = "picked";
+  if (S.source === "mine" || S.source === "export" || S.source === "example") S.picked = true; else S.source = "picked";
   render();
 }
 function applyChanges(res) {
@@ -400,6 +435,7 @@ document.addEventListener("click", async e => {
   if (t.closest("#results") || t.closest(".cell")) return;
   if (t.dataset.sel !== undefined) select(+t.dataset.sel);
   else if (t.dataset.rm !== undefined) { S.targets.delete(+t.dataset.rm); render(); }
+  else if (t.dataset.ex !== undefined) { useExample(+t.dataset.ex); render(); }
   else if (t.dataset.depth) { S.depth = +t.dataset.depth; render(); }
   else if (t.id === "toggle") toggleTarget(S.sel);
   else if (t.id === "clear") { S.targets.clear(); S.testFiles = []; S.unknown = []; S.source = null; S.picked = false; S.sel = null; render(); }

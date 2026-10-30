@@ -1,0 +1,34 @@
+$ git diff
+diff --git a/src/shopkit/money.py b/src/shopkit/money.py
+index 27cc646..ceba6bb 100644
+--- a/src/shopkit/money.py
++++ b/src/shopkit/money.py
+@@ -3,7 +3,7 @@ from decimal import ROUND_HALF_UP, Decimal
+ 
+ def round_cents(amount):
+     """Round a dollar amount to whole cents, halves up."""
+-    return float(Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
++    return float(Decimal(str(amount)).quantize(Decimal("0.01"), rounding="ROUND_DOWN"))
+ 
+ 
+ def format_price(amount, currency="USD"):
+
+$ repomap.py impact
+Impact of changes since 76828519af  (18 tests in memory, looked up in 0.04s)
+
+Changed:
+  shopkit/money.py:round_cents  (6 tests)
+
+Callers (pieces that depend on it):
+  direct  shopkit.checkout: total
+  direct  shopkit.tax: tax_for
+    level 2  shopkit.checkout: receipt
+
+Tests that run it: 6 of 18
+     4  tests/test_checkout.py
+     2  tests/test_money.py
+
+1 library files changed since recording; run `repomap.py refresh` to update.
+
+Run them:
+  python -m pytest -q tests/test_checkout.py::test_receipt tests/test_checkout.py::test_total_no_tax_region tests/test_checkout.py::test_total_with_coupon tests/test_checkout.py::test_total_with_tax tests/test_money.py::test_round_already_exact tests/test_money.py::test_round_half_up

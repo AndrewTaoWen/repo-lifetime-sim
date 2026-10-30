@@ -1,0 +1,30 @@
+$ git diff
+diff --git a/src/shopkit/catalog.py b/src/shopkit/catalog.py
+index cedd822..d36a30c 100644
+--- a/src/shopkit/catalog.py
++++ b/src/shopkit/catalog.py
+@@ -5,7 +5,7 @@ class Catalog:
+     def add(self, sku, price):
+         if price < 0:
+             raise ValueError("price can't be negative")
+-        self._prices[sku] = price
++        self._prices[sku.upper()] = price
+ 
+     def price_of(self, sku):
+         try:
+
+$ repomap.py impact
+Impact of changes since 76828519af  (18 tests in memory, looked up in 0.03s)
+
+Changed:
+  shopkit/catalog.py:Catalog.add  (9 tests)
+
+Tests that run it: 9 of 18
+     4  tests/test_checkout.py
+     3  tests/test_cart.py
+     2  tests/test_catalog.py
+
+1 library files changed since recording; run `repomap.py refresh` to update.
+
+Run them:
+  python -m pytest -q tests/test_cart.py::TestCart::test_item_count tests/test_cart.py::TestCart::test_subtotal tests/test_cart.py::TestCart::test_unknown_sku tests/test_catalog.py::test_add_and_price tests/test_catalog.py::test_negative_price_rejected tests/test_checkout.py::test_receipt tests/test_checkout.py::test_total_no_tax_region tests/test_checkout.py::test_total_with_coupon tests/test_checkout.py::test_total_with_tax

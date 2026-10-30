@@ -1,0 +1,27 @@
+$ git diff
+diff --git a/src/shopkit/tax.py b/src/shopkit/tax.py
+index 4f8befd..9dca5ed 100644
+--- a/src/shopkit/tax.py
++++ b/src/shopkit/tax.py
+@@ -1,6 +1,6 @@
+ from .money import round_cents
+ 
+-RATES = {"CA": 0.0725, "NY": 0.04, "OR": 0.0}
++RATES = {"CA": 0.08, "NY": 0.04, "OR": 0.0}
+ 
+ 
+ def tax_for(amount, region):
+
+$ repomap.py impact
+Impact of changes since 76828519af  (18 tests in memory, looked up in 0.03s)
+
+Changed:
+  shopkit/tax.py:<module level>  (4 tests)
+
+Tests that run it: 4 of 18
+     4  tests/test_checkout.py
+
+1 library files changed since recording; run `repomap.py refresh` to update.
+
+Run them:
+  python -m pytest -q tests/test_checkout.py::test_receipt tests/test_checkout.py::test_total_no_tax_region tests/test_checkout.py::test_total_with_coupon tests/test_checkout.py::test_total_with_tax

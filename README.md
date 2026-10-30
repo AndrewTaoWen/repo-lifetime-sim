@@ -45,6 +45,7 @@ repomap.py serve                         # the map and impact in your browser at
 
 - Lookups take under a second. A refresh takes 2 to 16 s, compared with 33 s for a full record on werkzeug.
 - Accuracy is measured two ways: on werkzeug's real history (`impact.py`) and on 200 injected bugs (`mutbench.py`). Both are in the [repomap README](repomap/README.md).
+- [`repomap/examples/`](repomap/examples/README.md) walks through six small edits to a toy shop package, comparing what repomap predicts with the tests that really broke ([Shopkit Impact Examples](https://claude.ai/artifact/5QMS2QWpJhtr9LEPttiyeG)).
 - [Werkzeug Repo Map](https://claude.ai/artifact/RVd9ak5h1iP4Zhkck5CoPc) is a snapshot of the `serve` page. [Werkzeug Change Impact](https://claude.ai/artifact/9AEvdA1qQ2EcVkbdqfVmjq) shows predictions against each real commit. Both links are private until shared.
 
 ## Next steps

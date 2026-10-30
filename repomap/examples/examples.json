@@ -1,0 +1,169 @@
+[
+ {
+  "slug": "format",
+  "title": "Print prices differently",
+  "blurb": "A leaf function with one caller. Only the code that prints a price is affected.",
+  "file": "src/shopkit/money.py",
+  "diff": "diff --git a/src/shopkit/money.py b/src/shopkit/money.py\nindex 27cc646..9edc7b3 100644\n--- a/src/shopkit/money.py\n+++ b/src/shopkit/money.py\n@@ -7,5 +7,5 @@ def round_cents(amount):\n \n \n def format_price(amount, currency=\"USD\"):\n-    symbol = {\"USD\": \"$\", \"EUR\": \"\u20ac\"}.get(currency, currency + \" \")\n+    symbol = {\"USD\": \"US$\", \"EUR\": \"\u20ac\"}.get(currency, currency + \" \")\n     return f\"{symbol}{amount:,.2f}\"\n",
+  "changed": [
+   "shopkit/money.py:format_price"
+  ],
+  "callers": [
+   [
+    "shopkit/checkout.py:receipt"
+   ]
+  ],
+  "untested": [],
+  "selected": [
+   "tests/test_checkout.py::test_receipt",
+   "tests/test_money.py::test_format_eur",
+   "tests/test_money.py::test_format_usd"
+  ],
+  "broke": [
+   "tests/test_checkout.py::test_receipt",
+   "tests/test_money.py::test_format_usd"
+  ],
+  "missed": [],
+  "suite": 18
+ },
+ {
+  "slug": "bulk",
+  "title": "Move the bulk-discount threshold",
+  "blurb": "Some tests run the changed function without depending on the detail that changed. They are selected but still pass.",
+  "file": "src/shopkit/discounts.py",
+  "diff": "diff --git a/src/shopkit/discounts.py b/src/shopkit/discounts.py\nindex 8289211..723b6d9 100644\n--- a/src/shopkit/discounts.py\n+++ b/src/shopkit/discounts.py\n@@ -11,4 +11,4 @@ def apply_coupon(subtotal, code):\n \n def bulk_discount(item_count):\n     \"\"\"5% off for 10 or more items.\"\"\"\n-    return 0.05 if item_count >= 10 else 0.0\n+    return 0.05 if item_count > 10 else 0.0\n",
+  "changed": [
+   "shopkit/discounts.py:bulk_discount"
+  ],
+  "callers": [
+   [
+    "shopkit/checkout.py:total"
+   ],
+   [
+    "shopkit/checkout.py:receipt"
+   ]
+  ],
+  "untested": [],
+  "selected": [
+   "tests/test_checkout.py::test_receipt",
+   "tests/test_checkout.py::test_total_no_tax_region",
+   "tests/test_checkout.py::test_total_with_coupon",
+   "tests/test_checkout.py::test_total_with_tax",
+   "tests/test_discounts.py::test_bulk_threshold"
+  ],
+  "broke": [
+   "tests/test_discounts.py::test_bulk_threshold"
+  ],
+  "missed": [],
+  "suite": 18
+ },
+ {
+  "slug": "rounding",
+  "title": "Change how cents are rounded",
+  "blurb": "A shared helper. The change ripples up through tax and checkout to the receipt.",
+  "file": "src/shopkit/money.py",
+  "diff": "diff --git a/src/shopkit/money.py b/src/shopkit/money.py\nindex 27cc646..ceba6bb 100644\n--- a/src/shopkit/money.py\n+++ b/src/shopkit/money.py\n@@ -3,7 +3,7 @@ from decimal import ROUND_HALF_UP, Decimal\n \n def round_cents(amount):\n     \"\"\"Round a dollar amount to whole cents, halves up.\"\"\"\n-    return float(Decimal(str(amount)).quantize(Decimal(\"0.01\"), rounding=ROUND_HALF_UP))\n+    return float(Decimal(str(amount)).quantize(Decimal(\"0.01\"), rounding=\"ROUND_DOWN\"))\n \n \n def format_price(amount, currency=\"USD\"):\n",
+  "changed": [
+   "shopkit/money.py:round_cents"
+  ],
+  "callers": [
+   [
+    "shopkit/checkout.py:total",
+    "shopkit/tax.py:tax_for"
+   ],
+   [
+    "shopkit/checkout.py:receipt"
+   ]
+  ],
+  "untested": [],
+  "selected": [
+   "tests/test_checkout.py::test_receipt",
+   "tests/test_checkout.py::test_total_no_tax_region",
+   "tests/test_checkout.py::test_total_with_coupon",
+   "tests/test_checkout.py::test_total_with_tax",
+   "tests/test_money.py::test_round_already_exact",
+   "tests/test_money.py::test_round_half_up"
+  ],
+  "broke": [
+   "tests/test_checkout.py::test_total_with_tax",
+   "tests/test_money.py::test_round_half_up"
+  ],
+  "missed": [],
+  "suite": 18
+ },
+ {
+  "slug": "taxrate",
+  "title": "Raise California's tax rate",
+  "blurb": "A data change outside any function. Every test that runs code in tax.py is selected.",
+  "file": "src/shopkit/tax.py",
+  "diff": "diff --git a/src/shopkit/tax.py b/src/shopkit/tax.py\nindex 4f8befd..9dca5ed 100644\n--- a/src/shopkit/tax.py\n+++ b/src/shopkit/tax.py\n@@ -1,6 +1,6 @@\n from .money import round_cents\n \n-RATES = {\"CA\": 0.0725, \"NY\": 0.04, \"OR\": 0.0}\n+RATES = {\"CA\": 0.08, \"NY\": 0.04, \"OR\": 0.0}\n \n \n def tax_for(amount, region):\n",
+  "changed": [
+   "shopkit/tax.py:<module level>"
+  ],
+  "callers": [],
+  "untested": [],
+  "selected": [
+   "tests/test_checkout.py::test_receipt",
+   "tests/test_checkout.py::test_total_no_tax_region",
+   "tests/test_checkout.py::test_total_with_coupon",
+   "tests/test_checkout.py::test_total_with_tax"
+  ],
+  "broke": [
+   "tests/test_checkout.py::test_total_with_tax"
+  ],
+  "missed": [],
+  "suite": 18
+ },
+ {
+  "slug": "setup",
+  "title": "Normalise product codes on add",
+  "blurb": "TestCart builds its catalog once in setup_class, before its tests run. All three tests depend on Catalog.add even though none of them calls it.",
+  "file": "src/shopkit/catalog.py",
+  "diff": "diff --git a/src/shopkit/catalog.py b/src/shopkit/catalog.py\nindex cedd822..d36a30c 100644\n--- a/src/shopkit/catalog.py\n+++ b/src/shopkit/catalog.py\n@@ -5,7 +5,7 @@ class Catalog:\n     def add(self, sku, price):\n         if price < 0:\n             raise ValueError(\"price can't be negative\")\n-        self._prices[sku] = price\n+        self._prices[sku.upper()] = price\n \n     def price_of(self, sku):\n         try:\n",
+  "changed": [
+   "shopkit/catalog.py:Catalog.add"
+  ],
+  "callers": [],
+  "untested": [],
+  "selected": [
+   "tests/test_cart.py::TestCart::test_item_count",
+   "tests/test_cart.py::TestCart::test_subtotal",
+   "tests/test_cart.py::TestCart::test_unknown_sku",
+   "tests/test_catalog.py::test_add_and_price",
+   "tests/test_catalog.py::test_negative_price_rejected",
+   "tests/test_checkout.py::test_receipt",
+   "tests/test_checkout.py::test_total_no_tax_region",
+   "tests/test_checkout.py::test_total_with_coupon",
+   "tests/test_checkout.py::test_total_with_tax"
+  ],
+  "broke": [
+   "tests/test_cart.py::TestCart::test_item_count",
+   "tests/test_cart.py::TestCart::test_subtotal",
+   "tests/test_catalog.py::test_add_and_price",
+   "tests/test_checkout.py::test_receipt",
+   "tests/test_checkout.py::test_total_no_tax_region",
+   "tests/test_checkout.py::test_total_with_coupon",
+   "tests/test_checkout.py::test_total_with_tax"
+  ],
+  "missed": [],
+  "suite": 18
+ },
+ {
+  "slug": "untested",
+  "title": "Edit the CSV export",
+  "blurb": "No test runs this function, so the memory can't say what depends on it. repomap says so instead of reporting zero impact.",
+  "file": "src/shopkit/export.py",
+  "diff": "diff --git a/src/shopkit/export.py b/src/shopkit/export.py\nindex cd5f345..9eaee4a 100644\n--- a/src/shopkit/export.py\n+++ b/src/shopkit/export.py\n@@ -1,6 +1,6 @@\n def to_csv(cart):\n     \"\"\"Old CSV export. Nothing in the test suite calls it.\"\"\"\n-    rows = [\"sku,qty,price\"]\n+    rows = [\"sku,quantity,price\"]\n     for sku, qty in sorted(cart.lines.items()):\n         rows.append(f\"{sku},{qty},{cart.catalog.price_of(sku)}\")\n     return \"\\n\".join(rows)\n",
+  "changed": [
+   "shopkit/export.py:to_csv"
+  ],
+  "callers": [],
+  "untested": [
+   "shopkit/export.py:to_csv"
+  ],
+  "selected": [],
+  "broke": [],
+  "missed": [],
+  "suite": 18
+ }
+]

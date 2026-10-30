@@ -1,0 +1,26 @@
+$ git diff
+diff --git a/src/shopkit/export.py b/src/shopkit/export.py
+index cd5f345..9eaee4a 100644
+--- a/src/shopkit/export.py
++++ b/src/shopkit/export.py
+@@ -1,6 +1,6 @@
+ def to_csv(cart):
+     """Old CSV export. Nothing in the test suite calls it."""
+-    rows = ["sku,qty,price"]
++    rows = ["sku,quantity,price"]
+     for sku, qty in sorted(cart.lines.items()):
+         rows.append(f"{sku},{qty},{cart.catalog.price_of(sku)}")
+     return "\n".join(rows)
+
+$ repomap.py impact
+Impact of changes since 76828519af  (18 tests in memory, looked up in 0.03s)
+
+Changed:
+  shopkit/export.py:to_csv  (0 tests)
+
+Tests that run it: 0 of 18
+
+No test in memory runs these, so the memory can't say what depends on them:
+  shopkit/export.py:to_csv
+
+1 library files changed since recording; run `repomap.py refresh` to update.

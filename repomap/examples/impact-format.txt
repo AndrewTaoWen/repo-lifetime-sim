@@ -1,0 +1,30 @@
+$ git diff
+diff --git a/src/shopkit/money.py b/src/shopkit/money.py
+index 27cc646..9edc7b3 100644
+--- a/src/shopkit/money.py
++++ b/src/shopkit/money.py
+@@ -7,5 +7,5 @@ def round_cents(amount):
+ 
+ 
+ def format_price(amount, currency="USD"):
+-    symbol = {"USD": "$", "EUR": "€"}.get(currency, currency + " ")
++    symbol = {"USD": "US$", "EUR": "€"}.get(currency, currency + " ")
+     return f"{symbol}{amount:,.2f}"
+
+$ repomap.py impact
+Impact of changes since 76828519af  (18 tests in memory, looked up in 0.04s)
+
+Changed:
+  shopkit/money.py:format_price  (3 tests)
+
+Callers (pieces that depend on it):
+  direct  shopkit.checkout: receipt
+
+Tests that run it: 3 of 18
+     2  tests/test_money.py
+     1  tests/test_checkout.py
+
+1 library files changed since recording; run `repomap.py refresh` to update.
+
+Run them:
+  python -m pytest -q tests/test_checkout.py::test_receipt tests/test_money.py::test_format_eur tests/test_money.py::test_format_usd

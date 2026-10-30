@@ -1,0 +1,30 @@
+$ git diff
+diff --git a/src/shopkit/discounts.py b/src/shopkit/discounts.py
+index 8289211..723b6d9 100644
+--- a/src/shopkit/discounts.py
++++ b/src/shopkit/discounts.py
+@@ -11,4 +11,4 @@ def apply_coupon(subtotal, code):
+ 
+ def bulk_discount(item_count):
+     """5% off for 10 or more items."""
+-    return 0.05 if item_count >= 10 else 0.0
++    return 0.05 if item_count > 10 else 0.0
+
+$ repomap.py impact
+Impact of changes since 76828519af  (18 tests in memory, looked up in 0.04s)
+
+Changed:
+  shopkit/discounts.py:bulk_discount  (5 tests)
+
+Callers (pieces that depend on it):
+  direct  shopkit.checkout: total
+    level 2  shopkit.checkout: receipt
+
+Tests that run it: 5 of 18
+     4  tests/test_checkout.py
+     1  tests/test_discounts.py
+
+1 library files changed since recording; run `repomap.py refresh` to update.
+
+Run them:
+  python -m pytest -q tests/test_checkout.py::test_receipt tests/test_checkout.py::test_total_no_tax_region tests/test_checkout.py::test_total_with_coupon tests/test_checkout.py::test_total_with_tax tests/test_discounts.py::test_bulk_threshold

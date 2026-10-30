@@ -28,26 +28,13 @@ def git(repo, *a):
     return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True, check=True).stdout
 
 
-def archive_tree(repo, rev, dst, package=None):
-    """Extract a git tree without interpreting paths or refs as shell syntax."""
-    import tempfile
-    commit = git(repo, "rev-parse", "--verify", "--end-of-options", f"{rev}^{{commit}}").strip()
-    command = ["git", "-C", str(repo), "archive", commit]
-    if package is not None:
-        command += ["--", str(package)]
-    with tempfile.TemporaryFile() as stream:
-        subprocess.run(command, stdout=stream, check=True)
-        stream.seek(0)
-        subprocess.run(["tar", "-x", "-C", str(dst)], stdin=stream, check=True)
-
-
 def tree(repo, rev, dst, src_rev=None, package=None):
     shutil.rmtree(dst, ignore_errors=True)
     dst.mkdir(parents=True)
-    archive_tree(repo, rev, dst)
+    subprocess.run(f"git -C {repo} archive {rev} | tar -x -C {dst}", shell=True, check=True)
     if src_rev:
         shutil.rmtree(dst / package)
-        archive_tree(repo, src_rev, dst, package)
+        subprocess.run(f"git -C {repo} archive {src_rev} {package} | tar -x -C {dst}", shell=True, check=True)
 
 
 def trace(a, d, out):
